@@ -308,7 +308,16 @@ export function subscribeToUsers(callback: (users: any[]) => void) {
   });
 }
 
-export async function updateUserRole(userId: string, role: 'admin' | 'user') {
+export function subscribeToUserProfile(userId: string, callback: (profile: any) => void) {
+  const path = `users/${userId}`;
+  return onSnapshot(doc(db, 'users', userId), (snapshot) => {
+    callback(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null);
+  }, (error: FirestoreError) => {
+    handleFirestoreError(error, OperationType.GET, path);
+  });
+}
+
+export async function updateUserRole(userId: string, role: 'admin' | 'user' | 'guest') {
   const path = `users/${userId}`;
   try {
     return await updateDoc(doc(db, 'users', userId), { role });
@@ -321,8 +330,11 @@ export async function syncUserProfile(user: any) {
   const path = `users/${user.uid}`;
   try {
     const userRef = doc(db, 'users', user.uid);
-    // Use set with merge to avoid overwriting roles if they already exist
-    // but ensure email and display name are up to date
+    
+    // Check if user exists to preserve role
+    const { getDoc } = await import('firebase/firestore');
+    const userDoc = await getDoc(userRef);
+    
     const data = {
       email: user.email,
       displayName: user.displayName,
@@ -330,21 +342,66 @@ export async function syncUserProfile(user: any) {
       lastLogin: new Date().toISOString()
     };
     
-    // Check if user exists to preserve role
-    const { getDoc } = await import('firebase/firestore');
-    const userDoc = await getDoc(userRef);
-    
     if (!userDoc.exists()) {
-      // New user defaults to 'user' role
+      // 1. Check if email is authorized
+      const authEmailRef = doc(db, 'authorized_emails', user.email);
+      const authEmailDoc = await getDoc(authEmailRef);
+      const isPrimaryAdmin = user.email === "YilongWang05@gmail.com";
+
+      if (!authEmailDoc.exists() && !isPrimaryAdmin) {
+        // Not authorized - this will trigger a permission error in rules
+        // or we can throw a custom error here
+        throw new Error("NOT_AUTHORIZED");
+      }
+
+      // New user defaults to 'guest' role for admin approval flow
       // Unless it's the default admin email
-      const role = user.email === "YilongWang05@gmail.com" ? 'admin' : 'user';
+      const role = isPrimaryAdmin ? 'admin' : 'guest';
       const { setDoc } = await import('firebase/firestore');
       return await setDoc(userRef, { ...data, role });
     } else {
       return await updateDoc(userRef, data);
     }
+  } catch (error: any) {
+    if (error.message === "NOT_AUTHORIZED") {
+      throw error;
+    }
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+// --- Authorized Emails ---
+
+export function subscribeToAuthorizedEmails(callback: (emails: string[]) => void) {
+  const path = 'authorized_emails';
+  return onSnapshot(collection(db, path), (snapshot) => {
+    const emails = snapshot.docs.map(doc => doc.id);
+    callback(emails);
+  }, (error: FirestoreError) => {
+    handleFirestoreError(error, OperationType.LIST, path);
+  });
+}
+
+export async function authorizeEmail(email: string) {
+  const path = `authorized_emails/${email}`;
+  try {
+    const { setDoc } = await import('firebase/firestore');
+    return await setDoc(doc(db, 'authorized_emails', email), { 
+      addedAt: new Date().toISOString(),
+      addedBy: auth.currentUser?.email 
+    });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function removeAuthorizedEmail(email: string) {
+  const path = `authorized_emails/${email}`;
+  try {
+    const { deleteDoc } = await import('firebase/firestore');
+    return await deleteDoc(doc(db, 'authorized_emails', email));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 
@@ -373,7 +430,7 @@ export async function seedData() {
   }
 
   await updateDoc(doc(db, settingsPath), {
-    orgName: "Literature Ledger Global Operations",
+    orgName: "Literature Inventory Management",
     taxId: "TX-9920-441-B",
     address: "722 Industrial Parkway, Suite 400\nNew London, CT 06320\nUnited States",
     timezone: "UTC-05:00 Eastern Standard",

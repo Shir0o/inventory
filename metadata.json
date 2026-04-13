@@ -1,6 +1,6 @@
 {
-  "name": "Lit-Ledger",
-  "description": "A professional literature inventory and distribution management system for tracking Bibles, tracts, and study guides.",
+  "name": "Literature Inventory System",
+  "description": "An internal literature inventory and distribution management system for tracking Bibles, tracts, and study guides.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

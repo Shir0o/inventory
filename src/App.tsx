@@ -33,7 +33,10 @@ import {
   LogOut,
   LogIn,
   ShoppingCart,
-  Users
+  Users,
+  ShieldAlert,
+  Clock3,
+  Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { seedData, updateSettings } from './services/firestoreService';
@@ -105,8 +108,8 @@ const Sidebar = ({ activeTab, setActiveTab, onCheckout, isAdmin }: { activeTab: 
             <Database className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <div className="font-mono font-bold text-lg tracking-tighter text-white">LIT-LEDGER</div>
-            <div className="font-headline font-medium text-[10px] text-slate-400 tracking-widest uppercase opacity-60">v1.0.42-STABLE</div>
+            <div className="font-mono font-bold text-lg tracking-tighter text-white">INVENTORY SYSTEM</div>
+            <div className="font-headline font-medium text-[10px] text-slate-400 tracking-widest uppercase opacity-60">INTERNAL ACCESS ONLY</div>
           </div>
         </div>
       </div>
@@ -587,15 +590,42 @@ const InventoryView = ({ inventory, onAdd, onEdit, globalSearch }: { inventory: 
 };
 
 const UsersView = ({ users }: { users: any[] }) => {
-  const { updateUserRole, currentUserProfile } = useFirebase();
+  const { updateUserRole, currentUserProfile, authorizedEmails } = useFirebase();
   const isAdmin = currentUserProfile?.role === 'admin';
+  const [newEmail, setNewEmail] = useState('');
+  const [isAuthorizing, setIsAuthorizing] = useState(false);
 
-  const handleRoleChange = async (userId: string, newRole: 'admin' | 'user') => {
+  const handleRoleChange = async (userId: string, newRole: 'admin' | 'user' | 'guest') => {
     if (!isAdmin) return;
     try {
       await updateUserRole(userId, newRole);
     } catch (error) {
       console.error("Failed to update role", error);
+    }
+  };
+
+  const handleAuthorize = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmail || !isAdmin) return;
+    setIsAuthorizing(true);
+    try {
+      const { authorizeEmail } = await import('./services/firestoreService');
+      await authorizeEmail(newEmail.toLowerCase().trim());
+      setNewEmail('');
+    } catch (error) {
+      console.error("Failed to authorize email", error);
+    } finally {
+      setIsAuthorizing(false);
+    }
+  };
+
+  const handleRemoveAuth = async (email: string) => {
+    if (!isAdmin) return;
+    try {
+      const { removeAuthorizedEmail } = await import('./services/firestoreService');
+      await removeAuthorizedEmail(email);
+    } catch (error) {
+      console.error("Failed to remove authorized email", error);
     }
   };
 
@@ -608,56 +638,122 @@ const UsersView = ({ users }: { users: any[] }) => {
         </div>
       </div>
 
-      <div className="ledger-card">
-        <div className="px-6 py-4 border-b border-outline-variant">
-          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1px] text-primary">System Users</h2>
+      <div className="grid grid-cols-12 gap-8">
+        <div className="col-span-12 lg:col-span-8 space-y-8">
+          <div className="ledger-card">
+            <div className="px-6 py-4 border-b border-outline-variant flex items-center justify-between">
+              <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1px] text-primary">System Users</h2>
+              <div className="px-3 py-1 bg-primary/10 text-primary font-mono text-[10px] font-bold rounded-sharp uppercase">
+                {users.length} Active Profiles
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-surface-container border-b border-outline-variant">
+                    <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">User</th>
+                    <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Email</th>
+                    <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold text-center">Role</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant">
+                  {users.map((u) => (
+                    <tr key={u.id} className={cn("hover:bg-surface-container transition-colors", u.role === 'guest' && "bg-secondary/5")}>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <img 
+                              src={u.photoURL || `https://picsum.photos/seed/${u.id}/100/100`} 
+                              alt={u.displayName} 
+                              className="w-8 h-8 rounded-full border border-outline-variant"
+                              referrerPolicy="no-referrer"
+                            />
+                            {u.role === 'guest' && (
+                              <div className="absolute -top-1 -right-1 w-3 h-3 bg-secondary rounded-full border-2 border-white animate-pulse" />
+                            )}
+                          </div>
+                          <div>
+                            <span className="font-headline font-bold text-primary text-[14px] block">{u.displayName || 'Anonymous'}</span>
+                            {u.role === 'guest' && <span className="text-[9px] font-mono text-secondary font-bold uppercase tracking-widest">Pending Approval</span>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 font-mono text-[13px] text-on-surface">{u.email}</td>
+                      <td className="px-6 py-4 text-center">
+                        <select
+                          disabled={!isAdmin || u.id === currentUserProfile?.id}
+                          value={u.role}
+                          onChange={(e) => handleRoleChange(u.id, e.target.value as 'admin' | 'user' | 'guest')}
+                          className={cn(
+                            "px-3 py-1 rounded-sharp text-[10px] font-bold uppercase tracking-wider border-0 focus:ring-1 focus:ring-primary appearance-none text-center cursor-pointer disabled:cursor-not-allowed",
+                            u.role === 'admin' ? "bg-primary text-white" : 
+                            u.role === 'guest' ? "bg-secondary text-primary" :
+                            "bg-surface-container text-on-surface-variant"
+                          )}
+                        >
+                          <option value="guest">Guest</option>
+                          <option value="user">User</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface-container border-b border-outline-variant">
-                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">User</th>
-                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Email</th>
-                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Last Login</th>
-                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold text-center">Role</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant">
-              {users.map((u) => (
-                <tr key={u.id} className="hover:bg-surface-container transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <img 
-                        src={u.photoURL || `https://picsum.photos/seed/${u.id}/100/100`} 
-                        alt={u.displayName} 
-                        className="w-8 h-8 rounded-full border border-outline-variant"
-                        referrerPolicy="no-referrer"
-                      />
-                      <span className="font-headline font-bold text-primary text-[14px]">{u.displayName || 'Anonymous'}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 font-mono text-[13px] text-on-surface">{u.email}</td>
-                  <td className="px-6 py-4 font-mono text-[11px] text-on-surface-variant">
-                    {u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <select
-                      disabled={!isAdmin || u.id === currentUserProfile?.id}
-                      value={u.role}
-                      onChange={(e) => handleRoleChange(u.id, e.target.value as 'admin' | 'user')}
-                      className={cn(
-                        "px-3 py-1 rounded-sharp text-[10px] font-bold uppercase tracking-wider border-0 focus:ring-1 focus:ring-primary appearance-none text-center cursor-pointer disabled:cursor-not-allowed",
-                        u.role === 'admin' ? "bg-primary text-white" : "bg-surface-container text-on-surface-variant"
-                      )}
+
+        <div className="col-span-12 lg:col-span-4 space-y-8">
+          <div className="ledger-card p-6">
+            <div className="indicator-secondary" />
+            <h3 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px] text-primary mb-6">Authorize New Email</h3>
+            <form onSubmit={handleAuthorize} className="space-y-4">
+              <div className="space-y-2">
+                <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Email Address</label>
+                <input 
+                  type="email" 
+                  placeholder="user@example.com"
+                  value={newEmail}
+                  onChange={e => setNewEmail(e.target.value)}
+                  className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all"
+                />
+              </div>
+              <button 
+                type="submit"
+                disabled={isAuthorizing || !newEmail}
+                className="w-full bg-primary text-white py-3 rounded-sharp font-headline font-bold text-[12px] uppercase tracking-widest hover:bg-primary-container transition-all disabled:opacity-50"
+              >
+                {isAuthorizing ? 'Authorizing...' : 'Add to Allowlist'}
+              </button>
+            </form>
+            <p className="mt-4 text-[10px] text-on-surface-variant leading-relaxed italic">
+              * Only authorized emails can create a profile. Random sign-ins will be blocked.
+            </p>
+          </div>
+
+          <div className="ledger-card p-6">
+            <h3 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px] text-on-surface-variant mb-6">Authorized Emails</h3>
+            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              {authorizedEmails.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-outline-variant rounded-sharp">
+                  <p className="text-[11px] font-mono text-slate-400 uppercase">No emails authorized</p>
+                </div>
+              ) : (
+                authorizedEmails.sort().map(email => (
+                  <div key={email} className="flex items-center justify-between p-3 bg-surface-container rounded-sharp border border-outline-variant group">
+                    <span className="font-mono text-[12px] text-on-surface truncate mr-2">{email}</span>
+                    <button 
+                      onClick={() => handleRemoveAuth(email)}
+                      className="text-slate-400 hover:text-tertiary transition-colors opacity-0 group-hover:opacity-100"
                     >
-                      <option value="user">User</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      <Plus className="w-4 h-4 rotate-45" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1208,8 +1304,8 @@ const LoginView = () => {
             <Database className="w-8 h-8 text-secondary" />
           </div>
         </div>
-        <h1 className="font-headline font-extrabold text-4xl text-primary tracking-tighter mb-2">LIT-LEDGER</h1>
-        <p className="text-on-surface-variant font-medium text-sm mb-10 uppercase tracking-widest">Architectural Inventory System</p>
+        <h1 className="font-headline font-extrabold text-4xl text-primary tracking-tighter mb-2">INVENTORY SYSTEM</h1>
+        <p className="text-on-surface-variant font-medium text-sm mb-10 uppercase tracking-widest">Internal Literature Management</p>
         
         <button 
           onClick={login}
@@ -1227,10 +1323,61 @@ const LoginView = () => {
   );
 };
 
+// --- Pending Access View ---
+
+const PendingAccessView = ({ isAuthorized }: { isAuthorized: boolean }) => {
+  const { logout, user } = useFirebase();
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="ledger-card p-12 max-w-md w-full text-center relative overflow-hidden">
+        <div className="indicator-secondary" />
+        <div className="flex justify-center mb-8">
+          <div className="w-16 h-16 bg-secondary/20 flex items-center justify-center rounded-sharp border-2 border-secondary">
+            {isAuthorized ? <Clock3 className="w-8 h-8 text-secondary" /> : <ShieldAlert className="w-8 h-8 text-secondary" />}
+          </div>
+        </div>
+        <h1 className="font-headline font-extrabold text-3xl text-primary tracking-tighter mb-4 uppercase">
+          {isAuthorized ? 'Access Pending' : 'Access Denied'}
+        </h1>
+        <p className="text-on-surface-variant font-medium text-sm mb-2">Hello, <span className="text-primary font-bold">{user?.displayName}</span>.</p>
+        <p className="text-on-surface-variant text-sm mb-10 leading-relaxed">
+          {isAuthorized 
+            ? "Your account has been successfully created, but it is currently restricted. Please contact a system administrator to approve your access."
+            : "Your email is not on the authorized list for this system. Access is restricted to invited personnel only."}
+        </p>
+        
+        <div className="space-y-4">
+          <div className="p-4 bg-surface-container rounded-sharp border border-outline-variant flex items-center gap-3 text-left">
+            <ShieldAlert className="w-5 h-5 text-secondary shrink-0" />
+            <p className="text-[11px] font-mono text-on-surface-variant leading-tight uppercase tracking-wider">
+              {isAuthorized 
+                ? "Security Protocol: Data access is disabled until role verification is complete."
+                : "Security Protocol: Unauthorized login attempt logged. Please sign out."}
+            </p>
+          </div>
+
+          <button 
+            onClick={logout}
+            className="w-full border-2 border-outline-variant text-on-surface-variant py-4 rounded-sharp font-headline font-bold text-sm tracking-widest flex items-center justify-center gap-3 hover:bg-surface-container transition-all active:scale-95"
+          >
+            <LogOut className="w-5 h-5" />
+            SIGN OUT
+          </button>
+        </div>
+        
+        <div className="mt-12 pt-8 border-t border-outline-variant">
+          <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">System ID: {user?.uid.slice(0, 8)}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Main App ---
 
 export default function App() {
-  const { user, currentUserProfile, loading, inventory, events, users, settings } = useFirebase();
+  const { user, currentUserProfile, loading, inventory, events, users, settings, isAuthorized } = useFirebase();
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [globalSearch, setGlobalSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1274,6 +1421,10 @@ export default function App() {
 
   if (!user) {
     return <LoginView />;
+  }
+
+  if (currentUserProfile?.role === 'guest' || !isAuthorized) {
+    return <PendingAccessView isAuthorized={isAuthorized} />;
   }
 
   return (
