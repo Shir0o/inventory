@@ -215,6 +215,67 @@ export function subscribeToEvents(callback: (events: any[]) => void) {
   });
 }
 
+export function subscribeToEventMaterials(eventId: string, callback: (materials: any[]) => void) {
+  const path = `events/${eventId}/materials`;
+  const q = query(collection(db, path), orderBy('assignedAt', 'desc'));
+  
+  return onSnapshot(q, (snapshot) => {
+    const materials = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(materials);
+  }, (error: FirestoreError) => {
+    handleFirestoreError(error, OperationType.LIST, path);
+  });
+}
+
+export async function returnItem(eventId: string, materialId: string, itemId: string, quantityToReturn: number) {
+  const path = `events/${eventId}/materials/${materialId}/return`;
+  try {
+    await runTransaction(db, async (transaction) => {
+      const materialRef = doc(db, `events/${eventId}/materials`, materialId);
+      const itemRef = doc(db, 'inventory', itemId);
+      const eventRef = doc(db, 'events', eventId);
+
+      const materialDoc = await transaction.get(materialRef);
+      const itemDoc = await transaction.get(itemRef);
+      const eventDoc = await transaction.get(eventRef);
+
+      if (!materialDoc.exists() || !itemDoc.exists() || !eventDoc.exists()) {
+        throw new Error("Required documents for return not found.");
+      }
+
+      const currentMaterialQty = materialDoc.data().quantity || 0;
+      const currentInventoryQty = itemDoc.data().stockLevel || 0;
+      const currentEventMaterials = eventDoc.data().materialsAssigned || 0;
+
+      if (quantityToReturn > currentMaterialQty) {
+        throw new Error("Cannot return more than assigned.");
+      }
+
+      // 1. Update Inventory
+      transaction.update(itemRef, {
+        stockLevel: currentInventoryQty + quantityToReturn,
+        updatedAt: new Date().toISOString()
+      });
+
+      // 2. Update Event Material Record
+      if (currentMaterialQty === quantityToReturn) {
+        transaction.delete(materialRef);
+      } else {
+        transaction.update(materialRef, {
+          quantity: currentMaterialQty - quantityToReturn
+        });
+      }
+
+      // 3. Update Event Total
+      transaction.update(eventRef, {
+        materialsAssigned: currentEventMaterials - quantityToReturn
+      });
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
 // --- Settings ---
 
 export function subscribeToSettings(callback: (settings: any) => void) {

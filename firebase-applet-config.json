@@ -1,10 +1,10 @@
 {
-  "projectId": "bible-read-39389",
-  "appId": "1:82330382748:web:54f705bd9c5f5834b09859",
-  "apiKey": "AIzaSyClHIXmwUY4WAURPTpF1JDko7ShWq6ZOmM",
-  "authDomain": "bible-read-39389.firebaseapp.com",
+  "projectId": "inventory-website-ca94e",
+  "appId": "1:547839108515:web:b0285b4ba611999e6a6616",
+  "apiKey": "AIzaSyCjoP0u_K3hSzUVKq1RRl9LsHeQ4-RJ9HQ",
+  "authDomain": "inventory-website-ca94e.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-7dcfaee1-ad85-4940-b13d-8df8f061af40",
-  "storageBucket": "bible-read-39389.firebasestorage.app",
-  "messagingSenderId": "82330382748",
+  "storageBucket": "inventory-website-ca94e.firebasestorage.app",
+  "messagingSenderId": "547839108515",
   "measurementId": ""
 }
