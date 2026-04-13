@@ -8,7 +8,8 @@ import {
   query, 
   orderBy,
   Timestamp,
-  FirestoreError
+  FirestoreError,
+  runTransaction
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
@@ -146,6 +147,62 @@ export async function deleteEvent(id: string) {
   }
 }
 
+export async function checkoutItems(eventId: string, items: { itemId: string, quantity: number, title: string, sku: string }[]) {
+  const path = `events/${eventId}/checkout`;
+  try {
+    await runTransaction(db, async (transaction) => {
+      const eventRef = doc(db, 'events', eventId);
+      const eventDoc = await transaction.get(eventRef);
+      
+      if (!eventDoc.exists()) {
+        throw new Error("Event does not exist!");
+      }
+
+      let totalNewMaterials = 0;
+
+      for (const item of items) {
+        const itemRef = doc(db, 'inventory', item.itemId);
+        const itemDoc = await transaction.get(itemRef);
+        
+        if (!itemDoc.exists()) {
+          throw new Error(`Item ${item.title} does not exist!`);
+        }
+
+        const currentStock = itemDoc.data().stockLevel || 0;
+        if (currentStock < item.quantity) {
+          throw new Error(`Insufficient stock for ${item.title}. Available: ${currentStock}`);
+        }
+
+        // Update inventory
+        transaction.update(itemRef, {
+          stockLevel: currentStock - item.quantity,
+          updatedAt: new Date().toISOString()
+        });
+
+        // Add to event materials
+        const materialRef = doc(collection(db, `events/${eventId}/materials`));
+        transaction.set(materialRef, {
+          itemId: item.itemId,
+          sku: item.sku,
+          title: item.title,
+          quantity: item.quantity,
+          assignedAt: new Date().toISOString()
+        });
+
+        totalNewMaterials += item.quantity;
+      }
+
+      // Update event total
+      const currentEventMaterials = eventDoc.data().materialsAssigned || 0;
+      transaction.update(eventRef, {
+        materialsAssigned: currentEventMaterials + totalNewMaterials
+      });
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
 export function subscribeToEvents(callback: (events: any[]) => void) {
   const path = 'events';
   const q = query(collection(db, path), orderBy('date', 'desc'));
@@ -173,6 +230,58 @@ export async function updateSettings(settings: any) {
   const path = 'settings/system';
   try {
     return await updateDoc(doc(db, path), settings);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+// --- Users ---
+
+export function subscribeToUsers(callback: (users: any[]) => void) {
+  const path = 'users';
+  return onSnapshot(collection(db, path), (snapshot) => {
+    const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(users);
+  }, (error: FirestoreError) => {
+    handleFirestoreError(error, OperationType.LIST, path);
+  });
+}
+
+export async function updateUserRole(userId: string, role: 'admin' | 'user') {
+  const path = `users/${userId}`;
+  try {
+    return await updateDoc(doc(db, 'users', userId), { role });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function syncUserProfile(user: any) {
+  const path = `users/${user.uid}`;
+  try {
+    const userRef = doc(db, 'users', user.uid);
+    // Use set with merge to avoid overwriting roles if they already exist
+    // but ensure email and display name are up to date
+    const data = {
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      lastLogin: new Date().toISOString()
+    };
+    
+    // Check if user exists to preserve role
+    const { getDoc } = await import('firebase/firestore');
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      // New user defaults to 'user' role
+      // Unless it's the default admin email
+      const role = user.email === "YilongWang05@gmail.com" ? 'admin' : 'user';
+      const { setDoc } = await import('firebase/firestore');
+      return await setDoc(userRef, { ...data, role });
+    } else {
+      return await updateDoc(userRef, data);
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }

@@ -30,6 +30,19 @@
       },
       "required": ["name", "date", "location", "materialsAssigned", "status"]
     },
+    "EventMaterial": {
+      "title": "Event Material",
+      "description": "A specific inventory item assigned to an event.",
+      "type": "object",
+      "properties": {
+        "itemId": { "type": "string" },
+        "sku": { "type": "string" },
+        "title": { "type": "string" },
+        "quantity": { "type": "number" },
+        "assignedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["itemId", "sku", "title", "quantity"]
+    },
     "SystemSettings": {
       "title": "System Settings",
       "description": "Global configuration for the Lit-Ledger system.",
@@ -41,6 +54,19 @@
         "timezone": { "type": "string" },
         "updateFrequency": { "type": "string" }
       }
+    },
+    "User": {
+      "title": "User Profile",
+      "description": "User account and role information.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "lastLogin": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role"]
     }
   },
   "firestore": {
@@ -52,9 +78,17 @@
       "schema": "Event",
       "description": "Collection of distribution events."
     },
+    "/events/{eventId}/materials/{materialId}": {
+      "schema": "EventMaterial",
+      "description": "Sub-collection of materials assigned to a specific event."
+    },
     "/settings/system": {
       "schema": "SystemSettings",
       "description": "Singleton document for system settings."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection of user profiles."
     }
   }
 }

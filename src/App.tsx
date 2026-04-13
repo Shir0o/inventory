@@ -31,7 +31,9 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  LogIn
+  LogIn,
+  ShoppingCart,
+  Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { seedData, updateSettings } from './services/firestoreService';
@@ -53,10 +55,12 @@ import { cn } from './lib/utils';
 import { useFirebase } from './context/FirebaseContext';
 import InventoryModal from './components/InventoryModal';
 import EventModal from './components/EventModal';
+import CheckoutModal from './components/CheckoutModal';
+import { exportToCSV } from './lib/csvExport';
 
 // --- Types ---
 
-type Tab = 'dashboard' | 'inventory' | 'events' | 'reports' | 'settings';
+type Tab = 'dashboard' | 'inventory' | 'events' | 'reports' | 'settings' | 'users';
 
 // --- Mock Data ---
 
@@ -80,7 +84,7 @@ const pieData = [
 
 // --- Components ---
 
-const Sidebar = ({ activeTab, setActiveTab }: { activeTab: Tab, setActiveTab: (t: Tab) => void }) => {
+const Sidebar = ({ activeTab, setActiveTab, onCheckout, isAdmin }: { activeTab: Tab, setActiveTab: (t: Tab) => void, onCheckout: () => void, isAdmin: boolean }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'inventory', label: 'Inventory', icon: Package },
@@ -88,6 +92,10 @@ const Sidebar = ({ activeTab, setActiveTab }: { activeTab: Tab, setActiveTab: (t
     { id: 'reports', label: 'Reports', icon: BarChart3 },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
+
+  if (isAdmin) {
+    navItems.splice(4, 0, { id: 'users', label: 'Users', icon: Users });
+  }
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-60 bg-primary flex flex-col z-50">
@@ -121,8 +129,15 @@ const Sidebar = ({ activeTab, setActiveTab }: { activeTab: Tab, setActiveTab: (t
         ))}
       </nav>
 
-      <div className="p-6 mt-auto">
-        <button className="w-full bg-secondary text-primary font-headline font-bold text-xs py-3 rounded-sharp flex items-center justify-center gap-2 active:scale-95 transition-transform">
+      <div className="p-6 mt-auto space-y-3">
+        <button 
+          onClick={onCheckout}
+          className="w-full bg-secondary text-primary font-headline font-bold text-xs py-3 rounded-sharp flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg"
+        >
+          <ShoppingCart className="w-4 h-4" />
+          CHECKOUT
+        </button>
+        <button className="w-full border border-slate-500 text-slate-300 font-headline font-bold text-xs py-3 rounded-sharp flex items-center justify-center gap-2 hover:bg-primary-container transition-colors">
           <PlusCircle className="w-4 h-4" />
           QUICK ENTRY
         </button>
@@ -386,6 +401,13 @@ const InventoryView = ({ inventory, onAdd, onEdit, globalSearch }: { inventory: 
         </div>
         <div className="flex gap-2">
           <button 
+            onClick={() => exportToCSV(filteredInventory, 'lit_ledger_inventory')}
+            className="flex items-center gap-2 px-4 py-2 border border-outline-variant bg-surface text-[13px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </button>
+          <button 
             onClick={onAdd}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-[13px] font-bold active:scale-95 transition-all rounded-sharp shadow-lg"
           >
@@ -564,6 +586,84 @@ const InventoryView = ({ inventory, onAdd, onEdit, globalSearch }: { inventory: 
   );
 };
 
+const UsersView = ({ users }: { users: any[] }) => {
+  const { updateUserRole, currentUserProfile } = useFirebase();
+  const isAdmin = currentUserProfile?.role === 'admin';
+
+  const handleRoleChange = async (userId: string, newRole: 'admin' | 'user') => {
+    if (!isAdmin) return;
+    try {
+      await updateUserRole(userId, newRole);
+    } catch (error) {
+      console.error("Failed to update role", error);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex justify-between items-end">
+        <div>
+          <span className="font-headline font-bold text-[12px] uppercase tracking-[2px] text-on-surface-variant">Access Control</span>
+          <h1 className="font-headline font-extrabold text-[32px] text-primary tracking-tight leading-none mt-1">User Management</h1>
+        </div>
+      </div>
+
+      <div className="ledger-card">
+        <div className="px-6 py-4 border-b border-outline-variant">
+          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1px] text-primary">System Users</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-surface-container border-b border-outline-variant">
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">User</th>
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Email</th>
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Last Login</th>
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold text-center">Role</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-outline-variant">
+              {users.map((u) => (
+                <tr key={u.id} className="hover:bg-surface-container transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <img 
+                        src={u.photoURL || `https://picsum.photos/seed/${u.id}/100/100`} 
+                        alt={u.displayName} 
+                        className="w-8 h-8 rounded-full border border-outline-variant"
+                        referrerPolicy="no-referrer"
+                      />
+                      <span className="font-headline font-bold text-primary text-[14px]">{u.displayName || 'Anonymous'}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 font-mono text-[13px] text-on-surface">{u.email}</td>
+                  <td className="px-6 py-4 font-mono text-[11px] text-on-surface-variant">
+                    {u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <select
+                      disabled={!isAdmin || u.id === currentUserProfile?.id}
+                      value={u.role}
+                      onChange={(e) => handleRoleChange(u.id, e.target.value as 'admin' | 'user')}
+                      className={cn(
+                        "px-3 py-1 rounded-sharp text-[10px] font-bold uppercase tracking-wider border-0 focus:ring-1 focus:ring-primary appearance-none text-center cursor-pointer disabled:cursor-not-allowed",
+                        u.role === 'admin' ? "bg-primary text-white" : "bg-surface-container text-on-surface-variant"
+                      )}
+                    >
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ReportsView = ({ inventory, events }: { inventory: any[], events: any[] }) => {
   const totalDistributions = events.reduce((acc, event) => acc + (event.materialsAssigned || 0), 0);
   
@@ -591,7 +691,10 @@ const ReportsView = ({ inventory, events }: { inventory: any[], events: any[] })
             <button className="px-3 py-1.5 text-[12px] font-headline font-bold uppercase tracking-wider text-on-surface-variant hover:text-primary">Q3 2023</button>
             <button className="px-2 py-1.5 text-on-surface-variant"><Calendar className="w-4 h-4" /></button>
           </div>
-          <button className="bg-primary text-white px-4 py-2 rounded-sharp font-headline font-bold text-[12px] uppercase tracking-wider flex items-center gap-2 hover:bg-primary-container transition-all">
+          <button 
+            onClick={() => exportToCSV(inventory, 'lit_ledger_full_report')}
+            className="bg-primary text-white px-4 py-2 rounded-sharp font-headline font-bold text-[12px] uppercase tracking-wider flex items-center gap-2 hover:bg-primary-container transition-all"
+          >
             <Download className="w-4 h-4" />
             Export CSV
           </button>
@@ -714,7 +817,10 @@ const EventsView = ({ events, onAdd, onEdit }: { events: any[], onAdd: () => voi
           <h1 className="font-headline font-extrabold text-[32px] text-primary tracking-tight leading-none mt-1">Events Manager</h1>
         </div>
         <div className="flex gap-3">
-          <button className="px-4 py-2 border border-outline-variant text-primary font-headline font-bold text-[13px] uppercase tracking-wider rounded-sharp hover:bg-surface-container transition-colors">
+          <button 
+            onClick={() => exportToCSV(events, 'lit_ledger_events')}
+            className="px-4 py-2 border border-outline-variant text-primary font-headline font-bold text-[13px] uppercase tracking-wider rounded-sharp hover:bg-surface-container transition-colors"
+          >
             Export CSV
           </button>
           <button 
@@ -1124,13 +1230,16 @@ const LoginView = () => {
 // --- Main App ---
 
 export default function App() {
-  const { user, loading, inventory, events, settings } = useFirebase();
+  const { user, currentUserProfile, loading, inventory, events, users, settings } = useFirebase();
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [globalSearch, setGlobalSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+
+  const isAdmin = currentUserProfile?.role === 'admin';
 
   const handleAdd = () => {
     setSelectedItem(null);
@@ -1169,7 +1278,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onCheckout={() => setIsCheckoutOpen(true)} isAdmin={isAdmin} />
       <Topbar searchQuery={globalSearch} setSearchQuery={setGlobalSearch} />
       
       <main className="ml-60 pt-24 pb-12 px-12">
@@ -1186,6 +1295,7 @@ export default function App() {
               {activeTab === 'inventory' && <InventoryView inventory={inventory} onAdd={handleAdd} onEdit={handleEdit} globalSearch={globalSearch} />}
               {activeTab === 'reports' && <ReportsView inventory={inventory} events={events} />}
               {activeTab === 'events' && <EventsView events={events} onAdd={handleAddEvent} onEdit={handleEditEvent} />}
+              {activeTab === 'users' && <UsersView users={users} />}
               {activeTab === 'settings' && <SettingsView settings={settings} />}
             </motion.div>
           </AnimatePresence>
@@ -1200,6 +1310,13 @@ export default function App() {
             isOpen={isEventModalOpen} 
             onClose={() => setIsEventModalOpen(false)} 
             event={selectedEvent} 
+          />
+
+          <CheckoutModal 
+            isOpen={isCheckoutOpen} 
+            onClose={() => setIsCheckoutOpen(false)} 
+            events={events} 
+            inventory={inventory} 
           />
 
           <footer className="mt-12 flex items-center justify-between pt-8 border-t border-outline-variant">
