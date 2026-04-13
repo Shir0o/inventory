@@ -114,6 +114,38 @@ export function subscribeToInventory(callback: (items: any[]) => void) {
 
 // --- Events ---
 
+export async function addEvent(event: any) {
+  const path = 'events';
+  try {
+    return await addDoc(collection(db, path), {
+      ...event,
+      createdAt: new Date().toISOString()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function updateEvent(id: string, event: any) {
+  const path = `events/${id}`;
+  try {
+    const docRef = doc(db, 'events', id);
+    return await updateDoc(docRef, event);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function deleteEvent(id: string) {
+  const path = `events/${id}`;
+  try {
+    const docRef = doc(db, 'events', id);
+    return await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
 export function subscribeToEvents(callback: (events: any[]) => void) {
   const path = 'events';
   const q = query(collection(db, path), orderBy('date', 'desc'));

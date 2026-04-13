@@ -52,6 +52,7 @@ import {
 import { cn } from './lib/utils';
 import { useFirebase } from './context/FirebaseContext';
 import InventoryModal from './components/InventoryModal';
+import EventModal from './components/EventModal';
 
 // --- Types ---
 
@@ -130,7 +131,7 @@ const Sidebar = ({ activeTab, setActiveTab }: { activeTab: Tab, setActiveTab: (t
   );
 };
 
-const Topbar = () => {
+const Topbar = ({ searchQuery, setSearchQuery }: { searchQuery: string, setSearchQuery: (s: string) => void }) => {
   const { user, logout } = useFirebase();
 
   return (
@@ -140,6 +141,8 @@ const Topbar = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input 
             type="text" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="SEARCH SYSTEM..." 
             className="w-full pl-10 pr-4 py-1.5 bg-surface-container border-none text-[12px] font-mono tracking-tight focus:ring-1 focus:ring-primary rounded-sharp"
           />
@@ -345,9 +348,33 @@ const DashboardView = ({ inventory, events, onEdit }: { inventory: any[], events
   );
 };
 
-const InventoryView = ({ inventory, onAdd, onEdit }: { inventory: any[], onAdd: () => void, onEdit: (item: any) => void }) => {
-  const totalUnits = inventory.reduce((acc, item) => acc + (item.stockLevel || 0), 0);
-  const lowStockCount = inventory.filter(item => item.status === 'Low' || item.status === 'Out').length;
+const InventoryView = ({ inventory, onAdd, onEdit, globalSearch }: { inventory: any[], onAdd: () => void, onEdit: (item: any) => void, globalSearch: string }) => {
+  const [showFilters, setShowFilters] = useState(false);
+  const [localSearch, setLocalSearch] = useState('');
+  const [filters, setFilters] = useState({
+    category: 'All',
+    language: 'All',
+    status: 'All'
+  });
+
+  const categories = ['All', ...new Set(inventory.map(item => item.category))];
+  const languages = ['All', ...new Set(inventory.map(item => item.language))];
+  const statuses = ['All', 'Healthy', 'Low', 'Out'];
+
+  const filteredInventory = inventory.filter(item => {
+    const query = (localSearch || globalSearch).toLowerCase();
+    const matchesSearch = 
+      item.title?.toLowerCase().includes(query) || 
+      item.sku?.toLowerCase().includes(query);
+    const matchesCategory = filters.category === 'All' || item.category === filters.category;
+    const matchesLanguage = filters.language === 'All' || item.language === filters.language;
+    const matchesStatus = filters.status === 'All' || item.status === filters.status;
+    
+    return matchesSearch && matchesCategory && matchesLanguage && matchesStatus;
+  });
+
+  const totalUnits = filteredInventory.reduce((acc, item) => acc + (item.stockLevel || 0), 0);
+  const lowStockCount = filteredInventory.filter(item => item.status === 'Low' || item.status === 'Out').length;
 
   return (
     <div className="space-y-8">
@@ -365,26 +392,91 @@ const InventoryView = ({ inventory, onAdd, onEdit }: { inventory: any[], onAdd: 
             <PlusCircle className="w-4 h-4" />
             Add New Resource
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 border border-outline-variant bg-surface text-[13px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp">
+          <button 
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 border text-[13px] font-medium transition-all rounded-sharp",
+              showFilters 
+                ? "bg-primary text-white border-primary" 
+                : "border-outline-variant bg-surface text-on-surface hover:bg-surface-container"
+            )}
+          >
             <Filter className="w-4 h-4" />
-            Advanced Filters
+            {showFilters ? 'Hide Filters' : 'Advanced Filters'}
           </button>
         </div>
       </div>
 
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="ledger-card p-6 bg-surface-container-low grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="space-y-2">
+                <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Local Search Override</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="text"
+                    value={localSearch}
+                    onChange={e => setLocalSearch(e.target.value)}
+                    placeholder="Filter by name..."
+                    className="w-full pl-10 pr-4 py-2 bg-surface border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm transition-all"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Category</label>
+                <select 
+                  value={filters.category}
+                  onChange={e => setFilters({...filters, category: e.target.value})}
+                  className="w-full px-4 py-2 bg-surface border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm appearance-none"
+                >
+                  {categories.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Language</label>
+                <select 
+                  value={filters.language}
+                  onChange={e => setFilters({...filters, language: e.target.value})}
+                  className="w-full px-4 py-2 bg-surface border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm appearance-none"
+                >
+                  {languages.map(l => <option key={l}>{l}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Status</label>
+                <select 
+                  value={filters.status}
+                  onChange={e => setFilters({...filters, status: e.target.value})}
+                  className="w-full px-4 py-2 bg-surface border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm appearance-none"
+                >
+                  {statuses.map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-12 md:col-span-3 ledger-card p-5">
           <div className="indicator-secondary" />
-          <p className="text-[11px] font-headline font-bold text-on-surface-variant uppercase tracking-wider">Total Units</p>
+          <p className="text-[11px] font-headline font-bold text-on-surface-variant uppercase tracking-wider">Filtered Units</p>
           <p className="text-3xl font-mono font-bold text-primary mt-1">{totalUnits.toLocaleString()}</p>
           <div className="flex items-center gap-1 mt-2 text-[11px] text-secondary">
             <TrendingUp className="w-3 h-3" />
-            <span>SYSTEM TOTAL</span>
+            <span>MATCHED TOTAL</span>
           </div>
         </div>
         <div className="col-span-12 md:col-span-3 ledger-card p-5">
           <div className="indicator-tertiary" />
-          <p className="text-[11px] font-headline font-bold text-on-surface-variant uppercase tracking-wider">Low Stock Items</p>
+          <p className="text-[11px] font-headline font-bold text-on-surface-variant uppercase tracking-wider">Low Stock (Filtered)</p>
           <p className="text-3xl font-mono font-bold text-primary mt-1">{lowStockCount}</p>
           <div className="flex items-center gap-1 mt-2 text-[11px] text-tertiary">
             <AlertTriangle className="w-3 h-3" />
@@ -413,14 +505,14 @@ const InventoryView = ({ inventory, onAdd, onEdit }: { inventory: any[], onAdd: 
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Title</th>
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Category</th>
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Language</th>
-                <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Stock Level</th>
+                <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest text-right">Stock Level</th>
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Status</th>
                 <th className="px-6 py-4"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
-              {inventory.map((row) => (
-                <tr key={row.sku} className="hover:bg-surface-container transition-colors">
+              {filteredInventory.map((row) => (
+                <tr key={row.id || row.sku} className="hover:bg-surface-container transition-colors">
                   <td className="px-6 py-4 font-mono text-[12px] text-primary">{row.sku}</td>
                   <td className="px-6 py-4">
                     <div className="font-bold text-[13px] text-primary">{row.title}</div>
@@ -428,7 +520,7 @@ const InventoryView = ({ inventory, onAdd, onEdit }: { inventory: any[], onAdd: 
                   </td>
                   <td className="px-6 py-4 text-[12px] text-on-surface">{row.category}</td>
                   <td className="px-6 py-4 text-[12px] text-on-surface">{row.language}</td>
-                  <td className="px-6 py-4 font-mono text-[13px]">{row.stockLevel?.toLocaleString()}</td>
+                  <td className="px-6 py-4 font-mono text-[13px] text-right">{row.stockLevel?.toLocaleString()}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <div className={cn(
@@ -449,9 +541,9 @@ const InventoryView = ({ inventory, onAdd, onEdit }: { inventory: any[], onAdd: 
                   </td>
                 </tr>
               ))}
-              {inventory.length === 0 && (
+              {filteredInventory.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-on-surface-variant text-xs font-mono uppercase tracking-widest">Inventory is empty</td>
+                  <td colSpan={7} className="px-6 py-12 text-center text-on-surface-variant text-xs font-mono uppercase tracking-widest">No matching items found</td>
                 </tr>
               )}
             </tbody>
@@ -459,12 +551,11 @@ const InventoryView = ({ inventory, onAdd, onEdit }: { inventory: any[], onAdd: 
         </div>
       <div className="flex justify-between items-center px-6 py-4 bg-surface-container border-t border-outline-variant">
         <div className="text-[11px] text-on-surface-variant font-medium">
-          Showing <span className="font-bold text-primary">1-5</span> of <span className="font-bold text-primary">42</span> entries
+          Showing <span className="font-bold text-primary">{filteredInventory.length}</span> of <span className="font-bold text-primary">{inventory.length}</span> entries
         </div>
         <div className="flex gap-1">
           <button className="px-3 py-1 border border-outline-variant bg-surface text-[11px] font-bold text-on-surface-variant opacity-50 cursor-not-allowed rounded-sharp">Previous</button>
           <button className="px-3 py-1 border border-primary bg-primary text-white text-[11px] font-bold rounded-sharp">1</button>
-          <button className="px-3 py-1 border border-outline-variant bg-surface text-[11px] font-bold text-on-surface-variant hover:border-primary transition-colors rounded-sharp">2</button>
           <button className="px-3 py-1 border border-outline-variant bg-surface text-[11px] font-bold text-on-surface-variant hover:border-primary transition-colors rounded-sharp">Next</button>
         </div>
       </div>
@@ -612,7 +703,7 @@ const ReportsView = ({ inventory, events }: { inventory: any[], events: any[] })
   );
 };
 
-const EventsView = ({ events }: { events: any[] }) => {
+const EventsView = ({ events, onAdd, onEdit }: { events: any[], onAdd: () => void, onEdit: (event: any) => void }) => {
   const totalDistributed = events.reduce((acc, event) => acc + (event.materialsAssigned || 0), 0);
 
   return (
@@ -626,7 +717,10 @@ const EventsView = ({ events }: { events: any[] }) => {
           <button className="px-4 py-2 border border-outline-variant text-primary font-headline font-bold text-[13px] uppercase tracking-wider rounded-sharp hover:bg-surface-container transition-colors">
             Export CSV
           </button>
-          <button className="px-4 py-2 bg-primary text-white font-headline font-bold text-[13px] uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-colors shadow-sm">
+          <button 
+            onClick={onAdd}
+            className="px-4 py-2 bg-primary text-white font-headline font-bold text-[13px] uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-colors shadow-sm"
+          >
             Create New Event
           </button>
         </div>
@@ -705,7 +799,11 @@ const EventsView = ({ events }: { events: any[] }) => {
             </thead>
             <tbody className="divide-y divide-outline-variant">
               {events.map((row) => (
-                <tr key={row.id} className="hover:bg-surface-container transition-colors group">
+                <tr 
+                  key={row.id} 
+                  onClick={() => onEdit(row)}
+                  className="hover:bg-surface-container transition-colors group cursor-pointer"
+                >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className={cn(
@@ -1028,8 +1126,11 @@ const LoginView = () => {
 export default function App() {
   const { user, loading, inventory, events, settings } = useFirebase();
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+  const [globalSearch, setGlobalSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
   const handleAdd = () => {
     setSelectedItem(null);
@@ -1039,6 +1140,16 @@ export default function App() {
   const handleEdit = (item: any) => {
     setSelectedItem(item);
     setIsModalOpen(true);
+  };
+
+  const handleAddEvent = () => {
+    setSelectedEvent(null);
+    setIsEventModalOpen(true);
+  };
+
+  const handleEditEvent = (event: any) => {
+    setSelectedEvent(event);
+    setIsEventModalOpen(true);
   };
 
   if (loading) {
@@ -1059,7 +1170,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-      <Topbar />
+      <Topbar searchQuery={globalSearch} setSearchQuery={setGlobalSearch} />
       
       <main className="ml-60 pt-24 pb-12 px-12">
         <div className="max-w-7xl mx-auto">
@@ -1072,9 +1183,9 @@ export default function App() {
               transition={{ duration: 0.2 }}
             >
               {activeTab === 'dashboard' && <DashboardView inventory={inventory} events={events} onEdit={handleEdit} />}
-              {activeTab === 'inventory' && <InventoryView inventory={inventory} onAdd={handleAdd} onEdit={handleEdit} />}
+              {activeTab === 'inventory' && <InventoryView inventory={inventory} onAdd={handleAdd} onEdit={handleEdit} globalSearch={globalSearch} />}
               {activeTab === 'reports' && <ReportsView inventory={inventory} events={events} />}
-              {activeTab === 'events' && <EventsView events={events} />}
+              {activeTab === 'events' && <EventsView events={events} onAdd={handleAddEvent} onEdit={handleEditEvent} />}
               {activeTab === 'settings' && <SettingsView settings={settings} />}
             </motion.div>
           </AnimatePresence>
@@ -1083,6 +1194,12 @@ export default function App() {
             isOpen={isModalOpen} 
             onClose={() => setIsModalOpen(false)} 
             item={selectedItem} 
+          />
+
+          <EventModal 
+            isOpen={isEventModalOpen} 
+            onClose={() => setIsEventModalOpen(false)} 
+            event={selectedEvent} 
           />
 
           <footer className="mt-12 flex items-center justify-between pt-8 border-t border-outline-variant">
