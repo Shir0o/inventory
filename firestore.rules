@@ -151,6 +151,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isApproved();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isApproved();
+      allow create: if isApproved();
+      allow update: if isApproved() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+      allow delete: if isAdmin();
+    }
+
     // Default deny
     match /{document=**} {
       allow read, write: if false;

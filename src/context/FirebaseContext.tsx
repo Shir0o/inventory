@@ -7,6 +7,8 @@ import {
   subscribeToUsers,
   subscribeToUserProfile,
   subscribeToAuthorizedEmails,
+  subscribeToAuditLogs,
+  subscribeToNotifications,
   syncUserProfile 
 } from '../services/firestoreService';
 
@@ -19,6 +21,8 @@ interface FirebaseContextType {
   events: any[];
   users: any[];
   authorizedEmails: string[];
+  auditLogs: any[];
+  notifications: any[];
   settings: any;
   login: () => Promise<void>;
   logout: () => Promise<void>;
@@ -36,6 +40,8 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [events, setEvents] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [authorizedEmails, setAuthorizedEmails] = useState<string[]>([]);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
   const [currentUserProfile, setCurrentUserProfile] = useState<any | null>(null);
   const [isAuthorized, setIsAuthorized] = useState(true);
@@ -72,25 +78,31 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       let unsubSettings = () => {};
       let unsubUsers = () => {};
       let unsubAuthEmails = () => {};
+      let unsubAuditLogs = () => {};
+      let unsubNotifications = () => {};
 
       // 2. Only subscribe to data if the user is approved (admin or user)
       if (currentUserProfile && (currentUserProfile.role === 'admin' || currentUserProfile.role === 'user')) {
         unsubInventory = subscribeToInventory(setInventory);
         unsubEvents = subscribeToEvents(setEvents);
         unsubSettings = subscribeToSettings(setSettings);
+        unsubNotifications = subscribeToNotifications(setNotifications);
       } else {
         setInventory([]);
         setEvents([]);
         setSettings({});
+        setNotifications([]);
       }
 
       // 3. Only subscribe to full user list if admin
       if (currentUserProfile?.role === 'admin') {
         unsubUsers = subscribeToUsers(setUsers);
         unsubAuthEmails = subscribeToAuthorizedEmails(setAuthorizedEmails);
+        unsubAuditLogs = subscribeToAuditLogs(setAuditLogs);
       } else {
         setUsers([]);
         setAuthorizedEmails([]);
+        setAuditLogs([]);
       }
 
       return () => {
@@ -100,12 +112,16 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         unsubSettings();
         unsubUsers();
         unsubAuthEmails();
+        unsubAuditLogs();
+        unsubNotifications();
       };
     } else {
       setInventory([]);
       setEvents([]);
       setUsers([]);
       setAuthorizedEmails([]);
+      setAuditLogs([]);
+      setNotifications([]);
       setSettings({});
       setCurrentUserProfile(null);
       setIsAuthorized(true);
@@ -147,6 +163,8 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       events, 
       users,
       authorizedEmails,
+      auditLogs,
+      notifications,
       settings,
       login,
       logout,

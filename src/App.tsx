@@ -21,6 +21,7 @@ import {
   Database,
   MoreVertical,
   Download,
+  Upload,
   Filter,
   ArrowRight,
   History,
@@ -59,11 +60,12 @@ import { useFirebase } from './context/FirebaseContext';
 import InventoryModal from './components/InventoryModal';
 import EventModal from './components/EventModal';
 import CheckoutModal from './components/CheckoutModal';
+import BulkImportModal from './components/BulkImportModal';
 import { exportToCSV } from './lib/csvExport';
 
 // --- Types ---
 
-type Tab = 'dashboard' | 'inventory' | 'events' | 'reports' | 'settings' | 'users';
+type Tab = 'dashboard' | 'inventory' | 'events' | 'reports' | 'settings' | 'users' | 'logs';
 
 // --- Mock Data ---
 
@@ -98,6 +100,7 @@ const Sidebar = ({ activeTab, setActiveTab, onCheckout, isAdmin }: { activeTab: 
 
   if (isAdmin) {
     navItems.splice(4, 0, { id: 'users', label: 'Users', icon: Users });
+    navItems.splice(5, 0, { id: 'logs', label: 'Logs', icon: History });
   }
 
   return (
@@ -150,7 +153,18 @@ const Sidebar = ({ activeTab, setActiveTab, onCheckout, isAdmin }: { activeTab: 
 };
 
 const Topbar = ({ searchQuery, setSearchQuery }: { searchQuery: string, setSearchQuery: (s: string) => void }) => {
-  const { user, logout } = useFirebase();
+  const { user, logout, notifications } = useFirebase();
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'CRITICAL_STOCK': return <AlertTriangle className="w-4 h-4 text-tertiary" />;
+      case 'LOW_STOCK': return <AlertTriangle className="w-4 h-4 text-secondary" />;
+      case 'EVENT': return <Calendar className="w-4 h-4 text-primary" />;
+      default: return <Bell className="w-4 h-4 text-primary" />;
+    }
+  };
 
   return (
     <header className="fixed top-0 right-0 h-16 left-60 bg-surface border-b border-outline-variant flex items-center justify-between px-8 z-40">
@@ -175,9 +189,72 @@ const Topbar = ({ searchQuery, setSearchQuery }: { searchQuery: string, setSearc
       </div>
 
       <div className="flex items-center gap-4">
-        <button className="p-2 text-slate-500 hover:text-primary transition-colors">
-          <Bell className="w-5 h-5" />
-        </button>
+        <div className="relative">
+          <button 
+            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+            className="p-2 text-slate-500 hover:text-primary transition-colors relative"
+          >
+            <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-4 h-4 bg-tertiary text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-background">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          <AnimatePresence>
+            {isNotificationsOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)} />
+                <motion.div 
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 mt-2 w-80 bg-background ledger-card shadow-2xl z-50 overflow-hidden"
+                >
+                  <div className="px-4 py-3 border-b border-outline-variant bg-surface-container flex justify-between items-center">
+                    <span className="font-headline font-bold text-[11px] uppercase tracking-widest text-primary">Notifications</span>
+                    {unreadCount > 0 && <span className="font-mono text-[9px] text-tertiary font-bold uppercase">{unreadCount} New Alerts</span>}
+                  </div>
+                  <div className="max-h-96 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center opacity-40">
+                        <BellRing className="w-8 h-8 mx-auto mb-2" />
+                        <p className="font-mono text-[10px] uppercase tracking-widest">All clear</p>
+                      </div>
+                    ) : (
+                      notifications.map(n => (
+                        <div 
+                          key={n.id} 
+                          className={cn(
+                            "p-4 border-b border-outline-variant hover:bg-surface-container transition-colors cursor-pointer",
+                            !n.read && "bg-primary/5"
+                          )}
+                          onClick={async () => {
+                            const { markNotificationAsRead } = await import('./services/firestoreService');
+                            await markNotificationAsRead(n.id);
+                          }}
+                        >
+                          <div className="flex gap-3">
+                            <div className="mt-1">{getNotificationIcon(n.type)}</div>
+                            <div>
+                              <p className="font-headline font-bold text-[13px] text-primary">{n.title}</p>
+                              <p className="text-[12px] text-on-surface-variant leading-tight mt-1">{n.message}</p>
+                              <p className="text-[10px] font-mono text-slate-400 mt-2 uppercase tracking-tighter">
+                                {new Date(n.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
+        
         <button className="p-2 text-slate-500 hover:text-primary transition-colors" onClick={logout} title="Logout">
           <LogOut className="w-5 h-5" />
         </button>
@@ -366,7 +443,7 @@ const DashboardView = ({ inventory, events, onEdit }: { inventory: any[], events
   );
 };
 
-const InventoryView = ({ inventory, onAdd, onEdit, globalSearch }: { inventory: any[], onAdd: () => void, onEdit: (item: any) => void, globalSearch: string }) => {
+const InventoryView = ({ inventory, onAdd, onEdit, onBulkImport, globalSearch }: { inventory: any[], onAdd: () => void, onEdit: (item: any) => void, onBulkImport: () => void, globalSearch: string }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [localSearch, setLocalSearch] = useState('');
   const [filters, setFilters] = useState({
@@ -403,6 +480,13 @@ const InventoryView = ({ inventory, onAdd, onEdit, globalSearch }: { inventory: 
           <p className="text-on-surface-variant text-sm mt-2">Real-time status tracking and asset management for global distribution.</p>
         </div>
         <div className="flex gap-2">
+          <button 
+            onClick={onBulkImport}
+            className="flex items-center gap-2 px-4 py-2 border border-outline-variant bg-surface text-[13px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
+          >
+            <Upload className="w-4 h-4" />
+            Bulk Import
+          </button>
           <button 
             onClick={() => exportToCSV(filteredInventory, 'lit_ledger_inventory')}
             className="flex items-center gap-2 px-4 py-2 border border-outline-variant bg-surface text-[13px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
@@ -754,6 +838,112 @@ const UsersView = ({ users }: { users: any[] }) => {
               )}
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const LogsView = ({ logs }: { logs: any[] }) => {
+  const getActionColor = (action: string) => {
+    if (action.includes('CREATED') || action.includes('AUTHORIZED')) return 'text-secondary bg-secondary/10';
+    if (action.includes('DELETED') || action.includes('DEAUTHORIZED')) return 'text-tertiary bg-tertiary/10';
+    if (action.includes('STOCK') || action.includes('CHECKOUT') || action.includes('RETURN')) return 'text-primary bg-primary/10';
+    return 'text-on-surface-variant bg-surface-container';
+  };
+
+  const getActionIcon = (action: string) => {
+    if (action.includes('STOCK') || action.includes('CHECKOUT') || action.includes('RETURN')) return <Package className="w-3 h-3" />;
+    if (action.includes('EVENT')) return <Calendar className="w-3 h-3" />;
+    if (action.includes('USER') || action.includes('ROLE') || action.includes('EMAIL')) return <Users className="w-3 h-3" />;
+    return <History className="w-3 h-3" />;
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex justify-between items-end">
+        <div>
+          <span className="font-headline font-bold text-[12px] uppercase tracking-[2px] text-on-surface-variant">Audit Trail</span>
+          <h1 className="font-headline font-extrabold text-[32px] text-primary tracking-tight leading-none mt-1">System Logs</h1>
+        </div>
+        <div className="px-4 py-2 bg-surface-container border border-outline-variant rounded-sharp flex items-center gap-3">
+          <div className="w-2 h-2 bg-secondary rounded-full animate-pulse" />
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Live Monitoring Active</span>
+        </div>
+      </div>
+
+      <div className="ledger-card">
+        <div className="px-6 py-4 border-b border-outline-variant flex items-center justify-between">
+          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1px] text-primary">Activity Stream</h2>
+          <span className="font-mono text-[10px] text-slate-400 uppercase">Showing last 50 events</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-surface-container border-b border-outline-variant">
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Timestamp</th>
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">User</th>
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Action</th>
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Details</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-outline-variant">
+              {logs.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3 opacity-40">
+                      <History className="w-8 h-8" />
+                      <p className="font-mono text-[11px] uppercase tracking-widest">No activity recorded yet</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                logs.map((log) => (
+                  <tr key={log.id} className="hover:bg-surface-container transition-colors group">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className="font-mono text-[12px] text-on-surface font-bold">
+                          {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span>
+                        <span className="font-mono text-[10px] text-slate-400">
+                          {new Date(log.timestamp).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-[10px] font-bold text-primary">
+                          {log.userName?.charAt(0) || 'U'}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-headline font-bold text-[13px] text-primary">{log.userName}</span>
+                          <span className="font-mono text-[10px] text-on-surface-variant">{log.userEmail}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className={cn("inline-flex items-center gap-2 px-2 py-1 rounded-sharp font-mono text-[10px] font-bold uppercase tracking-wider", getActionColor(log.action))}>
+                        {getActionIcon(log.action)}
+                        {log.action.replace('_', ' ')}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-[13px] text-on-surface leading-relaxed max-w-md">
+                        {log.details}
+                      </p>
+                      {log.metadata && (
+                        <div className="mt-2 hidden group-hover:block">
+                          <pre className="text-[9px] font-mono bg-surface-container-low p-2 rounded-sharp border border-outline-variant overflow-x-auto max-w-xs">
+                            {JSON.stringify(log.metadata, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -1377,7 +1567,7 @@ const PendingAccessView = ({ isAuthorized }: { isAuthorized: boolean }) => {
 // --- Main App ---
 
 export default function App() {
-  const { user, currentUserProfile, loading, inventory, events, users, settings, isAuthorized } = useFirebase();
+  const { user, currentUserProfile, loading, inventory, events, users, settings, isAuthorized, auditLogs } = useFirebase();
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [globalSearch, setGlobalSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1385,6 +1575,7 @@ export default function App() {
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
   const isAdmin = currentUserProfile?.role === 'admin';
 
@@ -1443,10 +1634,19 @@ export default function App() {
               transition={{ duration: 0.2 }}
             >
               {activeTab === 'dashboard' && <DashboardView inventory={inventory} events={events} onEdit={handleEdit} />}
-              {activeTab === 'inventory' && <InventoryView inventory={inventory} onAdd={handleAdd} onEdit={handleEdit} globalSearch={globalSearch} />}
+            {activeTab === 'inventory' && (
+              <InventoryView 
+                inventory={inventory} 
+                onAdd={handleAdd} 
+                onEdit={handleEdit} 
+                onBulkImport={() => setIsBulkImportOpen(true)}
+                globalSearch={globalSearch} 
+              />
+            )}
               {activeTab === 'reports' && <ReportsView inventory={inventory} events={events} />}
               {activeTab === 'events' && <EventsView events={events} onAdd={handleAddEvent} onEdit={handleEditEvent} />}
               {activeTab === 'users' && <UsersView users={users} />}
+              {activeTab === 'logs' && <LogsView logs={auditLogs} />}
               {activeTab === 'settings' && <SettingsView settings={settings} />}
             </motion.div>
           </AnimatePresence>
@@ -1455,6 +1655,7 @@ export default function App() {
             isOpen={isModalOpen} 
             onClose={() => setIsModalOpen(false)} 
             item={selectedItem} 
+            settings={settings}
           />
 
           <EventModal 
@@ -1468,6 +1669,12 @@ export default function App() {
             onClose={() => setIsCheckoutOpen(false)} 
             events={events} 
             inventory={inventory} 
+            settings={settings}
+          />
+
+          <BulkImportModal 
+            isOpen={isBulkImportOpen}
+            onClose={() => setIsBulkImportOpen(false)}
           />
 
           <footer className="mt-12 flex items-center justify-between pt-8 border-t border-outline-variant">

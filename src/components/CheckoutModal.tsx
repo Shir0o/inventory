@@ -8,9 +8,10 @@ interface CheckoutModalProps {
   onClose: () => void;
   events: any[];
   inventory: any[];
+  settings?: any;
 }
 
-const CheckoutModal = ({ isOpen, onClose, events, inventory }: CheckoutModalProps) => {
+const CheckoutModal = ({ isOpen, onClose, events, inventory, settings }: CheckoutModalProps) => {
   const [selectedEventId, setSelectedEventId] = useState('');
   const [cart, setCart] = useState<{ itemId: string, quantity: number, title: string, sku: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,7 +57,11 @@ const CheckoutModal = ({ isOpen, onClose, events, inventory }: CheckoutModalProp
     setLoading(true);
     setError(null);
     try {
-      await checkoutItems(selectedEventId, cart);
+      const thresholds = {
+        warning: settings?.warningThreshold || 250,
+        critical: settings?.criticalThreshold || 75
+      };
+      await checkoutItems(selectedEventId, cart, thresholds);
       setCart([]);
       setSelectedEventId('');
       onClose();

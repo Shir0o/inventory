@@ -7,9 +7,10 @@ interface InventoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   item?: any; // If present, we are editing
+  settings?: any;
 }
 
-const InventoryModal = ({ isOpen, onClose, item }: InventoryModalProps) => {
+const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps) => {
   const [formData, setFormData] = useState({
     sku: '',
     title: '',
@@ -49,8 +50,13 @@ const InventoryModal = ({ isOpen, onClose, item }: InventoryModalProps) => {
     e.preventDefault();
     setLoading(true);
     try {
+      const thresholds = {
+        warning: settings?.warningThreshold || 250,
+        critical: settings?.criticalThreshold || 75
+      };
+
       if (item?.id) {
-        await updateInventoryItem(item.id, formData);
+        await updateInventoryItem(item.id, formData, thresholds);
       } else {
         await addInventoryItem(formData);
       }
