@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "InventoryItem": {
+      "title": "Inventory Item",
+      "description": "A piece of literature in the inventory.",
+      "type": "object",
+      "properties": {
+        "sku": { "type": "string", "description": "Stock Keeping Unit" },
+        "title": { "type": "string", "description": "Title of the literature" },
+        "subtitle": { "type": "string", "description": "Subtitle or edition details" },
+        "category": { "type": "string", "enum": ["Bibles", "Tracts", "Study Guides"] },
+        "language": { "type": "string" },
+        "stockLevel": { "type": "number" },
+        "status": { "type": "string", "enum": ["Healthy", "Low", "Out"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sku", "title", "category", "stockLevel", "status"]
+    },
+    "Event": {
+      "title": "Distribution Event",
+      "description": "An event where literature is distributed.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "location": { "type": "string" },
+        "materialsAssigned": { "type": "number" },
+        "status": { "type": "string", "enum": ["Scheduled", "Stock Alert", "Drafting", "Completed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "date", "location", "materialsAssigned", "status"]
+    },
+    "SystemSettings": {
+      "title": "System Settings",
+      "description": "Global configuration for the Lit-Ledger system.",
+      "type": "object",
+      "properties": {
+        "orgName": { "type": "string" },
+        "taxId": { "type": "string" },
+        "address": { "type": "string" },
+        "timezone": { "type": "string" },
+        "updateFrequency": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/inventory/{itemId}": {
+      "schema": "InventoryItem",
+      "description": "Collection of inventory items."
+    },
+    "/events/{eventId}": {
+      "schema": "Event",
+      "description": "Collection of distribution events."
+    },
+    "/settings/system": {
+      "schema": "SystemSettings",
+      "description": "Singleton document for system settings."
+    }
+  }
+}

@@ -1,0 +1,134 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: inventory
+// Fields:
+//   - sku: string (required)
+//   - title: string (required)
+//   - subtitle: string (optional)
+//   - category: string (required, enum: Bibles, Tracts, Study Guides)
+//   - language: string (optional)
+//   - stockLevel: number (required)
+//   - status: string (required, enum: Healthy, Low, Out)
+//   - updatedAt: timestamp (optional)
+//
+// Collection: events
+// Fields:
+//   - name: string (required)
+//   - date: timestamp (required)
+//   - location: string (required)
+//   - materialsAssigned: number (required)
+//   - status: string (required, enum: Scheduled, Stock Alert, Drafting, Completed)
+//   - createdAt: timestamp (optional)
+//
+// Collection: settings
+// Document: system
+// Fields:
+//   - orgName: string
+//   - taxId: string
+//   - address: string
+//   - timezone: string
+//   - updateFrequency: string
+//
+// Collection: users
+// Fields:
+//   - email: string (PII)
+//   - role: string (admin, user)
+//   - displayName: string
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "YilongWang05@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidInventoryItem(data) {
+      return data.keys().hasAll(['sku', 'title', 'category', 'stockLevel', 'status']) &&
+             data.sku is string && data.sku.size() < 50 &&
+             data.title is string && data.title.size() < 200 &&
+             data.category in ['Bibles', 'Tracts', 'Study Guides'] &&
+             data.stockLevel is number && data.stockLevel >= 0 &&
+             data.status in ['Healthy', 'Low', 'Out'];
+    }
+
+    function isValidEvent(data) {
+      return data.keys().hasAll(['name', 'date', 'location', 'materialsAssigned', 'status']) &&
+             data.name is string && data.name.size() < 200 &&
+             data.date is timestamp &&
+             data.location is string && data.location.size() < 500 &&
+             data.materialsAssigned is number && data.materialsAssigned >= 0 &&
+             data.status in ['Scheduled', 'Stock Alert', 'Drafting', 'Completed'];
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role']) &&
+             isValidEmail(data.email) &&
+             data.role in ['admin', 'user'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /inventory/{itemId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin() && isValidInventoryItem(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin() && isValidEvent(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /settings/system {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      // PII Protection: Only owner or admin can read
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Prevent self-escalation
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
+                    ((isOwner(userId) && request.resource.data.role == 'user') || isAdmin());
+                    
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
+                    ((isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin());
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
