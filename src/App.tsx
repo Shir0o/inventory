@@ -22,6 +22,7 @@ import {
   MoreVertical,
   Download,
   Upload,
+  Camera,
   Filter,
   ArrowRight,
   History,
@@ -59,8 +60,9 @@ import { cn } from './lib/utils';
 import { useFirebase } from './context/FirebaseContext';
 import InventoryModal from './components/InventoryModal';
 import EventModal from './components/EventModal';
-import CheckoutModal from './components/CheckoutModal';
+import DistributionModal from './components/DistributionModal';
 import BulkImportModal from './components/BulkImportModal';
+import QRScannerModal from './components/QRScannerModal';
 import { exportToCSV } from './lib/csvExport';
 
 // --- Types ---
@@ -89,7 +91,7 @@ const pieData = [
 
 // --- Components ---
 
-const Sidebar = ({ activeTab, setActiveTab, onCheckout, isAdmin }: { activeTab: Tab, setActiveTab: (t: Tab) => void, onCheckout: () => void, isAdmin: boolean }) => {
+const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin }: { activeTab: Tab, setActiveTab: (t: Tab) => void, onDistribute: () => void, isAdmin: boolean }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'inventory', label: 'Inventory', icon: Package },
@@ -100,7 +102,7 @@ const Sidebar = ({ activeTab, setActiveTab, onCheckout, isAdmin }: { activeTab: 
 
   if (isAdmin) {
     navItems.splice(4, 0, { id: 'users', label: 'Users', icon: Users });
-    navItems.splice(5, 0, { id: 'logs', label: 'Logs', icon: History });
+    navItems.splice(5, 0, { id: 'logs', label: 'Paper Trail', icon: History });
   }
 
   return (
@@ -137,11 +139,11 @@ const Sidebar = ({ activeTab, setActiveTab, onCheckout, isAdmin }: { activeTab: 
 
       <div className="p-6 mt-auto space-y-3">
         <button 
-          onClick={onCheckout}
+          onClick={onDistribute}
           className="w-full bg-secondary text-primary font-headline font-bold text-xs py-3 rounded-sharp flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg"
         >
           <ShoppingCart className="w-4 h-4" />
-          CHECKOUT
+          DISTRIBUTE
         </button>
         <button className="w-full border border-slate-500 text-slate-300 font-headline font-bold text-xs py-3 rounded-sharp flex items-center justify-center gap-2 hover:bg-primary-container transition-colors">
           <PlusCircle className="w-4 h-4" />
@@ -152,7 +154,7 @@ const Sidebar = ({ activeTab, setActiveTab, onCheckout, isAdmin }: { activeTab: 
   );
 };
 
-const Topbar = ({ searchQuery, setSearchQuery }: { searchQuery: string, setSearchQuery: (s: string) => void }) => {
+const Topbar = ({ searchQuery, setSearchQuery, onScan }: { searchQuery: string, setSearchQuery: (s: string) => void, onScan: () => void }) => {
   const { user, logout, notifications } = useFirebase();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -189,6 +191,15 @@ const Topbar = ({ searchQuery, setSearchQuery }: { searchQuery: string, setSearc
       </div>
 
       <div className="flex items-center gap-4">
+        <button 
+          onClick={onScan}
+          className="p-2 text-slate-500 hover:text-primary transition-colors flex items-center gap-2 group"
+          title="Scan QR Code"
+        >
+          <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          <span className="text-[10px] font-mono uppercase tracking-widest hidden md:block">Scan</span>
+        </button>
+
         <div className="relative">
           <button 
             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
@@ -282,7 +293,7 @@ const Topbar = ({ searchQuery, setSearchQuery }: { searchQuery: string, setSearc
 const DashboardView = ({ inventory, events, onEdit }: { inventory: any[], events: any[], onEdit: (item: any) => void }) => {
   const lowStockItems = inventory.filter(item => item.status === 'Low' || item.status === 'Out');
   const totalUnits = inventory.reduce((acc, item) => acc + (item.stockLevel || 0), 0);
-  const distributedMTD = events.reduce((acc, event) => acc + (event.materialsAssigned || 0), 0);
+  const distributedMTD = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
 
   return (
     <div className="space-y-8">
@@ -951,7 +962,7 @@ const LogsView = ({ logs }: { logs: any[] }) => {
 };
 
 const ReportsView = ({ inventory, events }: { inventory: any[], events: any[] }) => {
-  const totalDistributions = events.reduce((acc, event) => acc + (event.materialsAssigned || 0), 0);
+  const totalDistributions = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
   
   const categoryCounts = inventory.reduce((acc: any, item) => {
     acc[item.category] = (acc[item.category] || 0) + 1;
@@ -1093,7 +1104,7 @@ const ReportsView = ({ inventory, events }: { inventory: any[], events: any[] })
 };
 
 const EventsView = ({ events, onAdd, onEdit }: { events: any[], onAdd: () => void, onEdit: (event: any) => void }) => {
-  const totalDistributed = events.reduce((acc, event) => acc + (event.materialsAssigned || 0), 0);
+  const totalDistributed = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
 
   return (
     <div className="space-y-8">
@@ -1214,7 +1225,7 @@ const EventsView = ({ events, onAdd, onEdit }: { events: any[], onAdd: () => voi
                   </td>
                   <td className="px-6 py-4 text-[13px] text-on-surface">{row.location}</td>
                   <td className="px-6 py-4 text-right">
-                    <span className="font-mono font-bold text-primary text-[13px]">{row.materialsAssigned?.toLocaleString()} items</span>
+                    <span className="font-mono font-bold text-primary text-[13px]">{row.materialsDistributed?.toLocaleString()} items</span>
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span className={cn(
@@ -1574,8 +1585,9 @@ export default function App() {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isDistributionOpen, setIsDistributionOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const isAdmin = currentUserProfile?.role === 'admin';
 
@@ -1599,6 +1611,17 @@ export default function App() {
     setIsEventModalOpen(true);
   };
 
+  const handleScanSuccess = (decodedText: string) => {
+    // Try to find the item by SKU
+    const item = inventory.find(i => i.sku === decodedText || i.id === decodedText);
+    if (item) {
+      setSelectedItem(item);
+      setIsModalOpen(true);
+    } else {
+      alert(`No item found with SKU/ID: ${decodedText}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -1620,8 +1643,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onCheckout={() => setIsCheckoutOpen(true)} isAdmin={isAdmin} />
-      <Topbar searchQuery={globalSearch} setSearchQuery={setGlobalSearch} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onDistribute={() => setIsDistributionOpen(true)} isAdmin={isAdmin} />
+      <Topbar searchQuery={globalSearch} setSearchQuery={setGlobalSearch} onScan={() => setIsScannerOpen(true)} />
       
       <main className="ml-60 pt-24 pb-12 px-12">
         <div className="max-w-7xl mx-auto">
@@ -1664,9 +1687,9 @@ export default function App() {
             event={selectedEvent} 
           />
 
-          <CheckoutModal 
-            isOpen={isCheckoutOpen} 
-            onClose={() => setIsCheckoutOpen(false)} 
+          <DistributionModal 
+            isOpen={isDistributionOpen} 
+            onClose={() => setIsDistributionOpen(false)} 
             events={events} 
             inventory={inventory} 
             settings={settings}
@@ -1675,6 +1698,12 @@ export default function App() {
           <BulkImportModal 
             isOpen={isBulkImportOpen}
             onClose={() => setIsBulkImportOpen(false)}
+          />
+
+          <QRScannerModal 
+            isOpen={isScannerOpen}
+            onClose={() => setIsScannerOpen(false)}
+            onScanSuccess={handleScanSuccess}
           />
 
           <footer className="mt-12 flex items-center justify-between pt-8 border-t border-outline-variant">

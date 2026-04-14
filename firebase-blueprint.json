@@ -24,11 +24,11 @@
         "name": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
         "location": { "type": "string" },
-        "materialsAssigned": { "type": "number" },
+        "materialsDistributed": { "type": "number" },
         "status": { "type": "string", "enum": ["Scheduled", "Stock Alert", "Drafting", "Completed"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["name", "date", "location", "materialsAssigned", "status"]
+      "required": ["name", "date", "location", "materialsDistributed", "status"]
     },
     "EventMaterial": {
       "title": "Event Material",
@@ -80,7 +80,7 @@
     },
     "/events/{eventId}/materials/{materialId}": {
       "schema": "EventMaterial",
-      "description": "Sub-collection of materials assigned to a specific event."
+      "description": "Sub-collection of materials distributed to a specific event."
     },
     "/settings/system": {
       "schema": "SystemSettings",

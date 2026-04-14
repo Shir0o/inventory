@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { X, ShoppingCart, Plus, Minus, Trash2, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { checkoutItems } from '../services/firestoreService';
+import { distributeItems } from '../services/firestoreService';
 
-interface CheckoutModalProps {
+interface DistributionModalProps {
   isOpen: boolean;
   onClose: () => void;
   events: any[];
@@ -11,7 +11,7 @@ interface CheckoutModalProps {
   settings?: any;
 }
 
-const CheckoutModal = ({ isOpen, onClose, events, inventory, settings }: CheckoutModalProps) => {
+const DistributionModal = ({ isOpen, onClose, events, inventory, settings }: DistributionModalProps) => {
   const [selectedEventId, setSelectedEventId] = useState('');
   const [cart, setCart] = useState<{ itemId: string, quantity: number, title: string, sku: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,12 +61,12 @@ const CheckoutModal = ({ isOpen, onClose, events, inventory, settings }: Checkou
         warning: settings?.warningThreshold || 250,
         critical: settings?.criticalThreshold || 75
       };
-      await checkoutItems(selectedEventId, cart, thresholds);
+      await distributeItems(selectedEventId, cart, thresholds);
       setCart([]);
       setSelectedEventId('');
       onClose();
     } catch (err: any) {
-      setError(err.message || "Checkout failed");
+      setError(err.message || "Distribution failed");
     } finally {
       setLoading(false);
     }
@@ -94,7 +94,7 @@ const CheckoutModal = ({ isOpen, onClose, events, inventory, settings }: Checkou
               <div className="flex items-center gap-3">
                 <ShoppingCart className="w-6 h-6 text-primary" />
                 <h2 className="font-headline font-bold text-lg text-primary uppercase tracking-wider">
-                  Material Checkout
+                  Material Distribution
                 </h2>
               </div>
               <button onClick={onClose} className="text-on-surface-variant hover:text-primary transition-colors">
@@ -210,7 +210,7 @@ const CheckoutModal = ({ isOpen, onClose, events, inventory, settings }: Checkou
                     disabled={loading || !selectedEventId || cart.length === 0}
                     className="w-full flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
                   >
-                    {loading ? 'Processing...' : 'Complete Checkout'}
+                    {loading ? 'Processing...' : 'Complete Distribution'}
                   </button>
                 </form>
               </div>
@@ -222,4 +222,4 @@ const CheckoutModal = ({ isOpen, onClose, events, inventory, settings }: Checkou
   );
 };
 
-export default CheckoutModal;
+export default DistributionModal;

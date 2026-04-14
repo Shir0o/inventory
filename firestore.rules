@@ -18,7 +18,7 @@
 //   - name: string (required)
 //   - date: timestamp (required)
 //   - location: string (required)
-//   - materialsAssigned: number (required)
+//   - materialsDistributed: number (required)
 //   - status: string (required, enum: Scheduled, Stock Alert, Drafting, Completed)
 //   - createdAt: timestamp (optional)
 //
@@ -89,11 +89,11 @@ service cloud.firestore {
     }
 
     function isValidEvent(data) {
-      return data.keys().hasAll(['name', 'date', 'location', 'materialsAssigned', 'status']) &&
+      return data.keys().hasAll(['name', 'date', 'location', 'materialsDistributed', 'status']) &&
              data.name is string && data.name.size() < 200 &&
              data.date is timestamp &&
              data.location is string && data.location.size() < 500 &&
-             data.materialsAssigned is number && data.materialsAssigned >= 0 &&
+             data.materialsDistributed is number && data.materialsDistributed >= 0 &&
              data.status in ['Scheduled', 'Stock Alert', 'Drafting', 'Completed'];
     }
 

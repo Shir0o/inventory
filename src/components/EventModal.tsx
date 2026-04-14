@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Trash2, Calendar as CalendarIcon, Package, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { addEvent, updateEvent, deleteEvent, subscribeToEventMaterials, returnItem } from '../services/firestoreService';
+import { addEvent, updateEvent, deleteEvent, subscribeToEventMaterials, restockItem } from '../services/firestoreService';
 import { Timestamp } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 
@@ -18,7 +18,7 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
     name: '',
     date: '',
     location: '',
-    materialsAssigned: 0,
+    materialsDistributed: 0,
     status: 'Scheduled'
   });
   const [loading, setLoading] = useState(false);
@@ -34,7 +34,7 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
         name: event.name || '',
         date: dateStr,
         location: event.location || '',
-        materialsAssigned: event.materialsAssigned || 0,
+        materialsDistributed: event.materialsDistributed || 0,
         status: event.status || 'Scheduled'
       });
 
@@ -46,7 +46,7 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
         name: '',
         date: new Date().toISOString().split('T')[0],
         location: '',
-        materialsAssigned: 0,
+        materialsDistributed: 0,
         status: 'Scheduled'
       });
       setMaterials([]);
@@ -54,8 +54,8 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
     }
   }, [event, isOpen]);
 
-  const handleReturn = async (material: any) => {
-    const qty = prompt(`How many units of ${material.title} would you like to return?`, material.quantity.toString());
+  const handleRestock = async (material: any) => {
+    const qty = prompt(`How many units of ${material.title} would you like to restock?`, material.quantity.toString());
     if (qty === null) return;
     
     const numQty = parseInt(qty);
@@ -65,9 +65,9 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
     }
 
     try {
-      await returnItem(event.id, material.id, material.itemId, numQty);
+      await restockItem(event.id, material.id, material.itemId, numQty);
     } catch (error) {
-      console.error("Failed to return item", error);
+      console.error("Failed to restock item", error);
     }
   };
 
@@ -150,7 +150,7 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
                     activeTab === 'materials' ? "border-primary text-primary bg-white" : "border-transparent text-on-surface-variant hover:bg-surface-container"
                   )}
                 >
-                  Assigned Materials ({materials.length})
+                  Distributed Materials ({materials.length})
                 </button>
               </div>
             )}
@@ -184,11 +184,11 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Materials Assigned</label>
+                      <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Materials Distributed</label>
                       <input 
                         readOnly
                         type="number" 
-                        value={formData.materialsAssigned}
+                        value={formData.materialsDistributed}
                         className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-mono text-[14px] focus:ring-0 focus:border-primary transition-all opacity-70 cursor-not-allowed"
                       />
                     </div>
@@ -265,8 +265,8 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
                     <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
                       <Package className="w-12 h-12 text-outline-variant" />
                       <div>
-                        <p className="font-headline font-bold text-on-surface-variant uppercase tracking-widest text-[11px]">No materials assigned</p>
-                        <p className="text-[12px] text-slate-400 mt-1">Use the Checkout system to link inventory items to this event.</p>
+                        <p className="font-headline font-bold text-on-surface-variant uppercase tracking-widest text-[11px]">No materials distributed</p>
+                        <p className="text-[12px] text-slate-400 mt-1">Use the Distribution system to link inventory items to this event.</p>
                       </div>
                     </div>
                   ) : (
@@ -284,12 +284,12 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
                         <div className="flex items-center gap-6">
                           <div className="text-right">
                             <p className="font-mono font-bold text-lg text-primary">{m.quantity}</p>
-                            <p className="text-[9px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Units Assigned</p>
+                            <p className="text-[9px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Units Distributed</p>
                           </div>
                           <button 
-                            onClick={() => handleReturn(m)}
+                            onClick={() => handleRestock(m)}
                             className="p-2 text-on-surface-variant hover:text-tertiary hover:bg-tertiary/10 rounded-sharp transition-all opacity-0 group-hover:opacity-100"
-                            title="Return Stock"
+                            title="Restock Inventory"
                           >
                             <RotateCcw className="w-5 h-5" />
                           </button>
@@ -300,7 +300,7 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
                 </div>
                 <div className="mt-6 pt-6 border-t border-outline-variant flex justify-between items-center">
                   <div className="font-mono text-[11px] text-on-surface-variant">
-                    TOTAL ASSIGNED: <span className="text-primary font-bold">{formData.materialsAssigned}</span>
+                    TOTAL DISTRIBUTED: <span className="text-primary font-bold">{formData.materialsDistributed}</span>
                   </div>
                   <button
                     onClick={onClose}

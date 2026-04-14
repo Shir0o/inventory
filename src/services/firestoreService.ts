@@ -74,8 +74,8 @@ export type AuditAction =
   | 'EVENT_CREATED' 
   | 'EVENT_UPDATED' 
   | 'EVENT_DELETED' 
-  | 'CHECKOUT' 
-  | 'RETURN' 
+  | 'DISTRIBUTION' 
+  | 'RESTOCK' 
   | 'ROLE_UPDATE' 
   | 'SETTINGS_UPDATE' 
   | 'EMAIL_AUTHORIZED' 
@@ -264,8 +264,8 @@ export async function deleteEvent(id: string) {
   }
 }
 
-export async function checkoutItems(eventId: string, items: { itemId: string, quantity: number, title: string, sku: string }[], thresholds?: { warning: number, critical: number }) {
-  const path = `events/${eventId}/checkout`;
+export async function distributeItems(eventId: string, items: { itemId: string, quantity: number, title: string, sku: string }[], thresholds?: { warning: number, critical: number }) {
+  const path = `events/${eventId}/distributions`;
   try {
     await runTransaction(db, async (transaction) => {
       const eventRef = doc(db, 'events', eventId);
@@ -298,10 +298,6 @@ export async function checkoutItems(eventId: string, items: { itemId: string, qu
           updatedAt: new Date().toISOString()
         });
 
-        // Check thresholds and create notifications (outside transaction for simplicity, or we could use a collection to queue them)
-        // Actually, we can't easily create docs in a transaction without knowing IDs or using addDoc which isn't transaction-friendly in the same way.
-        // We'll handle notifications after the transaction succeeds.
-
         // Add to event materials
         const materialRef = doc(collection(db, `events/${eventId}/materials`));
         transaction.set(materialRef, {
@@ -316,19 +312,15 @@ export async function checkoutItems(eventId: string, items: { itemId: string, qu
       }
 
       // Update event total
-      const currentEventMaterials = eventDoc.data().materialsAssigned || 0;
+      const currentEventMaterials = eventDoc.data().materialsDistributed || 0;
       transaction.update(eventRef, {
-        materialsAssigned: currentEventMaterials + totalNewMaterials
+        materialsDistributed: currentEventMaterials + totalNewMaterials
       });
     });
 
     // After transaction, check thresholds and notify
     if (thresholds) {
       for (const item of items) {
-        // We need the latest stock level. We can fetch it or calculate it.
-        // Since we just updated it, we know it's (currentStock - item.quantity).
-        // But we don't have currentStock here easily without re-fetching.
-        // Let's just re-fetch the items that were updated.
         const { getDoc } = await import('firebase/firestore');
         const itemDoc = await getDoc(doc(db, 'inventory', item.itemId));
         if (itemDoc.exists()) {
@@ -342,7 +334,7 @@ export async function checkoutItems(eventId: string, items: { itemId: string, qu
       }
     }
 
-    await createAuditLog('CHECKOUT', eventId, 'event', `Checked out ${items.length} items to event`, { items });
+    await createAuditLog('DISTRIBUTION', eventId, 'event', `Distributed ${items.length} items to event`, { items });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -372,8 +364,8 @@ export function subscribeToEventMaterials(eventId: string, callback: (materials:
   });
 }
 
-export async function returnItem(eventId: string, materialId: string, itemId: string, quantityToReturn: number) {
-  const path = `events/${eventId}/materials/${materialId}/return`;
+export async function restockItem(eventId: string, materialId: string, itemId: string, quantityToRestock: number) {
+  const path = `events/${eventId}/materials/${materialId}/restock`;
   try {
     await runTransaction(db, async (transaction) => {
       const materialRef = doc(db, `events/${eventId}/materials`, materialId);
@@ -385,39 +377,39 @@ export async function returnItem(eventId: string, materialId: string, itemId: st
       const eventDoc = await transaction.get(eventRef);
 
       if (!materialDoc.exists() || !itemDoc.exists() || !eventDoc.exists()) {
-        throw new Error("Required documents for return not found.");
+        throw new Error("Required documents for restock not found.");
       }
 
       const currentMaterialQty = materialDoc.data().quantity || 0;
       const currentInventoryQty = itemDoc.data().stockLevel || 0;
-      const currentEventMaterials = eventDoc.data().materialsAssigned || 0;
+      const currentEventMaterials = eventDoc.data().materialsDistributed || 0;
 
-      if (quantityToReturn > currentMaterialQty) {
-        throw new Error("Cannot return more than assigned.");
+      if (quantityToRestock > currentMaterialQty) {
+        throw new Error("Cannot restock more than distributed.");
       }
 
       // 1. Update Inventory
       transaction.update(itemRef, {
-        stockLevel: currentInventoryQty + quantityToReturn,
+        stockLevel: currentInventoryQty + quantityToRestock,
         updatedAt: new Date().toISOString()
       });
 
       // 2. Update Event Material Record
-      if (currentMaterialQty === quantityToReturn) {
+      if (currentMaterialQty === quantityToRestock) {
         transaction.delete(materialRef);
       } else {
         transaction.update(materialRef, {
-          quantity: currentMaterialQty - quantityToReturn
+          quantity: currentMaterialQty - quantityToRestock
         });
       }
 
       // 3. Update Event Total
       transaction.update(eventRef, {
-        materialsAssigned: currentEventMaterials - quantityToReturn
+        materialsDistributed: currentEventMaterials - quantityToRestock
       });
     });
 
-    await createAuditLog('RETURN', eventId, 'event', `Returned ${quantityToReturn} units of item ${itemId} from event`);
+    await createAuditLog('RESTOCK', eventId, 'event', `Restocked ${quantityToRestock} units of item ${itemId} from event`);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -572,8 +564,8 @@ export async function seedData() {
   ];
 
   const events = [
-    { name: 'Regional Meeting - North Sector', date: Timestamp.fromDate(new Date('2024-10-12')), location: 'Grand Plaza Convention Center', materialsAssigned: 1250, status: 'Scheduled', createdAt: new Date().toISOString() },
-    { name: 'Weekly Bible Study Series', date: Timestamp.fromDate(new Date('2024-10-14')), location: 'Community Center West', materialsAssigned: 420, status: 'Stock Alert', createdAt: new Date().toISOString() },
+    { name: 'Regional Meeting - North Sector', date: Timestamp.fromDate(new Date('2024-10-12')), location: 'Grand Plaza Convention Center', materialsDistributed: 1250, status: 'Scheduled', createdAt: new Date().toISOString() },
+    { name: 'Weekly Bible Study Series', date: Timestamp.fromDate(new Date('2024-10-14')), location: 'Community Center West', materialsDistributed: 420, status: 'Stock Alert', createdAt: new Date().toISOString() },
   ];
 
   for (const item of items) {
