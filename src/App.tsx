@@ -38,7 +38,8 @@ import {
   Users,
   ShieldAlert,
   Clock3,
-  Plus
+  Plus,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { seedData, updateSettings } from './services/firestoreService';
@@ -64,6 +65,7 @@ import DistributionModal from './components/DistributionModal';
 import BulkImportModal from './components/BulkImportModal';
 import QRScannerModal from './components/QRScannerModal';
 import AIInsightsView from './components/AIInsightsView';
+import { generateMonthlyReport } from './lib/pdfGenerator';
 import { exportToCSV } from './lib/csvExport';
 
 // --- Types ---
@@ -627,6 +629,7 @@ const InventoryView = ({ inventory, onAdd, onEdit, onBulkImport, globalSearch }:
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Title</th>
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Category</th>
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Language</th>
+                <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest text-right">Unit Price</th>
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest text-right">Stock Level</th>
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Status</th>
                 <th className="px-6 py-4"></th>
@@ -642,6 +645,7 @@ const InventoryView = ({ inventory, onAdd, onEdit, onBulkImport, globalSearch }:
                   </td>
                   <td className="px-6 py-4 text-[12px] text-on-surface">{row.category}</td>
                   <td className="px-6 py-4 text-[12px] text-on-surface">{row.language}</td>
+                  <td className="px-6 py-4 font-mono text-[13px] text-right">${row.unitPrice?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}</td>
                   <td className="px-6 py-4 font-mono text-[13px] text-right">{row.stockLevel?.toLocaleString()}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
@@ -665,7 +669,7 @@ const InventoryView = ({ inventory, onAdd, onEdit, onBulkImport, globalSearch }:
               ))}
               {filteredInventory.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-on-surface-variant text-xs font-mono uppercase tracking-widest">No matching items found</td>
+                  <td colSpan={8} className="px-6 py-12 text-center text-on-surface-variant text-xs font-mono uppercase tracking-widest">No matching items found</td>
                 </tr>
               )}
             </tbody>
@@ -963,7 +967,7 @@ const LogsView = ({ logs }: { logs: any[] }) => {
   );
 };
 
-const ReportsView = ({ inventory, events }: { inventory: any[], events: any[] }) => {
+const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: any[], events: any[], auditLogs: any[], settings: any }) => {
   const totalDistributions = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
   
   const categoryCounts = inventory.reduce((acc: any, item) => {
@@ -992,10 +996,17 @@ const ReportsView = ({ inventory, events }: { inventory: any[], events: any[] })
           </div>
           <button 
             onClick={() => exportToCSV(inventory, 'lit_ledger_full_report')}
-            className="bg-primary text-white px-4 py-2 rounded-sharp font-headline font-bold text-[12px] uppercase tracking-wider flex items-center gap-2 hover:bg-primary-container transition-all"
+            className="border border-outline-variant text-primary px-4 py-2 rounded-sharp font-headline font-bold text-[12px] uppercase tracking-wider flex items-center gap-2 hover:bg-surface-container transition-all"
           >
             <Download className="w-4 h-4" />
             Export CSV
+          </button>
+          <button 
+            onClick={() => generateMonthlyReport(inventory, events, auditLogs, settings)}
+            className="bg-primary text-white px-4 py-2 rounded-sharp font-headline font-bold text-[12px] uppercase tracking-wider flex items-center gap-2 hover:bg-primary-container transition-all shadow-md"
+          >
+            <FileText className="w-4 h-4" />
+            Generate PDF Report
           </button>
         </div>
       </div>
@@ -1668,7 +1679,7 @@ export default function App() {
                 globalSearch={globalSearch} 
               />
             )}
-              {activeTab === 'reports' && <ReportsView inventory={inventory} events={events} />}
+              {activeTab === 'reports' && <ReportsView inventory={inventory} events={events} auditLogs={auditLogs} settings={settings} />}
               {activeTab === 'events' && <EventsView events={events} onAdd={handleAddEvent} onEdit={handleEditEvent} />}
               {activeTab === 'users' && <UsersView users={users} />}
               {activeTab === 'logs' && <LogsView logs={auditLogs} />}

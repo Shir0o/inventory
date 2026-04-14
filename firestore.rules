@@ -85,6 +85,7 @@ service cloud.firestore {
              data.title is string && data.title.size() < 200 &&
              data.category in ['Bibles', 'Tracts', 'Study Guides'] &&
              data.stockLevel is number && data.stockLevel >= 0 &&
+             (data.unitPrice is number || !('unitPrice' in data)) &&
              data.status in ['Healthy', 'Low', 'Out'];
     }
 

@@ -558,9 +558,9 @@ export async function seedData() {
   const settingsPath = 'settings/system';
 
   const items = [
-    { sku: 'B-ES-992', title: 'Study Bible (Hardcover)', subtitle: 'Reina Valera 1960', category: 'Bibles', language: 'Spanish', stockLevel: 2410, status: 'Healthy', updatedAt: new Date().toISOString() },
-    { sku: 'T-EN-012', title: 'Steps to Freedom', subtitle: 'Evangelistic Tract Series', category: 'Tracts', language: 'English', stockLevel: 124, status: 'Low', updatedAt: new Date().toISOString() },
-    { sku: 'S-FR-441', title: 'Doctrine of Hope', subtitle: 'Advanced Study Series', category: 'Study Guides', language: 'French', stockLevel: 0, status: 'Out', updatedAt: new Date().toISOString() },
+    { sku: 'B-ES-992', title: 'Study Bible (Hardcover)', subtitle: 'Reina Valera 1960', category: 'Bibles', language: 'Spanish', stockLevel: 2410, unitPrice: 15.50, status: 'Healthy', updatedAt: new Date().toISOString() },
+    { sku: 'T-EN-012', title: 'Steps to Freedom', subtitle: 'Evangelistic Tract Series', category: 'Tracts', language: 'English', stockLevel: 124, unitPrice: 0.25, status: 'Low', updatedAt: new Date().toISOString() },
+    { sku: 'S-FR-441', title: 'Doctrine of Hope', subtitle: 'Advanced Study Series', category: 'Study Guides', language: 'French', stockLevel: 0, unitPrice: 5.00, status: 'Out', updatedAt: new Date().toISOString() },
   ];
 
   const events = [

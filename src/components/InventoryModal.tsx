@@ -17,6 +17,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
     subtitle: '',
     category: 'Bibles',
     language: 'English',
+    unitPrice: 0,
     stockLevel: 0,
     status: 'Healthy'
   });
@@ -30,6 +31,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
         subtitle: item.subtitle || '',
         category: item.category || 'Bibles',
         language: item.language || 'English',
+        unitPrice: item.unitPrice || 0,
         stockLevel: item.stockLevel || 0,
         status: item.status || 'Healthy'
       });
@@ -40,6 +42,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
         subtitle: '',
         category: 'Bibles',
         language: 'English',
+        unitPrice: 0,
         stockLevel: 0,
         status: 'Healthy'
       });
@@ -164,6 +167,17 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
                     onChange={e => setFormData({...formData, language: e.target.value})}
                     className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all"
                     placeholder="e.g. English"
+                  />
+                </div>
+                <div className="col-span-2 md:col-span-1 space-y-2">
+                  <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Unit Price ($)</label>
+                  <input 
+                    required
+                    type="number" 
+                    step="0.01"
+                    value={formData.unitPrice}
+                    onChange={e => setFormData({...formData, unitPrice: parseFloat(e.target.value) || 0})}
+                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-mono text-[14px] focus:ring-0 focus:border-primary transition-all"
                   />
                 </div>
                 <div className="col-span-2 md:col-span-1 space-y-2">
