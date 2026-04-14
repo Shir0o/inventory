@@ -63,11 +63,12 @@ import EventModal from './components/EventModal';
 import DistributionModal from './components/DistributionModal';
 import BulkImportModal from './components/BulkImportModal';
 import QRScannerModal from './components/QRScannerModal';
+import AIInsightsView from './components/AIInsightsView';
 import { exportToCSV } from './lib/csvExport';
 
 // --- Types ---
 
-type Tab = 'dashboard' | 'inventory' | 'events' | 'reports' | 'settings' | 'users' | 'logs';
+type Tab = 'dashboard' | 'inventory' | 'events' | 'reports' | 'settings' | 'users' | 'logs' | 'ai_insights';
 
 // --- Mock Data ---
 
@@ -97,6 +98,7 @@ const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin }: { activeTab
     { id: 'inventory', label: 'Inventory', icon: Package },
     { id: 'events', label: 'Events', icon: Calendar },
     { id: 'reports', label: 'Reports', icon: BarChart3 },
+    { id: 'ai_insights', label: 'AI Insights', icon: TrendingUp },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -1670,6 +1672,7 @@ export default function App() {
               {activeTab === 'events' && <EventsView events={events} onAdd={handleAddEvent} onEdit={handleEditEvent} />}
               {activeTab === 'users' && <UsersView users={users} />}
               {activeTab === 'logs' && <LogsView logs={auditLogs} />}
+              {activeTab === 'ai_insights' && <AIInsightsView inventory={inventory} events={events} auditLogs={auditLogs} />}
               {activeTab === 'settings' && <SettingsView settings={settings} />}
             </motion.div>
           </AnimatePresence>
