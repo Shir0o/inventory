@@ -487,9 +487,10 @@ export async function syncUserProfile(user: any) {
     
     if (!userDoc.exists()) {
       // 1. Check if email is authorized
-      const authEmailRef = doc(db, 'authorized_emails', user.email);
+      const normalizedEmail = user.email?.toLowerCase();
+      const authEmailRef = doc(db, 'authorized_emails', normalizedEmail);
       const authEmailDoc = await getDoc(authEmailRef);
-      const isPrimaryAdmin = user.email === "YilongWang05@gmail.com";
+      const isPrimaryAdmin = normalizedEmail === "yilongwang05@gmail.com";
 
       if (!authEmailDoc.exists() && !isPrimaryAdmin) {
         // Not authorized - this will trigger a permission error in rules
@@ -526,14 +527,15 @@ export function subscribeToAuthorizedEmails(callback: (emails: string[]) => void
 }
 
 export async function authorizeEmail(email: string) {
-  const path = `authorized_emails/${email}`;
+  const normalizedEmail = email.toLowerCase();
+  const path = `authorized_emails/${normalizedEmail}`;
   try {
     const { setDoc } = await import('firebase/firestore');
-    await setDoc(doc(db, 'authorized_emails', email), { 
+    await setDoc(doc(db, 'authorized_emails', normalizedEmail), { 
       addedAt: new Date().toISOString(),
       addedBy: auth.currentUser?.email 
     });
-    await createAuditLog('EMAIL_AUTHORIZED', email, 'auth', `Authorized email: ${email}`);
+    await createAuditLog('EMAIL_AUTHORIZED', normalizedEmail, 'auth', `Authorized email: ${normalizedEmail}`);
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -541,11 +543,12 @@ export async function authorizeEmail(email: string) {
 }
 
 export async function removeAuthorizedEmail(email: string) {
-  const path = `authorized_emails/${email}`;
+  const normalizedEmail = email.toLowerCase();
+  const path = `authorized_emails/${normalizedEmail}`;
   try {
     const { deleteDoc } = await import('firebase/firestore');
-    await deleteDoc(doc(db, 'authorized_emails', email));
-    await createAuditLog('EMAIL_DEAUTHORIZED', email, 'auth', `Deauthorized email: ${email}`);
+    await deleteDoc(doc(db, 'authorized_emails', normalizedEmail));
+    await createAuditLog('EMAIL_DEAUTHORIZED', normalizedEmail, 'auth', `Deauthorized email: ${normalizedEmail}`);
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);

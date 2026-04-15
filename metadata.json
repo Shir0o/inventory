@@ -1,6 +1,8 @@
 {
-  "name": "Literature Inventory System",
-  "description": "An internal literature inventory and distribution management system for tracking Bibles, tracts, and study guides.",
+  "name": "Inventory System",
+  "description": "An internal inventory and distribution management system for tracking Bibles, tracts, and study guides.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [],
+  "y7": [],
+  "Yp": []
 }
