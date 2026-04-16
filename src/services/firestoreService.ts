@@ -561,11 +561,12 @@ export async function seedData() {
   const settingsPath = 'settings/system';
 
   const items = [
-    { sku: 'B-ES-992', title: 'Study Bible (Hardcover)', subtitle: 'Reina Valera 1960', category: 'Bibles', language: 'Spanish', stockLevel: 2410, unitPrice: 15.50, status: 'Healthy', updatedAt: new Date().toISOString() },
-    { sku: 'T-EN-012', title: 'Steps to Freedom', subtitle: 'Evangelistic Tract Series', category: 'Tracts', language: 'English', stockLevel: 124, unitPrice: 0.25, status: 'Low', updatedAt: new Date().toISOString() },
-    { sku: 'S-FR-441', title: 'Doctrine of Hope', subtitle: 'Advanced Study Series', category: 'Study Guides', language: 'French', stockLevel: 0, unitPrice: 5.00, status: 'Out', updatedAt: new Date().toISOString() },
-    { sku: 'M-EN-500', title: 'Prophecy Times', subtitle: 'Quarterly Magazine', category: 'Magazines', language: 'English', stockLevel: 450, unitPrice: 1.50, status: 'Healthy', updatedAt: new Date().toISOString() },
-    { sku: 'D-ES-101', title: 'The Great Hope', subtitle: 'Documentary DVD', category: 'DVDs/Media', language: 'Spanish', stockLevel: 65, unitPrice: 2.00, status: 'Healthy', updatedAt: new Date().toISOString() },
+    { sku: 'B-EN-001', title: 'NKJV Holy Bible', subtitle: 'Pew Edition - Hardcover', category: 'Bibles', language: 'English', stockLevel: 450, unitPrice: 12.50, status: 'Healthy', updatedAt: new Date().toISOString() },
+    { sku: 'B-ES-001', title: 'Santa Biblia RV1960', subtitle: 'Edición de Estudio', category: 'Bibles', language: 'Spanish', stockLevel: 320, unitPrice: 15.50, status: 'Healthy', updatedAt: new Date().toISOString() },
+    { sku: 'T-EN-001', title: 'Steps to Christ', subtitle: 'Pocket Tract', category: 'Tracts', language: 'English', stockLevel: 2500, unitPrice: 0.15, status: 'Healthy', updatedAt: new Date().toISOString() },
+    { sku: 'T-ES-001', title: 'El Camino a Cristo', subtitle: 'Tratado de Bolsillo', category: 'Tracts', language: 'Spanish', stockLevel: 1800, unitPrice: 0.15, status: 'Healthy', updatedAt: new Date().toISOString() },
+    { sku: 'BK-EN-001', title: 'Understanding Prophecy', subtitle: 'Introductory Booklet', category: 'Booklets', language: 'English', stockLevel: 120, unitPrice: 2.50, status: 'Low', updatedAt: new Date().toISOString() },
+    { sku: 'BK-ES-001', title: 'Entendiendo la Profecía', subtitle: 'Folleto Introductorio', category: 'Booklets', language: 'Spanish', stockLevel: 85, unitPrice: 2.50, status: 'Low', updatedAt: new Date().toISOString() },
   ];
 
   const events = [

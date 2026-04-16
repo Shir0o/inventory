@@ -133,10 +133,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
                   >
                     <option>Bibles</option>
                     <option>Tracts</option>
-                    <option>Study Guides</option>
-                    <option>Magazines</option>
-                    <option>DVDs/Media</option>
-                    <option>Other</option>
+                    <option>Booklets</option>
                   </select>
                 </div>
                 <div className="col-span-2 space-y-2">

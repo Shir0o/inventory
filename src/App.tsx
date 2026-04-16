@@ -75,21 +75,21 @@ type Tab = 'dashboard' | 'inventory' | 'events' | 'reports' | 'settings' | 'user
 // --- Mock Data ---
 
 const lineData = [
-  { name: 'Jan', literature: 250, media: 180 },
-  { name: 'Feb', literature: 220, media: 200 },
-  { name: 'Mar', literature: 240, media: 150 },
-  { name: 'Apr', literature: 180, media: 160 },
-  { name: 'May', literature: 200, media: 120 },
-  { name: 'Jun', literature: 120, media: 130 },
-  { name: 'Jul', literature: 140, media: 90 },
-  { name: 'Aug', literature: 100, media: 110 },
-  { name: 'Sep', literature: 110, media: 70 },
+  { name: 'Jan', bibles: 450, tracts: 2500, booklets: 120 },
+  { name: 'Feb', bibles: 420, tracts: 2300, booklets: 110 },
+  { name: 'Mar', bibles: 440, tracts: 2100, booklets: 115 },
+  { name: 'Apr', bibles: 380, tracts: 1900, booklets: 105 },
+  { name: 'May', bibles: 400, tracts: 1800, booklets: 95 },
+  { name: 'Jun', bibles: 320, tracts: 1600, booklets: 85 },
+  { name: 'Jul', bibles: 340, tracts: 1400, booklets: 80 },
+  { name: 'Aug', bibles: 300, tracts: 1200, booklets: 75 },
+  { name: 'Sep', bibles: 310, tracts: 1100, booklets: 70 },
 ];
 
 const pieData = [
   { name: 'Bibles', value: 45, color: '#0A2540' },
-  { name: 'Tracts', value: 30, color: '#00D4B6' },
-  { name: 'Study Guides', value: 25, color: '#FF7369' },
+  { name: 'Tracts', value: 35, color: '#00D4B6' },
+  { name: 'Booklets', value: 20, color: '#FF7369' },
 ];
 
 // --- Components ---
@@ -186,7 +186,7 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan }: { searchQuery: string, 
           />
         </div>
         <div className="flex items-center gap-6">
-          {['Bibles', 'Tracts', 'Study Guides', 'Media'].map((link) => (
+          {['Bibles', 'Tracts', 'Booklets'].map((link) => (
             <a key={link} href="#" className="text-slate-500 hover:text-primary font-headline font-bold text-[11px] uppercase tracking-[1px] transition-all">
               {link}
             </a>
@@ -1039,12 +1039,16 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
             </div>
             <div className="flex gap-4">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-secondary rounded-full" />
+                <div className="w-3 h-3 bg-primary rounded-full" />
                 <span className="text-[11px] font-headline uppercase font-bold text-on-surface-variant">Bibles</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-tertiary rounded-full" />
+                <div className="w-3 h-3 bg-secondary rounded-full" />
                 <span className="text-[11px] font-headline uppercase font-bold text-on-surface-variant">Tracts</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-tertiary rounded-full" />
+                <span className="text-[11px] font-headline uppercase font-bold text-on-surface-variant">Booklets</span>
               </div>
             </div>
           </div>
@@ -1053,8 +1057,8 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
               <AreaChart data={lineData}>
                 <defs>
                   <linearGradient id="colorBibles" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00D4B6" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#00D4B6" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#0A2540" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#0A2540" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E6EBEE" />
@@ -1066,8 +1070,9 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
                 />
                 <YAxis hide />
                 <Tooltip />
-                <Area type="monotone" dataKey="bibles" stroke="#00D4B6" strokeWidth={3} fillOpacity={1} fill="url(#colorBibles)" />
-                <Line type="monotone" dataKey="tracts" stroke="#FF7369" strokeWidth={3} strokeDasharray="8 4" dot={false} />
+                <Area type="monotone" dataKey="bibles" stroke="#0A2540" strokeWidth={3} fillOpacity={1} fill="url(#colorBibles)" />
+                <Line type="monotone" dataKey="tracts" stroke="#00D4B6" strokeWidth={3} dot={false} />
+                <Line type="monotone" dataKey="booklets" stroke="#FF7369" strokeWidth={3} strokeDasharray="8 4" dot={false} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

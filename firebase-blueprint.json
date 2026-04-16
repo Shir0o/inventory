@@ -8,7 +8,7 @@
         "sku": { "type": "string", "description": "Stock Keeping Unit" },
         "title": { "type": "string", "description": "Title of the literature or material" },
         "subtitle": { "type": "string", "description": "Subtitle or edition details" },
-        "category": { "type": "string", "enum": ["Bibles", "Tracts", "Study Guides", "Magazines", "DVDs/Media", "Other"] },
+        "category": { "type": "string", "enum": ["Bibles", "Tracts", "Booklets"] },
         "language": { "type": "string", "description": "Language of the material" },
         "unitPrice": { "type": "number", "description": "Cost per unit for valuation" },
         "stockLevel": { "type": "number" },
