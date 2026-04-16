@@ -564,10 +564,12 @@ export async function seedData() {
     { sku: 'B-ES-992', title: 'Study Bible (Hardcover)', subtitle: 'Reina Valera 1960', category: 'Bibles', language: 'Spanish', stockLevel: 2410, unitPrice: 15.50, status: 'Healthy', updatedAt: new Date().toISOString() },
     { sku: 'T-EN-012', title: 'Steps to Freedom', subtitle: 'Evangelistic Tract Series', category: 'Tracts', language: 'English', stockLevel: 124, unitPrice: 0.25, status: 'Low', updatedAt: new Date().toISOString() },
     { sku: 'S-FR-441', title: 'Doctrine of Hope', subtitle: 'Advanced Study Series', category: 'Study Guides', language: 'French', stockLevel: 0, unitPrice: 5.00, status: 'Out', updatedAt: new Date().toISOString() },
+    { sku: 'M-EN-500', title: 'Prophecy Times', subtitle: 'Quarterly Magazine', category: 'Magazines', language: 'English', stockLevel: 450, unitPrice: 1.50, status: 'Healthy', updatedAt: new Date().toISOString() },
+    { sku: 'D-ES-101', title: 'The Great Hope', subtitle: 'Documentary DVD', category: 'DVDs/Media', language: 'Spanish', stockLevel: 65, unitPrice: 2.00, status: 'Healthy', updatedAt: new Date().toISOString() },
   ];
 
   const events = [
-    { name: 'Regional Meeting - North Sector', date: Timestamp.fromDate(new Date('2024-10-12')), location: 'Grand Plaza Convention Center', materialsDistributed: 1250, status: 'Scheduled', createdAt: new Date().toISOString() },
+    { name: 'Regional Outreach - North Sector', date: Timestamp.fromDate(new Date('2024-10-12')), location: 'Grand Plaza Convention Center', materialsDistributed: 1250, status: 'Scheduled', createdAt: new Date().toISOString() },
     { name: 'Weekly Bible Study Series', date: Timestamp.fromDate(new Date('2024-10-14')), location: 'Community Center West', materialsDistributed: 420, status: 'Stock Alert', createdAt: new Date().toISOString() },
   ];
 

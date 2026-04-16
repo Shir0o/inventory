@@ -75,20 +75,20 @@ type Tab = 'dashboard' | 'inventory' | 'events' | 'reports' | 'settings' | 'user
 // --- Mock Data ---
 
 const lineData = [
-  { name: 'Jan', bibles: 250, tracts: 180 },
-  { name: 'Feb', bibles: 220, tracts: 200 },
-  { name: 'Mar', bibles: 240, tracts: 150 },
-  { name: 'Apr', bibles: 180, tracts: 160 },
-  { name: 'May', bibles: 200, tracts: 120 },
-  { name: 'Jun', bibles: 120, tracts: 130 },
-  { name: 'Jul', bibles: 140, tracts: 90 },
-  { name: 'Aug', bibles: 100, tracts: 110 },
-  { name: 'Sep', bibles: 110, tracts: 70 },
+  { name: 'Jan', literature: 250, media: 180 },
+  { name: 'Feb', literature: 220, media: 200 },
+  { name: 'Mar', literature: 240, media: 150 },
+  { name: 'Apr', literature: 180, media: 160 },
+  { name: 'May', literature: 200, media: 120 },
+  { name: 'Jun', literature: 120, media: 130 },
+  { name: 'Jul', literature: 140, media: 90 },
+  { name: 'Aug', literature: 100, media: 110 },
+  { name: 'Sep', literature: 110, media: 70 },
 ];
 
 const pieData = [
-  { name: 'Hardcover Bibles', value: 45, color: '#0A2540' },
-  { name: 'Evangelistic Tracts', value: 30, color: '#00D4B6' },
+  { name: 'Bibles', value: 45, color: '#0A2540' },
+  { name: 'Tracts', value: 30, color: '#00D4B6' },
   { name: 'Study Guides', value: 25, color: '#FF7369' },
 ];
 
@@ -186,7 +186,7 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan }: { searchQuery: string, 
           />
         </div>
         <div className="flex items-center gap-6">
-          {['Bibles', 'Tracts', 'Study Guides'].map((link) => (
+          {['Bibles', 'Tracts', 'Study Guides', 'Media'].map((link) => (
             <a key={link} href="#" className="text-slate-500 hover:text-primary font-headline font-bold text-[11px] uppercase tracking-[1px] transition-all">
               {link}
             </a>
@@ -491,8 +491,8 @@ const InventoryView = ({ inventory, onAdd, onEdit, onBulkImport, globalSearch }:
       <div className="flex justify-between items-end">
         <div>
           <span className="font-mono text-[11px] text-secondary bg-primary px-2 py-0.5 rounded-sharp mb-2 inline-block">INV-MTX-PRIME</span>
-          <h2 className="text-[32px] font-headline font-bold text-primary tracking-tight leading-none">Inventory Matrix</h2>
-          <p className="text-on-surface-variant text-sm mt-2">Real-time status tracking and asset management for global distribution.</p>
+          <h2 className="text-[32px] font-headline font-bold text-primary tracking-tight leading-none">Literature & Media Matrix</h2>
+          <p className="text-on-surface-variant text-sm mt-2">Real-time status tracking for outreach literature and mission media.</p>
         </div>
         <div className="flex gap-2">
           <button 

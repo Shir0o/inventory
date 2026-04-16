@@ -2,14 +2,14 @@
   "entities": {
     "InventoryItem": {
       "title": "Inventory Item",
-      "description": "A piece of literature in the inventory.",
+      "description": "A piece of outreach literature or mission material.",
       "type": "object",
       "properties": {
         "sku": { "type": "string", "description": "Stock Keeping Unit" },
-        "title": { "type": "string", "description": "Title of the literature" },
+        "title": { "type": "string", "description": "Title of the literature or material" },
         "subtitle": { "type": "string", "description": "Subtitle or edition details" },
-        "category": { "type": "string", "enum": ["Bibles", "Tracts", "Study Guides"] },
-        "language": { "type": "string" },
+        "category": { "type": "string", "enum": ["Bibles", "Tracts", "Study Guides", "Magazines", "DVDs/Media", "Other"] },
+        "language": { "type": "string", "description": "Language of the material" },
         "unitPrice": { "type": "number", "description": "Cost per unit for valuation" },
         "stockLevel": { "type": "number" },
         "status": { "type": "string", "enum": ["Healthy", "Low", "Out"] },
@@ -19,13 +19,13 @@
     },
     "Event": {
       "title": "Distribution Event",
-      "description": "An event where literature is distributed.",
+      "description": "An event where outreach materials are distributed.",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
         "location": { "type": "string" },
-        "materialsDistributed": { "type": "number" },
+        "materialsDistributed": { "type": "number", "description": "Total count of materials distributed" },
         "status": { "type": "string", "enum": ["Scheduled", "Stock Alert", "Drafting", "Completed"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },

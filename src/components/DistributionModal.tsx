@@ -94,7 +94,7 @@ const DistributionModal = ({ isOpen, onClose, events, inventory, settings }: Dis
               <div className="flex items-center gap-3">
                 <ShoppingCart className="w-6 h-6 text-primary" />
                 <h2 className="font-headline font-bold text-lg text-primary uppercase tracking-wider">
-                  Material Distribution
+                  Outreach Material Distribution
                 </h2>
               </div>
               <button onClick={onClose} className="text-on-surface-variant hover:text-primary transition-colors">
