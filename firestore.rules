@@ -7,7 +7,7 @@
 //   - sku: string (required)
 //   - title: string (required)
 //   - subtitle: string (optional)
-//   - category: string (required, enum: Bibles, Tracts, Study Guides)
+//   - category: string (required, enum: Bibles, Tracts, Booklets)
 //   - language: string (optional)
 //   - stockLevel: number (required)
 //   - status: string (required, enum: Healthy, Low, Out)
@@ -83,7 +83,7 @@ service cloud.firestore {
       return data.keys().hasAll(['sku', 'title', 'category', 'stockLevel', 'status']) &&
              data.sku is string && data.sku.size() < 50 &&
              data.title is string && data.title.size() < 200 &&
-             data.category in ['Bibles', 'Tracts', 'Study Guides'] &&
+             data.category in ['Bibles', 'Tracts', 'Booklets'] &&
              data.stockLevel is number && data.stockLevel >= 0 &&
              (data.unitPrice is number || !('unitPrice' in data)) &&
              data.status in ['Healthy', 'Low', 'Out'];

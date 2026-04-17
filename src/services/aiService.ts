@@ -23,7 +23,7 @@ export async function parseInventoryData(rawData: string): Promise<ParsedInvento
       - sku: string (required)
       - title: string (required)
       - subtitle: string (optional)
-      - category: string (required, must be one of: Bibles, Tracts, Study Guides, Magazines, Other)
+      - category: string (required, must be one of: Bibles, Tracts, Booklets)
       - language: string (optional)
       - stockLevel: number (required)
       - status: string (required, must be one of: Healthy, Low, Out. Logic: Healthy > 250, Low <= 250, Out = 0)
@@ -43,7 +43,7 @@ export async function parseInventoryData(rawData: string): Promise<ParsedInvento
               subtitle: { type: Type.STRING },
               category: { 
                 type: Type.STRING,
-                enum: ['Bibles', 'Tracts', 'Study Guides', 'Magazines', 'Other']
+                enum: ['Bibles', 'Tracts', 'Booklets']
               },
               language: { type: Type.STRING },
               stockLevel: { type: Type.NUMBER },

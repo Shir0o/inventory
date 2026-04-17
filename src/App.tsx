@@ -491,8 +491,8 @@ const InventoryView = ({ inventory, onAdd, onEdit, onBulkImport, globalSearch }:
       <div className="flex justify-between items-end">
         <div>
           <span className="font-mono text-[11px] text-secondary bg-primary px-2 py-0.5 rounded-sharp mb-2 inline-block">INV-MTX-PRIME</span>
-          <h2 className="text-[32px] font-headline font-bold text-primary tracking-tight leading-none">Literature & Media Matrix</h2>
-          <p className="text-on-surface-variant text-sm mt-2">Real-time status tracking for outreach literature and mission media.</p>
+          <h2 className="text-[32px] font-headline font-bold text-primary tracking-tight leading-none">Literature Matrix</h2>
+          <p className="text-on-surface-variant text-sm mt-2">Real-time status tracking for outreach literature and resources.</p>
         </div>
         <div className="flex gap-2">
           <button 
