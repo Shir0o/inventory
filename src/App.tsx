@@ -201,12 +201,12 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: { searchQu
 
   return (
     <header className="fixed top-0 right-0 h-16 left-0 lg:left-64 bg-surface border-b border-outline-variant flex items-center justify-between px-4 lg:px-8 z-50">
-      <div className="flex items-center gap-4 lg:gap-8 flex-1">
-        <button onClick={onMenuClick} className="lg:hidden p-2 text-primary hover:bg-surface-container rounded-sharp transition-colors">
+      <div className="flex items-center gap-4 lg:gap-6 flex-1 min-w-0">
+        <button onClick={onMenuClick} className="lg:hidden p-2 text-primary hover:bg-surface-container rounded-sharp transition-colors shrink-0">
           <Menu className="w-6 h-6" />
         </button>
 
-        <div className="relative group w-48 lg:w-64 hidden sm:block transition-all duration-300 focus-within:w-72">
+        <div className="relative group w-32 sm:w-48 lg:w-64 transition-all duration-300 focus-within:w-40 sm:focus-within:w-72 shrink-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
           <input 
             type="text" 
@@ -217,7 +217,7 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: { searchQu
           />
         </div>
 
-        <div className="hidden lg:flex items-center gap-10 border-l border-outline-variant pl-8 ml-4">
+        <div className="hidden xl:flex items-center gap-6 2xl:gap-10 border-l border-outline-variant pl-6 2xl:pl-8 ml-2 2xl:ml-4">
           {[
             { label: 'Bibles', icon: BookOpen },
             { label: 'Tracts', icon: ScrollText },
@@ -231,7 +231,7 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: { searchQu
         </div>
       </div>
 
-      <div className="flex items-center gap-2 lg:gap-4 pr-2">
+      <div className="flex items-center gap-1 sm:gap-2 lg:gap-4 shrink-0">
         <button 
           onClick={onScan}
           className="p-2 text-slate-500 hover:text-primary hover:bg-surface-container transition-all flex items-center gap-2 group rounded-sharp"
