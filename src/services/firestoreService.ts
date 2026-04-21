@@ -493,16 +493,19 @@ export async function syncUserProfile(user: any) {
       const isPrimaryAdmin = normalizedEmail === "yilongwang05@gmail.com";
 
       if (!authEmailDoc.exists() && !isPrimaryAdmin) {
-        // Not authorized - this will trigger a permission error in rules
-        // or we can throw a custom error here
+        // CRITICAL: If not authorized by admin, do NOT create a record
         throw new Error("NOT_AUTHORIZED");
       }
 
-      // New user defaults to 'guest' role for admin approval flow
-      // Unless it's the default admin email
-      const role = isPrimaryAdmin ? 'admin' : 'guest';
+      // Use the role assigned by admin in authorized_emails, or 'admin' for primary
+      const assignedRole = authEmailDoc.exists() ? authEmailDoc.data().role : (isPrimaryAdmin ? 'admin' : null);
+      
+      if (!assignedRole) {
+        throw new Error("NOT_AUTHORIZED");
+      }
+
       const { setDoc } = await import('firebase/firestore');
-      return await setDoc(userRef, { ...data, role });
+      return await setDoc(userRef, { ...data, role: assignedRole });
     } else {
       return await updateDoc(userRef, data);
     }
@@ -526,16 +529,17 @@ export function subscribeToAuthorizedEmails(callback: (emails: string[]) => void
   });
 }
 
-export async function authorizeEmail(email: string) {
+export async function authorizeEmail(email: string, role: 'admin' | 'user' | 'guest' = 'user') {
   const normalizedEmail = email.toLowerCase();
   const path = `authorized_emails/${normalizedEmail}`;
   try {
     const { setDoc } = await import('firebase/firestore');
     await setDoc(doc(db, 'authorized_emails', normalizedEmail), { 
+      role,
       addedAt: new Date().toISOString(),
       addedBy: auth.currentUser?.email 
     });
-    await createAuditLog('EMAIL_AUTHORIZED', normalizedEmail, 'auth', `Authorized email: ${normalizedEmail}`);
+    await createAuditLog('EMAIL_AUTHORIZED', normalizedEmail, 'auth', `Authorized email: ${normalizedEmail} with role: ${role}`);
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
