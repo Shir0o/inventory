@@ -41,7 +41,10 @@ import {
   Plus,
   FileText,
   Menu,
-  X
+  X,
+  BookOpen,
+  ScrollText,
+  Library
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { seedData, updateSettings } from './services/firestoreService';
@@ -203,40 +206,45 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: { searchQu
           <Menu className="w-6 h-6" />
         </button>
 
-        <div className="relative group w-48 lg:w-64 hidden sm:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <div className="relative group w-48 lg:w-64 hidden sm:block transition-all duration-300 focus-within:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
           <input 
             type="text" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="SEARCH..." 
-            className="w-full pl-10 pr-4 py-1.5 bg-surface-container border-none text-[12px] font-mono tracking-tight focus:ring-1 focus:ring-primary rounded-sharp"
+            className="w-full pl-10 pr-4 py-2 bg-surface-container border-none text-[11px] font-mono tracking-wider focus:ring-1 focus:ring-primary rounded-sharp transition-all"
           />
         </div>
 
-        <div className="hidden lg:flex items-center gap-6">
-          {['Bibles', 'Tracts', 'Booklets'].map((link) => (
-            <a key={link} href="#" className="text-slate-500 hover:text-primary font-headline font-bold text-[11px] uppercase tracking-[1px] transition-all whitespace-nowrap">
-              {link}
+        <div className="hidden lg:flex items-center gap-10 border-l border-outline-variant pl-8 ml-4">
+          {[
+            { label: 'Bibles', icon: BookOpen },
+            { label: 'Tracts', icon: ScrollText },
+            { label: 'Booklets', icon: Library }
+          ].map((item) => (
+            <a key={item.label} href="#" className="flex items-center gap-2.5 text-slate-500 hover:text-primary font-headline font-bold text-[11px] uppercase tracking-[2px] transition-all group whitespace-nowrap">
+              <item.icon className="w-4 h-4 opacity-40 group-hover:opacity-100 transition-opacity" />
+              {item.label}
             </a>
           ))}
         </div>
       </div>
 
-      <div className="flex items-center gap-2 lg:gap-4">
+      <div className="flex items-center gap-2 lg:gap-4 pr-2">
         <button 
           onClick={onScan}
-          className="p-2 text-slate-500 hover:text-primary transition-colors flex items-center gap-2 group"
+          className="p-2 text-slate-500 hover:text-primary hover:bg-surface-container transition-all flex items-center gap-2 group rounded-sharp"
           title="Scan QR Code"
         >
-          <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          <Camera className="w-5 h-5 group-hover:rotate-12 transition-transform" />
           <span className="text-[10px] font-mono uppercase tracking-widest hidden xl:block">Scan</span>
         </button>
 
         <div className="relative">
           <button 
             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-            className="p-2 text-slate-500 hover:text-primary transition-colors relative"
+            className="p-2 text-slate-500 hover:text-primary hover:bg-surface-container transition-all relative rounded-sharp"
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
@@ -299,10 +307,10 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: { searchQu
           </AnimatePresence>
         </div>
         
-        <button className="p-2 text-slate-500 hover:text-primary transition-colors" onClick={logout} title="Logout">
+        <button className="p-2 text-slate-500 hover:text-primary hover:bg-surface-container transition-all rounded-sharp" onClick={logout} title="Logout">
           <LogOut className="w-5 h-5" />
         </button>
-        <div className="flex items-center gap-2 lg:gap-3 ml-1 lg:ml-2 pl-2 lg:pl-4 border-l border-outline-variant">
+        <div className="flex items-center gap-3 lg:gap-4 ml-2 lg:ml-4 pl-4 lg:pl-6 border-l border-outline-variant">
           <div className="text-right hidden sm:block">
             <div className="text-[11px] font-bold text-primary truncate max-w-[120px]">{user?.displayName || 'Admin'}</div>
           </div>
