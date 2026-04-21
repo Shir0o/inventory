@@ -39,7 +39,9 @@ import {
   ShieldAlert,
   Clock3,
   Plus,
-  FileText
+  FileText,
+  Menu,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { seedData, updateSettings } from './services/firestoreService';
@@ -94,7 +96,7 @@ const pieData = [
 
 // --- Components ---
 
-const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin }: { activeTab: Tab, setActiveTab: (t: Tab) => void, onDistribute: () => void, isAdmin: boolean }) => {
+const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin, isOpen, onClose }: { activeTab: Tab, setActiveTab: (t: Tab) => void, onDistribute: () => void, isAdmin: boolean, isOpen: boolean, onClose: () => void }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'inventory', label: 'Inventory', icon: Package },
@@ -110,55 +112,77 @@ const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin }: { activeTab
   }
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-60 bg-primary flex flex-col z-50">
-      <div className="p-6">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-8 h-8 bg-secondary flex items-center justify-center rounded-sharp">
-            <Database className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <div className="font-mono font-bold text-lg tracking-tighter text-white">INVENTORY SYSTEM</div>
-            <div className="font-headline font-medium text-[10px] text-slate-400 tracking-widest uppercase opacity-60">INTERNAL ACCESS ONLY</div>
-          </div>
-        </div>
-      </div>
+    <>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/50 z-[60] lg:hidden backdrop-blur-sm"
+          />
+        )}
+      </AnimatePresence>
 
-      <nav className="flex-1 mt-4 space-y-1">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setActiveTab(item.id as Tab)}
-            className={cn(
-              "w-full px-6 py-3 flex items-center gap-3 font-headline text-[13px] tracking-tight transition-all duration-150",
-              activeTab === item.id 
-                ? "text-secondary border-l-4 border-secondary bg-primary-container font-bold" 
-                : "text-slate-300 hover:text-white hover:bg-primary-container"
-            )}
-          >
-            <item.icon className={cn("w-5 h-5", activeTab === item.id ? "fill-secondary/10" : "")} />
-            <span>{item.label}</span>
+      <aside className={cn(
+        "fixed left-0 top-0 h-screen w-64 bg-primary flex flex-col z-[70] transition-transform duration-300 lg:translate-x-0",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="p-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-secondary flex items-center justify-center rounded-sharp">
+              <Database className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <div className="font-mono font-bold text-lg tracking-tighter text-white uppercase leading-none">Invo</div>
+              <div className="font-headline font-medium text-[8px] text-slate-400 tracking-widest uppercase opacity-60">System v1</div>
+            </div>
+          </div>
+          <button onClick={onClose} className="lg:hidden text-white hover:text-secondary transition-colors">
+            <X className="w-6 h-6" />
           </button>
-        ))}
-      </nav>
+        </div>
 
-      <div className="p-6 mt-auto space-y-3">
-        <button 
-          onClick={onDistribute}
-          className="w-full bg-secondary text-primary font-headline font-bold text-xs py-3 rounded-sharp flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg"
-        >
-          <ShoppingCart className="w-4 h-4" />
-          DISTRIBUTE
-        </button>
-        <button className="w-full border border-slate-500 text-slate-300 font-headline font-bold text-xs py-3 rounded-sharp flex items-center justify-center gap-2 hover:bg-primary-container transition-colors">
-          <PlusCircle className="w-4 h-4" />
-          QUICK ENTRY
-        </button>
-      </div>
-    </aside>
+        <nav className="flex-1 mt-4 space-y-1 overflow-y-auto custom-scrollbar">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveTab(item.id as Tab);
+                if (window.innerWidth < 1024) onClose();
+              }}
+              className={cn(
+                "w-full px-6 py-3 flex items-center gap-3 font-headline text-[13px] tracking-tight transition-all duration-150",
+                activeTab === item.id 
+                  ? "text-secondary border-l-4 border-secondary bg-primary-container font-bold" 
+                  : "text-slate-300 hover:text-white hover:bg-primary-container"
+              )}
+            >
+              <item.icon className={cn("w-5 h-5", activeTab === item.id ? "fill-secondary/10" : "")} />
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="p-6 mt-auto space-y-3">
+          <button 
+            onClick={() => {
+              onDistribute();
+              if (window.innerWidth < 1024) onClose();
+            }}
+            className="w-full bg-secondary text-primary font-headline font-bold text-xs py-3 rounded-sharp flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg"
+          >
+            <ShoppingCart className="w-4 h-4" />
+            DISTRIBUTE
+          </button>
+        </div>
+      </aside>
+    </>
   );
 };
 
-const Topbar = ({ searchQuery, setSearchQuery, onScan }: { searchQuery: string, setSearchQuery: (s: string) => void, onScan: () => void }) => {
+const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: { searchQuery: string, setSearchQuery: (s: string) => void, onScan: () => void, onMenuClick: () => void }) => {
   const { user, logout, notifications } = useFirebase();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -173,35 +197,40 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan }: { searchQuery: string, 
   };
 
   return (
-    <header className="fixed top-0 right-0 h-16 left-60 bg-surface border-b border-outline-variant flex items-center justify-between px-8 z-40">
-      <div className="flex items-center gap-8 flex-1">
-        <div className="relative group w-64">
+    <header className="fixed top-0 right-0 h-16 left-0 lg:left-64 bg-surface border-b border-outline-variant flex items-center justify-between px-4 lg:px-8 z-50">
+      <div className="flex items-center gap-4 lg:gap-8 flex-1">
+        <button onClick={onMenuClick} className="lg:hidden p-2 text-primary hover:bg-surface-container rounded-sharp transition-colors">
+          <Menu className="w-6 h-6" />
+        </button>
+
+        <div className="relative group w-48 lg:w-64 hidden sm:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input 
             type="text" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="SEARCH SYSTEM..." 
+            placeholder="SEARCH..." 
             className="w-full pl-10 pr-4 py-1.5 bg-surface-container border-none text-[12px] font-mono tracking-tight focus:ring-1 focus:ring-primary rounded-sharp"
           />
         </div>
-        <div className="flex items-center gap-6">
+
+        <div className="hidden lg:flex items-center gap-6">
           {['Bibles', 'Tracts', 'Booklets'].map((link) => (
-            <a key={link} href="#" className="text-slate-500 hover:text-primary font-headline font-bold text-[11px] uppercase tracking-[1px] transition-all">
+            <a key={link} href="#" className="text-slate-500 hover:text-primary font-headline font-bold text-[11px] uppercase tracking-[1px] transition-all whitespace-nowrap">
               {link}
             </a>
           ))}
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 lg:gap-4">
         <button 
           onClick={onScan}
           className="p-2 text-slate-500 hover:text-primary transition-colors flex items-center gap-2 group"
           title="Scan QR Code"
         >
           <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          <span className="text-[10px] font-mono uppercase tracking-widest hidden md:block">Scan</span>
+          <span className="text-[10px] font-mono uppercase tracking-widest hidden xl:block">Scan</span>
         </button>
 
         <div className="relative">
@@ -225,13 +254,13 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan }: { searchQuery: string, 
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute right-0 mt-2 w-80 bg-background ledger-card shadow-2xl z-50 overflow-hidden"
+                  className="absolute right-0 mt-2 w-[calc(100vw-32px)] sm:w-80 bg-background ledger-card shadow-2xl z-50 overflow-hidden"
                 >
                   <div className="px-4 py-3 border-b border-outline-variant bg-surface-container flex justify-between items-center">
                     <span className="font-headline font-bold text-[11px] uppercase tracking-widest text-primary">Notifications</span>
                     {unreadCount > 0 && <span className="font-mono text-[9px] text-tertiary font-bold uppercase">{unreadCount} New Alerts</span>}
                   </div>
-                  <div className="max-h-96 overflow-y-auto">
+                  <div className="max-h-[60vh] overflow-y-auto">
                     {notifications.length === 0 ? (
                       <div className="p-8 text-center opacity-40">
                         <BellRing className="w-8 h-8 mx-auto mb-2" />
@@ -251,7 +280,7 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan }: { searchQuery: string, 
                           }}
                         >
                           <div className="flex gap-3">
-                            <div className="mt-1">{getNotificationIcon(n.type)}</div>
+                            <div className="mt-1 shrink-0">{getNotificationIcon(n.type)}</div>
                             <div>
                               <p className="font-headline font-bold text-[13px] text-primary">{n.title}</p>
                               <p className="text-[12px] text-on-surface-variant leading-tight mt-1">{n.message}</p>
@@ -273,12 +302,11 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan }: { searchQuery: string, 
         <button className="p-2 text-slate-500 hover:text-primary transition-colors" onClick={logout} title="Logout">
           <LogOut className="w-5 h-5" />
         </button>
-        <div className="flex items-center gap-3 ml-2 pl-4 border-l border-outline-variant">
+        <div className="flex items-center gap-2 lg:gap-3 ml-1 lg:ml-2 pl-2 lg:pl-4 border-l border-outline-variant">
           <div className="text-right hidden sm:block">
-            <div className="text-[12px] font-bold text-primary">{user?.displayName || 'Admin User'}</div>
-            <div className="text-[10px] text-slate-400">{user?.email}</div>
+            <div className="text-[11px] font-bold text-primary truncate max-w-[120px]">{user?.displayName || 'Admin'}</div>
           </div>
-          <div className="h-8 w-8 bg-slate-200 rounded-sharp overflow-hidden border border-outline-variant">
+          <div className="h-8 w-8 bg-slate-200 rounded-sharp overflow-hidden border border-outline-variant shrink-0">
             <img 
               src={user?.photoURL || "https://picsum.photos/seed/admin/100/100"} 
               alt="Profile" 
@@ -357,39 +385,39 @@ const DashboardView = ({ inventory, events, onEdit }: { inventory: any[], events
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div className="ledger-card">
-            <div className="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container">
-              <h2 className="font-headline font-bold text-sm uppercase tracking-wider text-primary">Action Required: Low Stock Items</h2>
-              <span className="text-[11px] font-mono font-bold text-tertiary px-2 py-0.5 border border-tertiary/30 bg-tertiary/5">PRIORITY: HIGH</span>
+            <div className="px-4 sm:px-6 py-4 border-b border-outline-variant flex flex-col sm:flex-row justify-between sm:items-center gap-3 bg-surface-container">
+              <h2 className="font-headline font-bold text-xs sm:text-sm uppercase tracking-wider text-primary">Action Required: Low Stock</h2>
+              <span className="text-[9px] sm:text-[11px] font-mono font-bold text-tertiary px-2 py-0.5 border border-tertiary/30 bg-tertiary/5 w-fit">PRIORITY: HIGH</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-surface-container/50 text-on-surface-variant">
                   <tr>
-                    <th className="px-6 py-3 font-headline text-[11px] font-bold uppercase tracking-wider">SKU</th>
-                    <th className="px-6 py-3 font-headline text-[11px] font-bold uppercase tracking-wider">Resource Name</th>
-                    <th className="px-6 py-3 font-headline text-[11px] font-bold uppercase tracking-wider">Current</th>
-                    <th className="px-6 py-3 font-headline text-[11px] font-bold uppercase tracking-wider text-right">Action</th>
+                    <th className="px-4 sm:px-6 py-3 font-headline text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">SKU</th>
+                    <th className="px-4 sm:px-6 py-3 font-headline text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Resource Name</th>
+                    <th className="px-4 sm:px-6 py-3 font-headline text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Level</th>
+                    <th className="px-4 sm:px-6 py-3 font-headline text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant">
                   {lowStockItems.slice(0, 3).map((item) => (
                     <tr key={item.id} className="hover:bg-surface-container transition-colors">
-                      <td className="px-6 py-4 font-mono text-xs font-bold">{item.sku}</td>
-                      <td className="px-6 py-4 text-sm font-medium">{item.title}</td>
-                      <td className="px-6 py-4 font-mono text-xs text-tertiary font-bold">{item.stockLevel}</td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-4 sm:px-6 py-4 font-mono text-[10px] sm:text-xs font-bold">{item.sku}</td>
+                      <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm font-medium">{item.title}</td>
+                      <td className="px-4 sm:px-6 py-4 font-mono text-[10px] sm:text-xs text-tertiary font-bold">{item.stockLevel}</td>
+                      <td className="px-4 sm:px-6 py-4 text-right">
                         <button 
                           onClick={() => onEdit(item)}
-                          className="bg-primary text-white px-3 py-1 text-[11px] font-bold rounded-sharp hover:bg-primary-container transition-all"
+                          className="bg-primary text-white px-2 py-1 sm:px-3 sm:py-1 text-[10px] sm:text-[11px] font-bold rounded-sharp hover:bg-primary-container transition-all"
                         >
-                          REORDER
+                          EDIT
                         </button>
                       </td>
                     </tr>
                   ))}
                   {lowStockItems.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-6 py-8 text-center text-on-surface-variant text-xs font-mono uppercase tracking-widest">No critical stock alerts</td>
+                      <td colSpan={4} className="px-4 sm:px-6 py-8 text-center text-on-surface-variant text-[10px] sm:text-xs font-mono uppercase tracking-widest">Clear status</td>
                     </tr>
                   )}
                 </tbody>
@@ -397,14 +425,14 @@ const DashboardView = ({ inventory, events, onEdit }: { inventory: any[], events
             </div>
             {lowStockItems.length > 3 && (
               <div className="px-6 py-3 bg-surface-container text-center">
-                <button className="text-xs font-bold text-primary hover:underline">VIEW ALL {lowStockItems.length} ALERTS</button>
+                <button className="text-xs font-bold text-primary hover:underline uppercase tracking-widest">View All Alerts</button>
               </div>
             )}
           </div>
 
-        <div className="ledger-card h-[320px] relative">
-          <div className="absolute top-0 left-0 w-full z-10 px-6 py-4 bg-gradient-to-b from-white/90 to-transparent">
-            <h2 className="font-headline font-bold text-sm uppercase tracking-wider text-primary">Regional Distribution Hubs</h2>
+        <div className="ledger-card h-[200px] sm:h-[320px] relative">
+          <div className="absolute top-0 left-0 w-full z-10 px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-b from-white/90 to-transparent">
+            <h2 className="font-headline font-bold text-xs sm:text-sm uppercase tracking-wider text-primary">Regional Hubs</h2>
           </div>
           <img 
             src="https://picsum.photos/seed/map/1200/600?grayscale&blur=2" 
@@ -412,10 +440,10 @@ const DashboardView = ({ inventory, events, onEdit }: { inventory: any[], events
             className="w-full h-full object-cover opacity-60"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute bottom-6 right-6">
-            <div className="bg-primary text-white p-3 rounded-sharp flex items-center gap-3 shadow-lg">
-              <div className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-              <span className="text-[11px] font-mono font-bold">CENTRAL HUB: ACTIVE</span>
+          <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6">
+            <div className="bg-primary text-white p-2 sm:p-3 rounded-sharp flex items-center gap-2 sm:gap-3 shadow-lg">
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-secondary animate-pulse" />
+              <span className="text-[9px] sm:text-[11px] font-mono font-bold uppercase">Central: Online</span>
             </div>
           </div>
         </div>
@@ -488,45 +516,45 @@ const InventoryView = ({ inventory, onAdd, onEdit, onBulkImport, globalSearch }:
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <span className="font-mono text-[11px] text-secondary bg-primary px-2 py-0.5 rounded-sharp mb-2 inline-block">INV-MTX-PRIME</span>
-          <h2 className="text-[32px] font-headline font-bold text-primary tracking-tight leading-none">Literature Matrix</h2>
-          <p className="text-on-surface-variant text-sm mt-2">Real-time status tracking for outreach literature and resources.</p>
+          <h2 className="text-[24px] sm:text-[32px] font-headline font-bold text-primary tracking-tight leading-loose sm:leading-none">Literature Matrix</h2>
+          <p className="text-on-surface-variant text-sm mt-1 sm:mt-2">Tracking outreach literature and resources.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <button 
             onClick={onBulkImport}
-            className="flex items-center gap-2 px-4 py-2 border border-outline-variant bg-surface text-[13px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 border border-outline-variant bg-surface text-[12px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
           >
             <Upload className="w-4 h-4" />
-            Bulk Import
+            <span className="sm:inline">Bulk</span>
           </button>
           <button 
             onClick={() => exportToCSV(filteredInventory, 'lit_ledger_inventory')}
-            className="flex items-center gap-2 px-4 py-2 border border-outline-variant bg-surface text-[13px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 border border-outline-variant bg-surface text-[12px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
           >
             <Download className="w-4 h-4" />
-            Export CSV
+            <span className="sm:inline">Export</span>
           </button>
           <button 
             onClick={onAdd}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-[13px] font-bold active:scale-95 transition-all rounded-sharp shadow-lg"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-primary text-white text-[12px] font-bold active:scale-95 transition-all rounded-sharp shadow-lg whitespace-nowrap"
           >
             <PlusCircle className="w-4 h-4" />
-            Add New Resource
+            Add Resource
           </button>
           <button 
             onClick={() => setShowFilters(!showFilters)}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 border text-[13px] font-medium transition-all rounded-sharp",
+              "flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 border text-[12px] font-medium transition-all rounded-sharp",
               showFilters 
                 ? "bg-primary text-white border-primary" 
                 : "border-outline-variant bg-surface text-on-surface hover:bg-surface-container"
             )}
           >
             <Filter className="w-4 h-4" />
-            {showFilters ? 'Hide Filters' : 'Advanced Filters'}
+            {showFilters ? 'Hide' : 'Filters'}
           </button>
         </div>
       </div>
@@ -732,10 +760,10 @@ const UsersView = ({ users }: { users: any[] }) => {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <span className="font-headline font-bold text-[12px] uppercase tracking-[2px] text-on-surface-variant">Access Control</span>
-          <h1 className="font-headline font-extrabold text-[32px] text-primary tracking-tight leading-none mt-1">User Management</h1>
+          <h1 className="font-headline font-extrabold text-2xl sm:text-[32px] text-primary tracking-tight leading-none mt-1 uppercase">User Management</h1>
         </div>
       </div>
 
@@ -878,14 +906,14 @@ const LogsView = ({ logs }: { logs: any[] }) => {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <span className="font-headline font-bold text-[12px] uppercase tracking-[2px] text-on-surface-variant">Audit Trail</span>
-          <h1 className="font-headline font-extrabold text-[32px] text-primary tracking-tight leading-none mt-1">System Logs</h1>
+          <h1 className="font-headline font-extrabold text-2xl sm:text-[32px] text-primary tracking-tight leading-none mt-1 uppercase">System Logs</h1>
         </div>
-        <div className="px-4 py-2 bg-surface-container border border-outline-variant rounded-sharp flex items-center gap-3">
+        <div className="px-3 py-1.5 sm:px-4 sm:py-2 bg-surface-container border border-outline-variant rounded-sharp flex items-center gap-3">
           <div className="w-2 h-2 bg-secondary rounded-full animate-pulse" />
-          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Live Monitoring Active</span>
+          <span className="font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Live Monitoring</span>
         </div>
       </div>
 
@@ -983,30 +1011,30 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
         <div>
-          <h2 className="font-headline text-3xl font-bold tracking-tight text-primary">Distribution Reports</h2>
-          <p className="text-on-surface-variant text-[14px] mt-1">Analyzing literature outflow and community impact metrics.</p>
+          <h2 className="font-headline text-2xl sm:text-3xl font-bold tracking-tight text-primary">Distribution Reports</h2>
+          <p className="text-on-surface-variant text-sm mt-1">Analyzing literature outflow and metrics.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center bg-surface border border-outline-variant p-1 rounded-sharp">
-            <button className="px-3 py-1.5 text-[12px] font-headline font-bold uppercase tracking-wider text-primary border-r border-outline-variant">Last 30 Days</button>
-            <button className="px-3 py-1.5 text-[12px] font-headline font-bold uppercase tracking-wider text-on-surface-variant hover:text-primary">Q3 2023</button>
-            <button className="px-2 py-1.5 text-on-surface-variant"><Calendar className="w-4 h-4" /></button>
+            <button className="px-2 py-1 text-[11px] font-headline font-bold uppercase tracking-wider text-primary border-r border-outline-variant">30D</button>
+            <button className="px-2 py-1 text-[11px] font-headline font-bold uppercase tracking-wider text-on-surface-variant hover:text-primary border-r border-outline-variant">Q4</button>
+            <button className="px-2 py-1 text-on-surface-variant"><Calendar className="w-3 h-3" /></button>
           </div>
           <button 
             onClick={() => exportToCSV(inventory, 'lit_ledger_full_report')}
-            className="border border-outline-variant text-primary px-4 py-2 rounded-sharp font-headline font-bold text-[12px] uppercase tracking-wider flex items-center gap-2 hover:bg-surface-container transition-all"
+            className="border border-outline-variant text-primary px-3 py-1.5 rounded-sharp font-headline font-bold text-[11px] uppercase tracking-wider flex items-center gap-2 hover:bg-surface-container transition-all"
           >
-            <Download className="w-4 h-4" />
-            Export CSV
+            <Download className="w-3 h-3" />
+            CSV
           </button>
           <button 
             onClick={() => generateMonthlyReport(inventory, events, auditLogs, settings)}
-            className="bg-primary text-white px-4 py-2 rounded-sharp font-headline font-bold text-[12px] uppercase tracking-wider flex items-center gap-2 hover:bg-primary-container transition-all shadow-md"
+            className="bg-primary text-white px-3 py-1.5 rounded-sharp font-headline font-bold text-[11px] uppercase tracking-wider flex items-center gap-2 hover:bg-primary-container transition-all shadow-md"
           >
-            <FileText className="w-4 h-4" />
-            Generate PDF Report
+            <FileText className="w-3 h-3" />
+            PDF
           </button>
         </div>
       </div>
@@ -1126,23 +1154,23 @@ const EventsView = ({ events, onAdd, onEdit }: { events: any[], onAdd: () => voi
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
         <div>
           <span className="font-headline font-bold text-[12px] uppercase tracking-[2px] text-on-surface-variant">Management Ledger</span>
-          <h1 className="font-headline font-extrabold text-[32px] text-primary tracking-tight leading-none mt-1">Events Manager</h1>
+          <h1 className="font-headline font-extrabold text-2xl sm:text-[32px] text-primary tracking-tight leading-none mt-1 uppercase">Events Manager</h1>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <button 
             onClick={() => exportToCSV(events, 'lit_ledger_events')}
-            className="px-4 py-2 border border-outline-variant text-primary font-headline font-bold text-[13px] uppercase tracking-wider rounded-sharp hover:bg-surface-container transition-colors"
+            className="flex-1 sm:flex-none px-4 py-2 border border-outline-variant text-primary font-headline font-bold text-[11px] uppercase tracking-wider rounded-sharp hover:bg-surface-container transition-colors"
           >
-            Export CSV
+            Export
           </button>
           <button 
             onClick={onAdd}
-            className="px-4 py-2 bg-primary text-white font-headline font-bold text-[13px] uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-colors shadow-sm"
+            className="flex-1 sm:flex-none px-4 py-2 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-colors shadow-sm whitespace-nowrap"
           >
-            Create New Event
+            New Event
           </button>
         </div>
       </div>
@@ -1516,26 +1544,26 @@ const LoginView = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="ledger-card p-12 max-w-md w-full text-center relative overflow-hidden">
+      <div className="ledger-card p-6 sm:p-12 max-w-md w-full text-center relative overflow-hidden">
         <div className="indicator-primary" />
-        <div className="flex justify-center mb-8">
-          <div className="w-16 h-16 bg-primary flex items-center justify-center rounded-sharp shadow-xl">
-            <Database className="w-8 h-8 text-secondary" />
+        <div className="flex justify-center mb-6 sm:mb-8">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-primary flex items-center justify-center rounded-sharp shadow-xl">
+            <Database className="w-6 h-6 sm:w-8 sm:h-8 text-secondary" />
           </div>
         </div>
-        <h1 className="font-headline font-extrabold text-4xl text-primary tracking-tighter mb-2">INVENTORY SYSTEM</h1>
-        <p className="text-on-surface-variant font-medium text-sm mb-10 uppercase tracking-widest">Internal Literature Management</p>
+        <h1 className="font-headline font-extrabold text-2xl sm:text-4xl text-primary tracking-tighter mb-2">INVENTORY SYSTEM</h1>
+        <p className="text-on-surface-variant font-medium text-xs sm:text-sm mb-8 sm:mb-10 uppercase tracking-widest leading-relaxed">Internal Outreach Literature Management</p>
         
         <button 
           onClick={login}
-          className="w-full bg-primary text-white py-4 rounded-sharp font-headline font-bold text-sm tracking-widest flex items-center justify-center gap-3 hover:bg-primary-container transition-all active:scale-95 shadow-lg"
+          className="w-full bg-primary text-white py-3 sm:py-4 rounded-sharp font-headline font-bold text-xs sm:text-sm tracking-widest flex items-center justify-center gap-3 hover:bg-primary-container transition-all active:scale-95 shadow-lg"
         >
-          <LogIn className="w-5 h-5" />
+          <LogIn className="w-4 h-4 sm:w-5 sm:h-5" />
           AUTHENTICATE WITH GOOGLE
         </button>
         
-        <div className="mt-12 pt-8 border-t border-outline-variant">
-          <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">Authorized Personnel Only • v1.0.42-STABLE</p>
+        <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-outline-variant">
+          <p className="text-[9px] sm:text-[10px] font-mono text-slate-400 uppercase tracking-widest leading-relaxed">Authorized Personnel Only • Secure Data Hub</p>
         </div>
       </div>
     </div>
@@ -1606,6 +1634,7 @@ export default function App() {
   const [isDistributionOpen, setIsDistributionOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const isAdmin = currentUserProfile?.role === 'admin';
 
@@ -1661,10 +1690,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onDistribute={() => setIsDistributionOpen(true)} isAdmin={isAdmin} />
-      <Topbar searchQuery={globalSearch} setSearchQuery={setGlobalSearch} onScan={() => setIsScannerOpen(true)} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onDistribute={() => setIsDistributionOpen(true)} isAdmin={isAdmin} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <Topbar searchQuery={globalSearch} setSearchQuery={setGlobalSearch} onScan={() => setIsScannerOpen(true)} onMenuClick={() => setIsSidebarOpen(true)} />
       
-      <main className="ml-60 pt-24 pb-12 px-12">
+      <main className="lg:ml-64 pt-20 lg:pt-24 pb-12 px-4 lg:px-12">
         <div className="max-w-7xl mx-auto">
           <AnimatePresence mode="wait">
             <motion.div
