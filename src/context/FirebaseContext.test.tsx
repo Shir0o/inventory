@@ -30,6 +30,9 @@ vi.mock('../services/firestoreService', async (importOriginal) => {
     subscribeToEvents: vi.fn(() => () => {}),
     subscribeToSettings: vi.fn(() => () => {}),
     subscribeToNotifications: vi.fn(() => () => {}),
+    subscribeToAuditLogs: vi.fn(() => () => {}),
+    subscribeToUsers: vi.fn(() => () => {}),
+    subscribeToAuthorizedEmails: vi.fn(() => () => {}),
   };
 });
 
@@ -116,7 +119,7 @@ describe('Authentication Flow', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/INVENTORY SYSTEM/i)).toBeInTheDocument();
+      expect(screen.getByText(/Invo/i)).toBeInTheDocument();
     });
     
     expect(screen.queryByText(/AUTHENTICATE WITH GOOGLE/i)).not.toBeInTheDocument();
@@ -145,7 +148,7 @@ describe('Authentication Flow', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/INVENTORY SYSTEM/i)).toBeInTheDocument();
+      expect(screen.getByText(/Invo/i)).toBeInTheDocument();
     });
     
     expect(screen.queryByText(/Users/i)).not.toBeInTheDocument();
