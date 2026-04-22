@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-export interface RestockPrediction {
+export interface InventoryNeed {
   itemId: string;
   sku: string;
   title: string;
@@ -13,13 +13,13 @@ export interface RestockPrediction {
   priority: 'High' | 'Medium' | 'Low';
 }
 
-export async function getRestockPredictions(
+export async function getInventoryPredictions(
   inventory: any[],
   events: any[],
   auditLogs: any[]
-): Promise<RestockPrediction[]> {
+): Promise<InventoryNeed[]> {
   if (!process.env.GEMINI_API_KEY) {
-    console.warn("GEMINI_API_KEY is not set. Predictive restocking will not work.");
+    console.warn("GEMINI_API_KEY is not set. Predictive analysis will not work.");
     return [];
   }
 
@@ -29,6 +29,7 @@ export async function getRestockPredictions(
     sku: item.sku,
     title: item.title,
     category: item.category,
+    language: item.language,
     stockLevel: item.stockLevel,
     status: item.status
   }));
@@ -40,9 +41,9 @@ export async function getRestockPredictions(
     status: event.status
   }));
 
-  // Filter logs for distribution and restock actions to see trends
+  // Filter logs for distribution actions to see trends
   const trendLogs = auditLogs
-    .filter(log => log.action === 'DISTRIBUTION' || log.action === 'RESTOCK')
+    .filter(log => log.action === 'DISTRIBUTION')
     .slice(0, 50) // Last 50 relevant logs
     .map(log => ({
       action: log.action,
@@ -53,7 +54,7 @@ export async function getRestockPredictions(
 
   const prompt = `
     You are an expert inventory analyst for a literature distribution organization.
-    Your goal is to predict future restocking needs based on current inventory levels, upcoming events, and historical distribution trends.
+    Your goal is to predict future inventory procurement needs based on current stock levels, upcoming events, and historical distribution trends.
 
     Current Inventory:
     ${JSON.stringify(inventoryData, null, 2)}
@@ -64,7 +65,7 @@ export async function getRestockPredictions(
     Recent Distribution Trends (Audit Logs):
     ${JSON.stringify(trendLogs, null, 2)}
 
-    Analyze this data and identify which items are likely to run out soon or need restocking to support upcoming events.
+    Analyze this data and identify which items are likely to run out soon or need replenishment to support upcoming events.
     Consider:
     1. Items with low stock levels.
     2. Items that are frequently distributed in large quantities.
@@ -78,7 +79,7 @@ export async function getRestockPredictions(
     - currentStock: Current stock level.
     - predictedNeed: Estimated number of units needed for the next 30 days.
     - confidence: A value between 0 and 1 representing your confidence in this prediction.
-    - reasoning: A brief explanation of why this item needs restocking.
+    - reasoning: A brief explanation of why this item needs to be replenished.
     - priority: 'High', 'Medium', or 'Low' based on urgency.
   `;
 
@@ -111,7 +112,7 @@ export async function getRestockPredictions(
     const result = JSON.parse(response.text || "[]");
     return result;
   } catch (error) {
-    console.error("Error getting restock predictions:", error);
+    console.error("Error getting inventory predictions:", error);
     return [];
   }
 }

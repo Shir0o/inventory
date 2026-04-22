@@ -11,7 +11,7 @@ import {
   Info
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { getRestockPredictions, RestockPrediction } from '../services/geminiService';
+import { getInventoryPredictions, InventoryNeed } from '../services/geminiService';
 import { cn } from '../lib/utils';
 
 interface AIInsightsViewProps {
@@ -21,7 +21,7 @@ interface AIInsightsViewProps {
 }
 
 const AIInsightsView = ({ inventory, events, auditLogs }: AIInsightsViewProps) => {
-  const [predictions, setPredictions] = useState<RestockPrediction[]>([]);
+  const [predictions, setPredictions] = useState<InventoryNeed[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +33,7 @@ const AIInsightsView = ({ inventory, events, auditLogs }: AIInsightsViewProps) =
     setLoading(true);
     setError(null);
     try {
-      const result = await getRestockPredictions(inventory, events, auditLogs);
+      const result = await getInventoryPredictions(inventory, events, auditLogs);
       setPredictions(result);
     } catch (err) {
       setError("Failed to generate AI insights. Please check your connection and try again.");
@@ -64,7 +64,7 @@ const AIInsightsView = ({ inventory, events, auditLogs }: AIInsightsViewProps) =
         <div>
           <h2 className="font-headline font-bold text-2xl tracking-tight text-primary flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-secondary" />
-            AI PREDICTIVE RESTOCKING
+            AI PREDICTIVE REPLENISHMENT
           </h2>
           <p className="text-slate-500 text-sm mt-1">
             Gemini-powered analysis of distribution trends and upcoming event needs.
@@ -102,7 +102,7 @@ const AIInsightsView = ({ inventory, events, auditLogs }: AIInsightsViewProps) =
       ) : predictions.length === 0 ? (
         <div className="p-12 bg-surface border border-outline-variant rounded-sharp text-center">
           <Package className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <p className="font-headline font-bold text-primary">No Restock Recommendations</p>
+          <p className="font-headline font-bold text-primary">No Procurement Recommendations</p>
           <p className="text-slate-500 text-sm mt-1">Your current stock levels appear healthy for upcoming events.</p>
         </div>
       ) : (
@@ -176,7 +176,7 @@ const AIInsightsView = ({ inventory, events, auditLogs }: AIInsightsViewProps) =
         </h4>
         <p className="text-slate-600 text-xs leading-relaxed">
           Our AI model analyzes your historical distribution logs, current stock levels, and upcoming event schedules to identify items at risk of stockouts. 
-          It looks for patterns in distribution volume and frequency to provide data-driven restocking targets for the next 30 days.
+          It looks for patterns in distribution volume and frequency to provide data-driven procurement targets for the next 30 days.
         </p>
       </div>
     </div>

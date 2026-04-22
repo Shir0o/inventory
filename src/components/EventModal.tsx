@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, Calendar as CalendarIcon, Package, RotateCcw } from 'lucide-react';
+import { X, Save, Trash2, Calendar as CalendarIcon, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { addEvent, updateEvent, deleteEvent, subscribeToEventMaterials, restockItem } from '../services/firestoreService';
+import { addEvent, updateEvent, deleteEvent, subscribeToEventMaterials } from '../services/firestoreService';
 import { Timestamp } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 
@@ -53,23 +53,6 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
       setActiveTab('details');
     }
   }, [event, isOpen]);
-
-  const handleRestock = async (material: any) => {
-    const qty = prompt(`How many units of ${material.title} would you like to restock?`, material.quantity.toString());
-    if (qty === null) return;
-    
-    const numQty = parseInt(qty);
-    if (isNaN(numQty) || numQty <= 0 || numQty > material.quantity) {
-      alert("Invalid quantity.");
-      return;
-    }
-
-    try {
-      await restockItem(event.id, material.id, material.itemId, numQty);
-    } catch (error) {
-      console.error("Failed to restock item", error);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -325,14 +308,6 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
                             <p className="font-mono font-bold text-base sm:text-lg text-primary">{m.quantity}</p>
                             <p className="text-[8px] sm:text-[9px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Distributed</p>
                           </div>
-                          <button 
-                            onClick={() => handleRestock(m)}
-                            className="p-2 text-on-surface-variant hover:text-tertiary hover:bg-tertiary/10 rounded-sharp transition-all sm:opacity-0 sm:group-hover:opacity-100 flex items-center gap-2 sm:gap-0"
-                            title="Restock Inventory"
-                          >
-                            <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
-                            <span className="sm:hidden text-[10px] font-bold uppercase">Restock</span>
-                          </button>
                         </div>
                       </div>
                     ))

@@ -873,12 +873,12 @@ const LogsView = ({ logs }: { logs: any[] }) => {
   const getActionColor = (action: string) => {
     if (action.includes('CREATED') || action.includes('AUTHORIZED')) return 'text-secondary bg-secondary/10';
     if (action.includes('DELETED') || action.includes('DEAUTHORIZED')) return 'text-tertiary bg-tertiary/10';
-    if (action.includes('STOCK') || action.includes('CHECKOUT') || action.includes('RETURN')) return 'text-primary bg-primary/10';
+    if (action.includes('STOCK') || action.includes('DISTRIBUTION')) return 'text-primary bg-primary/10';
     return 'text-on-surface-variant bg-surface-container';
   };
 
   const getActionIcon = (action: string) => {
-    if (action.includes('STOCK') || action.includes('CHECKOUT') || action.includes('RETURN')) return <Package className="w-3 h-3" />;
+    if (action.includes('STOCK') || action.includes('DISTRIBUTION')) return <Package className="w-3 h-3" />;
     if (action.includes('EVENT')) return <Calendar className="w-3 h-3" />;
     if (action.includes('USER') || action.includes('ROLE') || action.includes('EMAIL')) return <Users className="w-3 h-3" />;
     return <History className="w-3 h-3" />;
@@ -1000,7 +1000,12 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
   
   // Initialize current year's months
   months.forEach(m => {
-    monthlyMap[m] = { name: m, bibles: 0, tracts: 0, booklets: 0 };
+    monthlyMap[m] = { 
+      name: m, 
+      bibles: 0, bibles_en: 0, bibles_es: 0,
+      tracts: 0, tracts_en: 0, tracts_es: 0,
+      booklets: 0, booklets_en: 0, booklets_es: 0
+    };
   });
 
   events.forEach(event => {
@@ -1013,11 +1018,40 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
       if (event.materials && Array.isArray(event.materials)) {
         event.materials.forEach((m: any) => {
           const category = (skuToCategory[m.sku] || '').toLowerCase();
-          if (category.includes('bible')) monthlyMap[monthLabel].bibles += (m.quantity || 0);
-          else if (category.includes('tract')) monthlyMap[monthLabel].tracts += (m.quantity || 0);
-          else if (category.includes('booklet')) monthlyMap[monthLabel].booklets += (m.quantity || 0);
-          else monthlyMap[monthLabel].tracts += (m.quantity || 0); // Default fallback
+          const language = (skuToLanguage[m.sku] || '').toLowerCase();
+          const qty = m.quantity || 0;
+
+          if (category.includes('bible')) {
+            monthlyMap[monthLabel].bibles += qty;
+            if (language.includes('spanish')) monthlyMap[monthLabel].bibles_es += qty;
+            else if (language.includes('english')) monthlyMap[monthLabel].bibles_en += qty;
+          } else if (category.includes('tract')) {
+            monthlyMap[monthLabel].tracts += qty;
+            if (language.includes('spanish')) monthlyMap[monthLabel].tracts_es += qty;
+            else if (language.includes('english')) monthlyMap[monthLabel].tracts_en += qty;
+          } else if (category.includes('booklet')) {
+            monthlyMap[monthLabel].booklets += qty;
+            if (language.includes('spanish')) monthlyMap[monthLabel].booklets_es += qty;
+            else if (language.includes('english')) monthlyMap[monthLabel].booklets_en += qty;
+          } else {
+            // Default fallback
+            monthlyMap[monthLabel].tracts += qty;
+          }
         });
+      } else if (event.categoryStats) {
+        // Handle categorized stats (e.g. from bulk import or manual distribution)
+        const s = event.categoryStats;
+        monthlyMap[monthLabel].bibles += (s.bibles || 0);
+        monthlyMap[monthLabel].bibles_en += (s.bibles_en || 0);
+        monthlyMap[monthLabel].bibles_es += (s.bibles_es || 0);
+        
+        monthlyMap[monthLabel].tracts += (s.tracts || 0);
+        monthlyMap[monthLabel].tracts_en += (s.tracts_en || 0);
+        monthlyMap[monthLabel].tracts_es += (s.tracts_es || 0);
+        
+        monthlyMap[monthLabel].booklets += (s.booklets || 0);
+        monthlyMap[monthLabel].booklets_en += (s.booklets_en || 0);
+        monthlyMap[monthLabel].booklets_es += (s.booklets_es || 0);
       } else {
         // Fallback for legacy events
         monthlyMap[monthLabel].tracts += (event.materialsDistributed || 0);
@@ -1162,6 +1196,32 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
                 <span className="font-mono font-bold">{item.value}%</span>
               </div>
             ))}
+          </div>
+          
+          <div className="w-full mt-8 pt-8 border-t border-outline-variant space-y-4">
+            <h4 className="font-headline text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">Language Matrix</h4>
+            <div className="space-y-4">
+              {[
+                { label: 'Bibles', en: dynamicLineData.reduce((acc, curr) => acc + (curr.bibles_en || 0), 0), es: dynamicLineData.reduce((acc, curr) => acc + (curr.bibles_es || 0), 0) },
+                { label: 'Tracts', en: dynamicLineData.reduce((acc, curr) => acc + (curr.tracts_en || 0), 0), es: dynamicLineData.reduce((acc, curr) => acc + (curr.tracts_es || 0), 0) },
+                { label: 'Booklets', en: dynamicLineData.reduce((acc, curr) => acc + (curr.booklets_en || 0), 0), es: dynamicLineData.reduce((acc, curr) => acc + (curr.booklets_es || 0), 0) },
+              ].map(cat => (
+                <div key={cat.label} className="space-y-1.5">
+                  <div className="flex justify-between text-[11px] font-bold uppercase text-primary">
+                    <span>{cat.label}</span>
+                    <span className="font-mono">{cat.en + cat.es}</span>
+                  </div>
+                  <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-surface-container">
+                    <div className="bg-primary h-full transition-all" style={{ width: `${(cat.en / (cat.en + cat.es || 1)) * 100}%` }} />
+                    <div className="bg-secondary h-full transition-all" style={{ width: `${(cat.es / (cat.en + cat.es || 1)) * 100}%` }} />
+                  </div>
+                  <div className="flex justify-between text-[9px] font-mono font-bold uppercase text-on-surface-variant">
+                    <span>EN: {cat.en}</span>
+                    <span>ES: {cat.es}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -1623,14 +1683,14 @@ const SettingsView = ({ settings }: { settings: any }) => {
                   <div className="h-1 w-full bg-surface-container rounded-full" />
                   <div className="absolute top-1/2 -translate-y-1/2 left-0 h-1 bg-tertiary" style={{ width: `${Math.min(100, (formData.criticalThreshold / 500) * 100)}%` }} />
                 </div>
-                <p className="text-[11px] text-on-surface-variant leading-relaxed">Forces immediate replenishment orders. Prevents checkout of items if stock falls below this floor without supervisor override.</p>
+                <p className="text-[11px] text-on-surface-variant leading-relaxed">Forces immediate replenishment orders. Prevents distribution of items if stock falls below this floor without supervisor override.</p>
               </div>
             </div>
         </div>
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             { label: 'Email Alerts', desc: 'Daily summary of low-stock items sent to procurement.', icon: BellRing, active: true },
-            { label: 'Auto-Restock', desc: 'Automatically draft POs when items hit critical levels.', icon: Package, active: false },
+            { label: 'Auto-Replenish', desc: 'Automatically draft POs when items hit critical levels.', icon: Package, active: false },
             { label: 'Safety Buffer', desc: 'Add 5% extra margin to all calculated thresholds.', icon: Shield, active: true },
           ].map((item, i) => (
             <div key={i} className="p-6 bg-surface-container flex gap-4 items-start border border-outline-variant rounded-sharp">
@@ -1752,6 +1812,7 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [isDistributionOpen, setIsDistributionOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [bulkImportInitialType, setBulkImportInitialType] = useState<'inventory' | 'events'>('inventory');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -1828,12 +1889,25 @@ export default function App() {
                 inventory={inventory} 
                 onAdd={handleAdd} 
                 onEdit={handleEdit} 
-                onBulkImport={() => setIsBulkImportOpen(true)}
+                onBulkImport={() => {
+                  setBulkImportInitialType('inventory');
+                  setIsBulkImportOpen(true);
+                }}
                 globalSearch={globalSearch} 
               />
             )}
               {activeTab === 'reports' && <ReportsView inventory={inventory} events={events} auditLogs={auditLogs} settings={settings} />}
-              {activeTab === 'events' && <EventsView events={events} onAdd={handleAddEvent} onEdit={handleEditEvent} onBulkImport={() => setIsBulkImportOpen(true)} />}
+              {activeTab === 'events' && (
+                <EventsView 
+                  events={events} 
+                  onAdd={handleAddEvent} 
+                  onEdit={handleEditEvent} 
+                  onBulkImport={() => {
+                    setBulkImportInitialType('events');
+                    setIsBulkImportOpen(true);
+                  }} 
+                />
+              )}
               {activeTab === 'users' && <UsersView users={users} />}
               {activeTab === 'logs' && <LogsView logs={auditLogs} />}
               {activeTab === 'ai_insights' && <AIInsightsView inventory={inventory} events={events} auditLogs={auditLogs} />}
@@ -1865,6 +1939,7 @@ export default function App() {
           <BulkImportModal 
             isOpen={isBulkImportOpen}
             onClose={() => setIsBulkImportOpen(false)}
+            initialType={bulkImportInitialType}
           />
 
           <QRScannerModal 

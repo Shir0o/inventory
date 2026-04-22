@@ -78,7 +78,6 @@ export type AuditAction =
   | 'EVENT_UPDATED' 
   | 'EVENT_DELETED' 
   | 'DISTRIBUTION' 
-  | 'RESTOCK' 
   | 'ROLE_UPDATE' 
   | 'SETTINGS_UPDATE' 
   | 'EMAIL_AUTHORIZED' 
@@ -425,90 +424,6 @@ export function subscribeToEventMaterials(eventId: string, callback: (materials:
   }, (error: FirestoreError) => {
     handleFirestoreError(error, OperationType.LIST, path);
   });
-}
-
-export async function restockItem(eventId: string, materialId: string, itemId: string, quantityToRestock: number) {
-  const path = `events/${eventId}/materials/${materialId}/restock`;
-  try {
-    await runTransaction(db, async (transaction) => {
-      const materialRef = doc(db, `events/${eventId}/materials`, materialId);
-      const itemRef = doc(db, 'inventory', itemId);
-      const eventRef = doc(db, 'events', eventId);
-
-      const materialDoc = await transaction.get(materialRef);
-      const itemDoc = await transaction.get(itemRef);
-      const eventDoc = await transaction.get(eventRef);
-
-      if (!materialDoc.exists() || !itemDoc.exists() || !eventDoc.exists()) {
-        throw new Error("Required documents for restock not found.");
-      }
-
-      const currentMaterialQty = materialDoc.data().quantity || 0;
-      const currentInventoryQty = itemDoc.data().stockLevel || 0;
-      const currentEventMaterials = eventDoc.data().materialsDistributed || 0;
-
-      if (quantityToRestock > currentMaterialQty) {
-        throw new Error("Cannot restock more than distributed.");
-      }
-
-      // 1. Update Inventory
-      transaction.update(itemRef, {
-        stockLevel: currentInventoryQty + quantityToRestock,
-        updatedAt: serverTimestamp()
-      });
-
-      // 2. Update Event Material Record
-      if (currentMaterialQty === quantityToRestock) {
-        transaction.delete(materialRef);
-      } else {
-        transaction.update(materialRef, {
-          quantity: currentMaterialQty - quantityToRestock
-        });
-      }
-
-      // 3. Update Event Total and Stats
-      const eventData = eventDoc.data();
-      const currentStats = eventData.categoryStats || { bibles: 0, bibles_en: 0, bibles_es: 0, tracts: 0, tracts_en: 0, tracts_es: 0, booklets: 0, booklets_en: 0, booklets_es: 0, total: 0 };
-      const itemData = itemDoc.data();
-      const cat = (itemData.category || '').toLowerCase();
-      const lang = (itemData.language || '').toLowerCase();
-      
-      const statsDelta = { bibles: 0, bibles_en: 0, bibles_es: 0, tracts: 0, tracts_en: 0, tracts_es: 0, booklets: 0, booklets_en: 0, booklets_es: 0 };
-      if (cat.includes('bible')) {
-        statsDelta.bibles = quantityToRestock;
-        if (lang.includes('english')) statsDelta.bibles_en = quantityToRestock;
-        else if (lang.includes('spanish')) statsDelta.bibles_es = quantityToRestock;
-      } else if (cat.includes('tract')) {
-        statsDelta.tracts = quantityToRestock;
-        if (lang.includes('english')) statsDelta.tracts_en = quantityToRestock;
-        else if (lang.includes('spanish')) statsDelta.tracts_es = quantityToRestock;
-      } else if (cat.includes('booklet')) {
-        statsDelta.booklets = quantityToRestock;
-        if (lang.includes('english')) statsDelta.booklets_en = quantityToRestock;
-        else if (lang.includes('spanish')) statsDelta.booklets_es = quantityToRestock;
-      }
-
-      transaction.update(eventRef, {
-        materialsDistributed: currentEventMaterials - quantityToRestock,
-        categoryStats: {
-          bibles: Math.max(0, (currentStats.bibles || 0) - statsDelta.bibles),
-          bibles_en: Math.max(0, (currentStats.bibles_en || 0) - statsDelta.bibles_en),
-          bibles_es: Math.max(0, (currentStats.bibles_es || 0) - statsDelta.bibles_es),
-          tracts: Math.max(0, (currentStats.tracts || 0) - statsDelta.tracts),
-          tracts_en: Math.max(0, (currentStats.tracts_en || 0) - statsDelta.tracts_en),
-          tracts_es: Math.max(0, (currentStats.tracts_es || 0) - statsDelta.tracts_es),
-          booklets: Math.max(0, (currentStats.booklets || 0) - statsDelta.booklets),
-          booklets_en: Math.max(0, (currentStats.booklets_en || 0) - statsDelta.booklets_en),
-          booklets_es: Math.max(0, (currentStats.booklets_es || 0) - statsDelta.booklets_es),
-          total: Math.max(0, (currentStats.total || 0) - quantityToRestock)
-        }
-      });
-    });
-
-    await createAuditLog('RESTOCK', eventId, 'event', `Restocked ${quantityToRestock} units of item ${itemId} from event`);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
-  }
 }
 
 // --- Settings ---

@@ -9,11 +9,12 @@ import { cn } from '../lib/utils';
 interface BulkImportModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialType?: 'inventory' | 'events';
 }
 
-const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
+const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory' }: BulkImportModalProps) => {
   const [step, setStep] = useState<'upload' | 'parsing' | 'review' | 'success'>('upload');
-  const [importType, setImportType] = useState<'inventory' | 'events'>('inventory');
+  const [importType, setImportType] = useState<'inventory' | 'events'>(initialType);
   const [rawData, setRawData] = useState('');
   const [parsedItems, setParsedItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -264,6 +265,7 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
     setError(null);
     setExistingSkus(new Set());
     setImportProgress({ current: 0, total: 0 });
+    setImportType(initialType);
   };
 
   // Reset state when modal is opened to allow fresh starts
