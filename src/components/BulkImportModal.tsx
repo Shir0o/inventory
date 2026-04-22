@@ -3,7 +3,7 @@ import { X, Upload, FileText, Check, AlertCircle, Loader2, Save } from 'lucide-r
 import { motion, AnimatePresence } from 'motion/react';
 import Papa from 'papaparse';
 import { parseInventoryData, parseEventData, ParsedInventoryItem, ParsedEvent } from '../services/aiService';
-import { addInventoryItem, importEventWithMaterials, subscribeToSettings } from '../services/firestoreService';
+import { addInventoryItem, importEventWithMaterials, subscribeToSettings, getInventoryItemBySku } from '../services/firestoreService';
 import { cn } from '../lib/utils';
 
 interface BulkImportModalProps {
@@ -20,6 +20,7 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
   const [error, setError] = useState<string | null>(null);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [settings, setSettings] = useState<any>({});
+  const [existingSkus, setExistingSkus] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Subscribe to settings for dynamic categories
@@ -48,10 +49,21 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
     setStep('parsing');
     setLoading(true);
     setError(null);
+    setExistingSkus(new Set());
     try {
       let items: any[] = [];
       if (importType === 'inventory') {
         items = await parseInventoryData(content, categories);
+        
+        // Check which SKUs already exist in the database
+        const skuSet = new Set<string>();
+        for (const item of items) {
+          const existing = await getInventoryItemBySku(item.sku);
+          if (existing) {
+            skuSet.add(item.sku);
+          }
+        }
+        setExistingSkus(skuSet);
       } else {
         items = await parseEventData(content);
       }
@@ -66,6 +78,12 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
   };
 
   const handleImport = async () => {
+    // Prevent import if there are existing SKUs
+    if (importType === 'inventory' && existingSkus.size > 0) {
+      setError("Please resolve duplicate SKUs before importing.");
+      return;
+    }
+
     setLoading(true);
     setImportProgress({ current: 0, total: parsedItems.length });
     
@@ -87,10 +105,20 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
     }
   };
 
-  const updateParsedItem = (index: number, field: string, value: any) => {
+  const updateParsedItem = async (index: number, field: string, value: any) => {
     const newItems = [...parsedItems];
     newItems[index] = { ...newItems[index], [field]: value };
     setParsedItems(newItems);
+
+    if (field === 'sku' && importType === 'inventory') {
+      const existing = await getInventoryItemBySku(value);
+      setExistingSkus(prev => {
+        const next = new Set(prev);
+        if (existing) next.add(value);
+        else next.delete(value);
+        return next;
+      });
+    }
   };
 
   const reset = () => {
@@ -98,6 +126,7 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
     setRawData('');
     setParsedItems([]);
     setError(null);
+    setExistingSkus(new Set());
     setImportProgress({ current: 0, total: 0 });
   };
 
@@ -107,6 +136,18 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
       reset();
     }
   }, [isOpen]);
+
+  // UI calculation for duplicates
+  const duplicatesInBatch = new Set<string>();
+  if (importType === 'inventory') {
+    const seen = new Set<string>();
+    parsedItems.forEach(item => {
+      if (seen.has(item.sku)) {
+        duplicatesInBatch.add(item.sku);
+      }
+      seen.add(item.sku);
+    });
+  }
 
   return (
     <AnimatePresence>
@@ -242,6 +283,12 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
                       <h3 className="font-headline font-bold text-lg sm:text-xl text-primary">Review AI Proposal</h3>
                       <p className="text-on-surface-variant text-xs sm:text-sm">Successfully mapped {parsedItems.length} {importType}.</p>
                     </div>
+                    {importType === 'inventory' && (existingSkus.size > 0 || duplicatesInBatch.size > 0) && (
+                      <div className="flex items-center gap-2 bg-tertiary/10 text-tertiary px-3 py-2 rounded-sharp border border-tertiary/20">
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="text-[10px] font-headline font-bold uppercase tracking-wider">Duplicate SKUs Detected</span>
+                      </div>
+                    )}
                     <button 
                       onClick={reset}
                       className="px-3 py-1.5 border border-outline-variant text-on-surface-variant font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-wider rounded-sharp hover:bg-surface-container transition-colors"
@@ -273,18 +320,33 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-outline-variant">
-                          {parsedItems.map((item, i) => (
-                            <tr key={i} className="hover:bg-surface-container transition-colors group">
-                              {importType === 'inventory' ? (
-                                <>
-                                  <td className="px-4 py-3 whitespace-nowrap">
-                                    <input 
-                                      type="text"
-                                      value={item.sku}
-                                      onChange={(e) => updateParsedItem(i, 'sku', e.target.value)}
-                                      className="w-24 bg-transparent font-mono text-xs font-bold border-b border-transparent focus:border-primary outline-none focus:bg-surface px-1 py-0.5 rounded"
-                                    />
-                                  </td>
+                          {parsedItems.map((item, i) => {
+                            const isExisting = existingSkus.has(item.sku);
+                            const isBatchDuplicate = duplicatesInBatch.has(item.sku);
+                            const hasError = isExisting || isBatchDuplicate;
+
+                            return (
+                              <tr key={i} className={cn(
+                                "transition-colors group",
+                                hasError ? "bg-tertiary/5" : "hover:bg-surface-container"
+                              )}>
+                                {importType === 'inventory' ? (
+                                  <>
+                                    <td className="px-4 py-3 whitespace-nowrap">
+                                      <div className="flex flex-col gap-1">
+                                        <input 
+                                          type="text"
+                                          value={item.sku}
+                                          onChange={(e) => updateParsedItem(i, 'sku', e.target.value.toUpperCase())}
+                                          className={cn(
+                                            "w-24 bg-transparent font-mono text-xs font-bold border-b outline-none px-1 py-0.5 rounded",
+                                            hasError ? "border-tertiary text-tertiary" : "border-transparent focus:border-primary focus:bg-surface"
+                                          )}
+                                        />
+                                        {isExisting && <span className="text-[7px] text-tertiary font-bold uppercase tracking-wider">Already in Matrix</span>}
+                                        {isBatchDuplicate && <span className="text-[7px] text-tertiary font-bold uppercase tracking-wider">Duplicate in Batch</span>}
+                                      </div>
+                                    </td>
                                   <td className="px-4 py-3">
                                     <div className="flex flex-col gap-1">
                                       <input 
@@ -374,7 +436,8 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
                                 </>
                               )}
                             </tr>
-                          ))}
+                          );
+                        })}
                         </tbody>
                       </table>
                     </div>

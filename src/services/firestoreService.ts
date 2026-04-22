@@ -10,7 +10,9 @@ import {
   Timestamp,
   FirestoreError,
   runTransaction,
-  limit
+  limit,
+  where,
+  getDocs
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
@@ -161,9 +163,23 @@ export async function markNotificationAsRead(id: string) {
 
 // --- Inventory ---
 
+export async function getInventoryItemBySku(sku: string) {
+  const path = 'inventory';
+  const q = query(collection(db, path), where('sku', '==', sku), limit(1));
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) return null;
+  return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+}
+
 export async function addInventoryItem(item: any) {
   const path = 'inventory';
   try {
+    // Check for SKU uniqueness
+    const existing = await getInventoryItemBySku(item.sku);
+    if (existing) {
+      throw new Error(`SKU "${item.sku}" already exists in the inventory.`);
+    }
+
     const docRef = await addDoc(collection(db, path), {
       ...item,
       updatedAt: new Date().toISOString()

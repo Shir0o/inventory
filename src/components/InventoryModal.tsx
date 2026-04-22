@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { addInventoryItem, updateInventoryItem, deleteInventoryItem } from '../services/firestoreService';
+import { addInventoryItem, updateInventoryItem, deleteInventoryItem, getInventoryItemBySku } from '../services/firestoreService';
+import { cn } from '../lib/utils';
 
 interface InventoryModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
     status: 'Healthy'
   });
   const [loading, setLoading] = useState(false);
+  const [skuError, setSkuError] = useState<string | null>(null);
 
   useEffect(() => {
     if (item) {
@@ -35,6 +37,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
         stockLevel: item.stockLevel || 0,
         status: item.status || 'Healthy'
       });
+      setSkuError(null);
     } else {
       setFormData({
         sku: '',
@@ -46,12 +49,14 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
         stockLevel: 0,
         status: 'Healthy'
       });
+      setSkuError(null);
     }
   }, [item, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setSkuError(null);
     try {
       const thresholds = {
         warning: settings?.warningThreshold || 250,
@@ -64,8 +69,13 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
         await addInventoryItem(formData);
       }
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save inventory item", error);
+      if (error.message?.includes('already exists')) {
+        setSkuError(error.message);
+      } else {
+        alert("Failed to save item. Check logs for details.");
+      }
     } finally {
       setLoading(false);
     }
@@ -119,10 +129,26 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
                     required
                     type="text" 
                     value={formData.sku}
-                    onChange={e => setFormData({...formData, sku: e.target.value})}
-                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-mono text-sm focus:ring-0 focus:border-primary transition-all"
+                    disabled={!!item}
+                    onChange={e => {
+                      setFormData({...formData, sku: e.target.value.toUpperCase()});
+                      setSkuError(null);
+                    }}
+                    onBlur={async (e) => {
+                      if (!item && e.target.value) {
+                        const existing = await getInventoryItemBySku(e.target.value.toUpperCase());
+                        if (existing) {
+                          setSkuError(`SKU "${e.target.value.toUpperCase()}" already exists.`);
+                        }
+                      }
+                    }}
+                    className={cn(
+                      "w-full border-0 border-b-2 bg-surface-container-low px-4 py-2 sm:py-3 font-mono text-sm focus:ring-0 transition-all",
+                      skuError ? "border-tertiary focus:border-tertiary" : "border-surface-container focus:border-primary"
+                    )}
                     placeholder="e.g. B-EN-001"
                   />
+                  {skuError && <p className="text-[10px] text-tertiary font-headline font-bold uppercase tracking-wider">{skuError}</p>}
                 </div>
                 <div className="space-y-2">
                   <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Category</label>
