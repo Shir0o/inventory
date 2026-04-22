@@ -211,10 +211,6 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
                   >
                     <option>English</option>
                     <option>Spanish</option>
-                    <option>French</option>
-                    <option>Portuguese</option>
-                    <option>Arabic</option>
-                    <option>Chinese</option>
                   </select>
                 </div>
                 <div className="space-y-2">

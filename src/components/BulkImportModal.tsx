@@ -544,10 +544,6 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
                                     >
                                       <option value="English">EN</option>
                                       <option value="Spanish">ES</option>
-                                      <option value="French">FR</option>
-                                      <option value="Portuguese">PT</option>
-                                      <option value="Arabic">AR</option>
-                                      <option value="Chinese">ZH</option>
                                     </select>
                                   </td>
                                   <td className="px-4 py-3">
