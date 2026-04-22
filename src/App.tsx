@@ -1568,7 +1568,6 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: 
 };
 
 const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }) => {
-  const [seeding, setSeeding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     timezone: 'UTC',
@@ -1618,24 +1617,6 @@ const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }
     }
   };
 
-  const handleSeed = async () => {
-    if (!isAdmin) {
-      alert("Only administrators can perform system seeding.");
-      return;
-    }
-    if (!confirm("This will populate your database with sample data. Continue?")) return;
-    setSeeding(true);
-    try {
-      await seedData();
-      alert("Database seeded successfully!");
-    } catch (error) {
-      console.error("Seeding failed", error);
-      alert("Seeding failed. Check console for details.");
-    } finally {
-      setSeeding(false);
-    }
-  };
-
   return (
     <div className="space-y-8">
       <div className="flex items-end justify-between">
@@ -1645,22 +1626,13 @@ const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }
         </div>
         <div className="flex gap-3">
           {isAdmin && (
-            <>
-              <button 
-                onClick={handleSeed}
-                disabled={seeding}
-                className="px-6 py-2 border-2 border-tertiary text-tertiary font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-tertiary/5 transition-colors rounded-sharp disabled:opacity-50"
-              >
-                {seeding ? 'Seeding...' : 'Seed Initial Data'}
-              </button>
-              <button 
-                onClick={handleSave}
-                disabled={saving}
-                className="px-6 py-2 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-            </>
+            <button 
+              onClick={handleSave}
+              disabled={saving}
+              className="px-6 py-2 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
           )}
         </div>
       </div>
