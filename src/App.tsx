@@ -884,6 +884,44 @@ const LogsView = ({ logs }: { logs: any[] }) => {
     return <History className="w-3 h-3" />;
   };
 
+  const formatLogDetails = (log: any) => {
+    if (!log.metadata) return null;
+
+    // Distribution details
+    if (log.action === 'DISTRIBUTION' && Array.isArray(log.metadata.items)) {
+      return (
+        <div className="flex flex-wrap gap-1 mt-1">
+          {log.metadata.items.map((item: any, idx: number) => (
+            <span key={idx} className="bg-surface-container-low border border-outline-variant px-1.5 py-0.5 rounded-sharp text-[10px] font-mono">
+              {item.quantity}× {item.sku}
+            </span>
+          ))}
+        </div>
+      );
+    }
+
+    // Stock update details
+    if (log.action === 'STOCK_UPDATE' && log.metadata.item) {
+      return (
+        <div className="mt-1 text-[11px] font-mono text-on-surface-variant">
+          New Level: <span className="text-primary font-bold">{log.metadata.item.stockLevel}</span>
+        </div>
+      );
+    }
+
+    // Item creation details
+    if (log.action === 'ITEM_CREATED' && log.metadata.item) {
+      return (
+        <div className="mt-1 flex gap-3 text-[11px] font-mono text-on-surface-variant">
+          <span>Initial Stock: <span className="text-secondary font-bold">{log.metadata.item.stockLevel}</span></span>
+          <span>Category: <span className="text-primary font-bold">{log.metadata.item.category}</span></span>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
@@ -953,16 +991,12 @@ const LogsView = ({ logs }: { logs: any[] }) => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-[13px] text-on-surface leading-relaxed max-w-md">
-                        {log.details}
-                      </p>
-                      {log.metadata && (
-                        <div className="mt-2 hidden group-hover:block">
-                          <pre className="text-[9px] font-mono bg-surface-container-low p-2 rounded-sharp border border-outline-variant overflow-x-auto max-w-xs">
-                            {JSON.stringify(log.metadata, null, 2)}
-                          </pre>
-                        </div>
-                      )}
+                      <div>
+                        <p className="text-[13px] text-on-surface leading-relaxed max-w-md">
+                          {log.details}
+                        </p>
+                        {formatLogDetails(log)}
+                      </div>
                     </td>
                   </tr>
                 ))

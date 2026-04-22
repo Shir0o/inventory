@@ -185,7 +185,7 @@ export async function addInventoryItem(item: any) {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
-    await createAuditLog('ITEM_CREATED', docRef.id, 'inventory', `Created item: ${item.title} (${item.sku})`);
+    await createAuditLog('ITEM_CREATED', docRef.id, 'inventory', `Created item: ${item.title} (${item.sku})`, { item });
     return docRef;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -217,12 +217,12 @@ export async function updateInventoryItem(id: string, item: any, thresholds?: { 
   }
 }
 
-export async function deleteInventoryItem(id: string) {
+export async function deleteInventoryItem(id: string, itemTitle?: string) {
   const path = `inventory/${id}`;
   try {
     const docRef = doc(db, 'inventory', id);
     await deleteDoc(docRef);
-    await createAuditLog('ITEM_DELETED', id, 'inventory', `Deleted item ID: ${id}`);
+    await createAuditLog('ITEM_DELETED', id, 'inventory', `Deleted item: ${itemTitle || id}`);
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
