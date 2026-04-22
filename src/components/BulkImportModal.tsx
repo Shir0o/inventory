@@ -91,6 +91,13 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
     setImportProgress({ current: 0, total: 0 });
   };
 
+  // Reset state when modal is opened to allow fresh starts
+  React.useEffect(() => {
+    if (isOpen) {
+      reset();
+    }
+  }, [isOpen]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -400,12 +407,21 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
                     <h3 className="font-headline font-bold text-2xl text-primary">Reconciliation Success!</h3>
                     <p className="text-on-surface-variant text-sm">Successfully synced {importProgress.total} records to the {importType} ledger.</p>
                   </div>
-                  <button
-                    onClick={onClose}
-                    className="px-8 py-3 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg"
-                  >
-                    Finish
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={onClose}
+                      className="px-8 py-3 border border-outline-variant text-on-surface-variant font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-surface-container transition-all rounded-sharp shadow-lg"
+                    >
+                      Finish & Close
+                    </button>
+                    <button
+                      onClick={reset}
+                      className="px-8 py-3 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg flex items-center justify-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Import Another Batch
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
