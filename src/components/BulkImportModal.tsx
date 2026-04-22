@@ -79,8 +79,8 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
 
   const handleImport = async () => {
     // Prevent import if there are existing SKUs
-    if (importType === 'inventory' && existingSkus.size > 0) {
-      setError("Please resolve duplicate SKUs before importing.");
+    if (importType === 'inventory' && hasValidationErrors) {
+      setError("Please resolve all SKU conflicts before importing.");
       return;
     }
 
@@ -107,15 +107,35 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
 
   const updateParsedItem = async (index: number, field: string, value: any) => {
     const newItems = [...parsedItems];
-    newItems[index] = { ...newItems[index], [field]: value };
+    let updatedItem = { ...newItems[index], [field]: value };
+
+    // Auto-update SKU based on language extension rules
+    if (field === 'language' && importType === 'inventory') {
+      const lang = value.trim().toLowerCase();
+      let currentSku = updatedItem.sku || '';
+      
+      // Clean existing extensions if they match our pattern
+      if (currentSku.endsWith('-001') || currentSku.endsWith('-002')) {
+        currentSku = currentSku.slice(0, -4);
+      }
+
+      if (lang === 'english') {
+        updatedItem.sku = `${currentSku}-001`;
+      } else if (lang === 'spanish') {
+        updatedItem.sku = `${currentSku}-002`;
+      }
+    }
+
+    newItems[index] = updatedItem;
     setParsedItems(newItems);
 
-    if (field === 'sku' && importType === 'inventory') {
-      const existing = await getInventoryItemBySku(value);
+    if ((field === 'sku' || field === 'language') && importType === 'inventory') {
+      const skuToCheck = updatedItem.sku;
+      const existing = await getInventoryItemBySku(skuToCheck);
       setExistingSkus(prev => {
         const next = new Set(prev);
-        if (existing) next.add(value);
-        else next.delete(value);
+        if (existing) next.add(skuToCheck);
+        else next.delete(skuToCheck);
         return next;
       });
     }
@@ -139,6 +159,8 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
 
   // UI calculation for duplicates
   const duplicatesInBatch = new Set<string>();
+  const conflictingSkusInMatrix = new Set<string>();
+  
   if (importType === 'inventory') {
     const seen = new Set<string>();
     parsedItems.forEach(item => {
@@ -146,8 +168,14 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
         duplicatesInBatch.add(item.sku);
       }
       seen.add(item.sku);
+      
+      if (existingSkus.has(item.sku)) {
+        conflictingSkusInMatrix.add(item.sku);
+      }
     });
   }
+
+  const hasValidationErrors = conflictingSkusInMatrix.size > 0 || duplicatesInBatch.size > 0;
 
   return (
     <AnimatePresence>
@@ -283,7 +311,7 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
                       <h3 className="font-headline font-bold text-lg sm:text-xl text-primary">Review AI Proposal</h3>
                       <p className="text-on-surface-variant text-xs sm:text-sm">Successfully mapped {parsedItems.length} {importType}.</p>
                     </div>
-                    {importType === 'inventory' && (existingSkus.size > 0 || duplicatesInBatch.size > 0) && (
+                    {importType === 'inventory' && hasValidationErrors && (
                       <div className="flex items-center gap-2 bg-tertiary/10 text-tertiary px-3 py-2 rounded-sharp border border-tertiary/20">
                         <AlertCircle className="w-4 h-4" />
                         <span className="text-[10px] font-headline font-bold uppercase tracking-wider">Duplicate SKUs Detected</span>
@@ -306,6 +334,7 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
                               <>
                                 <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">SKU</th>
                                 <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Details</th>
+                                <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Lang</th>
                                 <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Category</th>
                                 <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Level</th>
                               </>
@@ -363,6 +392,20 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
                                         className="w-full bg-transparent text-[9px] sm:text-[10px] text-slate-400 border-b border-transparent focus:border-primary outline-none focus:bg-surface px-1 py-0.5 rounded"
                                       />
                                     </div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <select 
+                                      value={item.language || 'English'}
+                                      onChange={(e) => updateParsedItem(i, 'language', e.target.value)}
+                                      className="bg-secondary/10 text-secondary text-[9px] font-bold uppercase rounded-sharp border-none outline-none cursor-pointer hover:bg-secondary/20 p-1"
+                                    >
+                                      <option value="English">EN</option>
+                                      <option value="Spanish">ES</option>
+                                      <option value="French">FR</option>
+                                      <option value="Portuguese">PT</option>
+                                      <option value="Arabic">AR</option>
+                                      <option value="Chinese">ZH</option>
+                                    </select>
                                   </td>
                                   <td className="px-4 py-3">
                                     <select 

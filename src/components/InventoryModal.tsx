@@ -157,9 +157,9 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
                     onChange={e => setFormData({...formData, category: e.target.value})}
                     className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-sans text-sm focus:ring-0 focus:border-primary appearance-none"
                   >
-                    <option>Bibles</option>
-                    <option>Tracts</option>
-                    <option>Booklets</option>
+                    {(settings?.categories || ['Bibles', 'Tracts', 'Booklets']).map((cat: string) => (
+                      <option key={cat}>{cat}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="sm:col-span-2 space-y-2">
@@ -185,13 +185,36 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
                 </div>
                 <div className="space-y-2">
                   <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Language</label>
-                  <input 
-                    type="text" 
+                  <select 
                     value={formData.language}
-                    onChange={e => setFormData({...formData, language: e.target.value})}
-                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-sans text-sm focus:ring-0 focus:border-primary transition-all"
-                    placeholder="e.g. English"
-                  />
+                    onChange={e => {
+                      const lang = e.target.value;
+                      let newSku = formData.sku;
+                      
+                      if (!item) {
+                        const langKey = lang.toLowerCase();
+                        let baseSku = formData.sku;
+                        if (baseSku.endsWith('-001') || baseSku.endsWith('-002')) {
+                          baseSku = baseSku.slice(0, -4);
+                        }
+
+                        if (langKey === 'english') newSku = `${baseSku}-001`;
+                        else if (langKey === 'spanish') newSku = `${baseSku}-002`;
+                        else newSku = baseSku;
+                      }
+
+                      setFormData({...formData, language: lang, sku: newSku});
+                      setSkuError(null);
+                    }}
+                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-sans text-sm focus:ring-0 focus:border-primary appearance-none"
+                  >
+                    <option>English</option>
+                    <option>Spanish</option>
+                    <option>French</option>
+                    <option>Portuguese</option>
+                    <option>Arabic</option>
+                    <option>Chinese</option>
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Unit Price ($)</label>

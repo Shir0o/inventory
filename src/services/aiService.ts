@@ -34,7 +34,12 @@ export async function parseInventoryData(rawData: string, categories: string[] =
       The data might be from a CSV, a list, or a messy text block.
       
       Schema:
-      - sku: string (required)
+      - sku: string (required). 
+        IMPORTANT SKU RULES:
+        1. If language is English, the SKU must end with "-001".
+        2. If language is Spanish, the SKU must end with "-002".
+        3. If your base SKU is "TR-001", for English use "TR-001-001", for Spanish use "TR-001-002".
+        4. Apply this suffix logic even if the raw data provides a different SKU, to ensure consistency between languages for the same material title.
       - title: string (required)
       - subtitle: string (optional)
       - category: string (required, must be one of: ${categories.join(', ')})
