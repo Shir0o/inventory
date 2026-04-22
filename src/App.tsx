@@ -887,34 +887,85 @@ const LogsView = ({ logs }: { logs: any[] }) => {
   const formatLogDetails = (log: any) => {
     if (!log.metadata) return null;
 
-    // Distribution details
+    // Distribution details (Multiple items)
     if (log.action === 'DISTRIBUTION' && Array.isArray(log.metadata.items)) {
       return (
-        <div className="flex flex-wrap gap-1 mt-1">
-          {log.metadata.items.map((item: any, idx: number) => (
-            <span key={idx} className="bg-surface-container-low border border-outline-variant px-1.5 py-0.5 rounded-sharp text-[10px] font-mono">
-              {item.quantity}× {item.sku}
-            </span>
-          ))}
+        <div className="space-y-1.5 mt-2">
+          <div className="text-[10px] font-bold text-secondary uppercase tracking-widest">Inventory Outflow</div>
+          <div className="grid grid-cols-1 gap-1">
+            {log.metadata.items.map((item: any, idx: number) => (
+              <div key={idx} className="flex items-center gap-3 bg-surface-container-low px-2 py-1 rounded-sharp border border-outline-variant/50">
+                <span className="font-mono text-[11px] font-bold text-primary">-{item.quantity}</span>
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold leading-none">{item.title}</span>
+                  <span className="font-mono text-[9px] text-on-surface-variant">{item.sku}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       );
     }
 
-    // Stock update details
-    if (log.action === 'STOCK_UPDATE' && log.metadata.item) {
+    // Stock update details (Manual edit)
+    if (log.action === 'STOCK_UPDATE' && log.metadata.changes) {
+      const { stockDelta, oldStock, newStock, oldStatus, newStatus } = log.metadata.changes;
+      return (
+        <div className="mt-2 p-2 bg-surface-container-low rounded-sharp border border-outline-variant/30 space-y-1">
+          {stockDelta !== undefined && (
+            <div className="flex items-center gap-2">
+              <span className={cn("font-mono text-[11px] font-bold px-1.5 py-0.5 rounded-sharp", stockDelta > 0 ? "text-secondary bg-secondary/10" : "text-tertiary bg-tertiary/10")}>
+                {stockDelta > 0 ? `+${stockDelta}` : stockDelta}
+              </span>
+              <span className="text-[10px] text-on-surface-variant uppercase">Quantity Shift</span>
+              <span className="font-mono text-[10px] text-slate-400 ml-auto">({oldStock} → {newStock})</span>
+            </div>
+          )}
+          {newStatus && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-on-surface-variant uppercase font-bold">Status Update:</span>
+              <span className="text-[10px] font-mono text-primary">{oldStatus} → {newStatus}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Fallback for old stock update format
+    if (log.action === 'STOCK_UPDATE' && log.metadata.item && !log.metadata.changes) {
       return (
         <div className="mt-1 text-[11px] font-mono text-on-surface-variant">
-          New Level: <span className="text-primary font-bold">{log.metadata.item.stockLevel}</span>
+          Current Level: <span className="text-primary font-bold">{log.metadata.item.stockLevel}</span>
         </div>
       );
     }
 
     // Item creation details
     if (log.action === 'ITEM_CREATED' && log.metadata.item) {
+      const item = log.metadata.item;
       return (
-        <div className="mt-1 flex gap-3 text-[11px] font-mono text-on-surface-variant">
-          <span>Initial Stock: <span className="text-secondary font-bold">{log.metadata.item.stockLevel}</span></span>
-          <span>Category: <span className="text-primary font-bold">{log.metadata.item.category}</span></span>
+        <div className="mt-2 space-y-1">
+          <div className="text-[10px] font-bold text-secondary uppercase tracking-widest">New Resource Initialized</div>
+          <div className="p-2 bg-secondary/5 border border-secondary/20 rounded-sharp">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <div className="flex justify-between border-b border-outline-variant/30 pb-1">
+                <span className="text-[9px] text-on-surface-variant uppercase">Initial Stock</span>
+                <span className="font-mono text-[10px] font-bold">{item.stockLevel}</span>
+              </div>
+              <div className="flex justify-between border-b border-outline-variant/30 pb-1">
+                <span className="text-[9px] text-on-surface-variant uppercase">Category</span>
+                <span className="font-headline text-[10px] font-bold text-primary uppercase">{item.category}</span>
+              </div>
+              <div className="flex justify-between pt-1">
+                <span className="text-[9px] text-on-surface-variant uppercase">Language</span>
+                <span className="text-[10px] font-medium">{item.language}</span>
+              </div>
+              <div className="flex justify-between pt-1">
+                <span className="text-[9px] text-on-surface-variant uppercase">SKU</span>
+                <span className="font-mono text-[10px]">{item.sku}</span>
+              </div>
+            </div>
+          </div>
         </div>
       );
     }
@@ -923,19 +974,10 @@ const LogsView = ({ logs }: { logs: any[] }) => {
     if (log.action === 'SETTINGS_UPDATE' && log.metadata.settings) {
       const s = log.metadata.settings;
       return (
-        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono text-on-surface-variant uppercase">
-          {s.timezone && <span>TZ: {s.timezone.split('/').pop()?.replace('_', ' ')}</span>}
-          {s.warningThreshold && <span>Warn: {s.warningThreshold}</span>}
-          {s.criticalThreshold && <span>Crit: {s.criticalThreshold}</span>}
-        </div>
-      );
-    }
-
-    // Role update details
-    if (log.action === 'ROLE_UPDATE' && log.metadata.role) {
-      return (
-        <div className="mt-1 text-[11px] font-mono">
-          New Permission: <span className="text-secondary font-bold uppercase">{log.metadata.role}</span>
+        <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-mono uppercase">
+          {s.timezone && <span className="bg-surface-container-low px-2 py-0.5 rounded-sharp border border-outline-variant">TZ: {s.timezone.split('/').pop()?.replace('_', ' ')}</span>}
+          {s.warningThreshold && <span className="bg-primary/5 text-primary px-2 py-0.5 rounded-sharp border border-primary/20 font-bold">WARN: {s.warningThreshold}</span>}
+          {s.criticalThreshold && <span className="bg-tertiary/5 text-tertiary px-2 py-0.5 rounded-sharp border border-tertiary/20 font-bold">CRIT: {s.criticalThreshold}</span>}
         </div>
       );
     }
@@ -944,9 +986,19 @@ const LogsView = ({ logs }: { logs: any[] }) => {
     if (log.action === 'EVENT_UPDATED' && log.metadata.event) {
       const e = log.metadata.event;
       return (
-        <div className="mt-1 text-[10px] font-mono text-on-surface-variant uppercase">
-          {e.status && <span className="mr-3">Status: <span className="text-primary">{e.status}</span></span>}
-          {e.location && <span>Loc: {e.location}</span>}
+        <div className="mt-2 p-2 bg-primary/5 border border-primary/10 rounded-sharp space-y-1">
+          {e.status && (
+            <div className="flex justify-between items-center">
+              <span className="text-[9px] text-on-surface-variant uppercase">Status set to</span>
+              <span className="text-[10px] font-bold text-primary uppercase tracking-wider bg-white px-2 py-0.5 rounded-sharp shadow-sm">{e.status}</span>
+            </div>
+          )}
+          {e.location && (
+            <div className="flex justify-between items-center">
+              <span className="text-[9px] text-on-surface-variant uppercase">Relocated to</span>
+              <span className="text-[10px] font-medium">{e.location}</span>
+            </div>
+          )}
         </div>
       );
     }

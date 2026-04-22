@@ -64,7 +64,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
       };
 
       if (item?.id) {
-        await updateInventoryItem(item.id, formData, thresholds);
+        await updateInventoryItem(item.id, formData, thresholds, item);
       } else {
         await addInventoryItem(formData);
       }

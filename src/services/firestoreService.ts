@@ -192,7 +192,7 @@ export async function addInventoryItem(item: any) {
   }
 }
 
-export async function updateInventoryItem(id: string, item: any, thresholds?: { warning: number, critical: number }) {
+export async function updateInventoryItem(id: string, item: any, thresholds?: { warning: number, critical: number }, previousItem?: any) {
   const path = `inventory/${id}`;
   try {
     const docRef = doc(db, 'inventory', id);
@@ -210,7 +210,20 @@ export async function updateInventoryItem(id: string, item: any, thresholds?: { 
       }
     }
 
-    await createAuditLog('STOCK_UPDATE', id, 'inventory', `Updated item: ${item.title}`, { item });
+    const changes: any = {};
+    if (previousItem) {
+      if (previousItem.stockLevel !== item.stockLevel) {
+        changes.stockDelta = item.stockLevel - previousItem.stockLevel;
+        changes.oldStock = previousItem.stockLevel;
+        changes.newStock = item.stockLevel;
+      }
+      if (previousItem.status !== item.status) {
+        changes.oldStatus = previousItem.status;
+        changes.newStatus = item.status;
+      }
+    }
+
+    await createAuditLog('STOCK_UPDATE', id, 'inventory', `Updated item: ${item.title}`, { item, changes });
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
