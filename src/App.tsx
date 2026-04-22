@@ -70,6 +70,59 @@ import AIInsightsView from './components/AIInsightsView';
 import { generateMonthlyReport } from './lib/pdfGenerator';
 import { exportToCSV } from './lib/csvExport';
 
+// --- Utils ---
+const formatDate = (date: any, timezone: string = 'UTC') => {
+  if (!date) return 'N/A';
+  const d = date.toDate ? date.toDate() : new Date(date);
+  if (isNaN(d.getTime())) return 'Invalid Date';
+  
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone || 'UTC',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    }).format(d);
+  } catch (e) {
+    return d.toLocaleDateString();
+  }
+};
+
+const formatDateTime = (date: any, timezone: string = 'UTC') => {
+  if (!date) return 'N/A';
+  const d = date.toDate ? date.toDate() : new Date(date);
+  if (isNaN(d.getTime())) return 'Invalid Date';
+  
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone || 'UTC',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(d);
+  } catch (e) {
+    return d.toLocaleString();
+  }
+};
+
+const formatTime = (date: any, timezone: string = 'UTC') => {
+  if (!date) return 'N/A';
+  const d = date.toDate ? date.toDate() : new Date(date);
+  if (isNaN(d.getTime())) return 'Invalid Date';
+  
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone || 'UTC',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(d);
+  } catch (e) {
+    return d.toLocaleTimeString();
+  }
+};
+
 // --- Types ---
 
 type Tab = 'dashboard' | 'inventory' | 'events' | 'reports' | 'settings' | 'users' | 'logs' | 'ai_insights';
@@ -302,7 +355,7 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: { searchQu
 
 // --- Page Views ---
 
-const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isAdmin }: { inventory: any[], events: any[], onEdit: (item: any) => void, auditLogs: any[], setActiveTab: (t: Tab) => void, isAdmin: boolean }) => {
+const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isAdmin, settings }: { inventory: any[], events: any[], onEdit: (item: any) => void, auditLogs: any[], setActiveTab: (t: Tab) => void, isAdmin: boolean, settings: any }) => {
   const lowStockItems = inventory.filter(item => item.status === 'Low' || item.status === 'Out');
   const totalUnits = inventory.reduce((acc, item) => acc + (item.stockLevel || 0), 0);
   const distributedMTD = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
@@ -460,9 +513,7 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
                 ) : (
                   auditLogs.slice(0, 5).map((log, i) => {
                     const Icon = getLogIcon(log.action);
-                    const timeStr = log.timestamp?.toDate 
-                      ? log.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                      : new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const timeStr = formatTime(log.timestamp, settings?.timezone);
                     
                     return (
                       <div key={log.id || i} className="relative pl-10">
@@ -494,7 +545,7 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
   );
 };
 
-const InventoryView = ({ inventory, onAdd, onEdit, onBulkImport, globalSearch }: { inventory: any[], onAdd: () => void, onEdit: (item: any) => void, onBulkImport: () => void, globalSearch: string }) => {
+const InventoryView = ({ inventory, onAdd, onEdit, onBulkImport, globalSearch, isAdmin }: { inventory: any[], onAdd: () => void, onEdit: (item: any) => void, onBulkImport: () => void, globalSearch: string, isAdmin: boolean }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [localSearch, setLocalSearch] = useState('');
   const [filters, setFilters] = useState({
@@ -531,13 +582,15 @@ const InventoryView = ({ inventory, onAdd, onEdit, onBulkImport, globalSearch }:
           <p className="text-on-surface-variant text-sm mt-1 sm:mt-2">Tracking outreach literature and resources.</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <button 
-            onClick={onBulkImport}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 border border-outline-variant bg-surface text-[12px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
-          >
-            <Upload className="w-4 h-4" />
-            <span className="sm:inline">Bulk</span>
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={onBulkImport}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 border border-outline-variant bg-surface text-[12px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="sm:inline">Bulk</span>
+            </button>
+          )}
           <button 
             onClick={() => exportToCSV(filteredInventory, 'lit_ledger_inventory')}
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 border border-outline-variant bg-surface text-[12px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
@@ -545,13 +598,15 @@ const InventoryView = ({ inventory, onAdd, onEdit, onBulkImport, globalSearch }:
             <Download className="w-4 h-4" />
             <span className="sm:inline">Export</span>
           </button>
-          <button 
-            onClick={onAdd}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-primary text-white text-[12px] font-bold active:scale-95 transition-all rounded-sharp shadow-lg whitespace-nowrap"
-          >
-            <PlusCircle className="w-4 h-4" />
-            Add Resource
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={onAdd}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-primary text-white text-[12px] font-bold active:scale-95 transition-all rounded-sharp shadow-lg whitespace-nowrap"
+            >
+              <PlusCircle className="w-4 h-4" />
+              Add Resource
+            </button>
+          )}
           <button 
             onClick={() => setShowFilters(!showFilters)}
             className={cn(
@@ -897,7 +952,7 @@ const UsersView = ({ users }: { users: any[] }) => {
   );
 };
 
-const LogsView = ({ logs }: { logs: any[] }) => {
+const LogsView = ({ logs, settings }: { logs: any[], settings: any }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
 
@@ -990,10 +1045,10 @@ const LogsView = ({ logs }: { logs: any[] }) => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col">
                         <span className="font-mono text-[12px] text-on-surface font-bold">
-                          {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          {formatTime(log.timestamp, settings?.timezone)}
                         </span>
                         <span className="font-mono text-[10px] text-slate-400">
-                          {new Date(log.timestamp).toLocaleDateString()}
+                          {formatDate(log.timestamp, settings?.timezone)}
                         </span>
                       </div>
                     </td>
@@ -1075,12 +1130,23 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
     };
   });
 
+  const monthsMap = {
+    '0': 'Jan', '1': 'Feb', '2': 'Mar', '3': 'Apr', '4': 'May', '5': 'Jun',
+    '6': 'Jul', '7': 'Aug', '8': 'Sep', '9': 'Oct', '10': 'Nov', '11': 'Dec'
+  };
+
   events.forEach(event => {
     try {
       const date = event.date?.toDate ? event.date.toDate() : new Date(event.date);
       if (isNaN(date.getTime())) return;
       
-      const monthLabel = months[date.getMonth()];
+      // Use Intl to get month name in the desired timezone
+      const monthLabel = new Intl.DateTimeFormat('en-US', { 
+        month: 'short', 
+        timeZone: settings?.timezone || 'UTC' 
+      }).format(date);
+      
+      if (!monthlyMap[monthLabel]) return; // Skip if month unexpected
       
       if (event.materials && Array.isArray(event.materials)) {
         event.materials.forEach((m: any) => {
@@ -1296,7 +1362,7 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
   );
 };
 
-const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], onAdd: () => void, onEdit: (event: any) => void, onBulkImport: () => void }) => {
+const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: { events: any[], onAdd: () => void, onEdit: (event: any) => void, onBulkImport: () => void, settings: any, isAdmin: boolean }) => {
   const totalDistributed = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
 
   return (
@@ -1307,25 +1373,29 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], on
           <h1 className="font-headline font-extrabold text-2xl sm:text-[32px] text-primary tracking-tight leading-none mt-1 uppercase">Events Manager</h1>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <button 
-            onClick={onBulkImport}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 border border-outline-variant bg-surface text-[12px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
-          >
-            <Upload className="w-4 h-4" />
-            <span className="sm:inline">Bulk</span>
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={onBulkImport}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 border border-outline-variant bg-surface text-[12px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="sm:inline">Bulk</span>
+            </button>
+          )}
           <button 
             onClick={() => exportToCSV(events, 'lit_ledger_events')}
             className="flex-1 sm:flex-none px-4 py-2 border border-outline-variant text-primary font-headline font-bold text-[11px] uppercase tracking-wider rounded-sharp hover:bg-surface-container transition-colors"
           >
             Export
           </button>
-          <button 
-            onClick={onAdd}
-            className="flex-1 sm:flex-none px-4 py-2 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-colors shadow-sm whitespace-nowrap"
-          >
-            New Event
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={onAdd}
+              className="flex-1 sm:flex-none px-4 py-2 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-colors shadow-sm whitespace-nowrap"
+            >
+              New Event
+            </button>
+          )}
         </div>
       </div>
 
@@ -1421,7 +1491,7 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], on
                     </div>
                   </td>
                   <td className="px-6 py-4 font-mono text-[13px] text-on-surface">
-                    {row.date?.toDate ? row.date.toDate().toLocaleDateString() : row.date}
+                    {formatDate(row.date, settings?.timezone)}
                   </td>
                   <td className="px-6 py-4 text-[13px] text-on-surface">{row.location}</td>
                   <td className="px-6 py-4 text-right">
@@ -1486,19 +1556,31 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], on
   );
 };
 
-const SettingsView = ({ settings }: { settings: any }) => {
+const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }) => {
   const [seeding, setSeeding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     orgName: '',
     taxId: '',
     address: '',
-    timezone: '',
+    timezone: 'UTC',
     updateFrequency: '',
     warningThreshold: 250,
     criticalThreshold: 75,
     categories: [] as string[]
   });
+
+  const timezones = [
+    'UTC',
+    'America/New_York',
+    'America/Chicago',
+    'America/Denver',
+    'America/Los_Angeles',
+    'Europe/London',
+    'Europe/Paris',
+    'Asia/Tokyo',
+    'Australia/Sydney'
+  ];
 
   useEffect(() => {
     if (settings) {
@@ -1506,7 +1588,7 @@ const SettingsView = ({ settings }: { settings: any }) => {
         orgName: settings.orgName || '',
         taxId: settings.taxId || '',
         address: settings.address || '',
-        timezone: settings.timezone || '',
+        timezone: settings.timezone || 'UTC',
         updateFrequency: settings.updateFrequency || 'Real-time (Atomic)',
         warningThreshold: settings.warningThreshold || 250,
         criticalThreshold: settings.criticalThreshold || 75,
@@ -1516,6 +1598,10 @@ const SettingsView = ({ settings }: { settings: any }) => {
   }, [settings]);
 
   const handleSave = async () => {
+    if (!isAdmin) {
+      alert("Only administrators can update system settings.");
+      return;
+    }
     setSaving(true);
     try {
       await updateSettings(formData);
@@ -1528,6 +1614,10 @@ const SettingsView = ({ settings }: { settings: any }) => {
   };
 
   const handleSeed = async () => {
+    if (!isAdmin) {
+      alert("Only administrators can perform system seeding.");
+      return;
+    }
     if (!confirm("This will populate your database with sample data. Continue?")) return;
     setSeeding(true);
     try {
@@ -1549,20 +1639,24 @@ const SettingsView = ({ settings }: { settings: any }) => {
           <h1 className="font-headline font-bold text-3xl text-primary tracking-tight">System Settings</h1>
         </div>
         <div className="flex gap-3">
-          <button 
-            onClick={handleSeed}
-            disabled={seeding}
-            className="px-6 py-2 border-2 border-tertiary text-tertiary font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-tertiary/5 transition-colors rounded-sharp disabled:opacity-50"
-          >
-            {seeding ? 'Seeding...' : 'Seed Initial Data'}
-          </button>
-          <button 
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-2 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
+          {isAdmin && (
+            <>
+              <button 
+                onClick={handleSeed}
+                disabled={seeding}
+                className="px-6 py-2 border-2 border-tertiary text-tertiary font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-tertiary/5 transition-colors rounded-sharp disabled:opacity-50"
+              >
+                {seeding ? 'Seeding...' : 'Seed Initial Data'}
+              </button>
+              <button 
+                onClick={handleSave}
+                disabled={saving}
+                className="px-6 py-2 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1577,28 +1671,31 @@ const SettingsView = ({ settings }: { settings: any }) => {
             <div className="col-span-2 md:col-span-1 space-y-2">
               <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Legal Organization Name</label>
               <input 
+                disabled={!isAdmin}
                 type="text" 
                 value={formData.orgName}
                 onChange={e => setFormData({...formData, orgName: e.target.value})}
-                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all"
+                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all disabled:opacity-70 disabled:cursor-not-allowed"
               />
             </div>
             <div className="col-span-2 md:col-span-1 space-y-2">
               <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Tax Identification Number</label>
               <input 
+                disabled={!isAdmin}
                 type="text" 
                 value={formData.taxId}
                 onChange={e => setFormData({...formData, taxId: e.target.value})}
-                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-mono text-[14px] focus:ring-0 focus:border-primary transition-all"
+                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-mono text-[14px] focus:ring-0 focus:border-primary transition-all disabled:opacity-70 disabled:cursor-not-allowed"
               />
             </div>
             <div className="col-span-2 space-y-2">
               <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Principal Business Address</label>
               <textarea 
+                disabled={!isAdmin}
                 rows={3}
                 value={formData.address}
                 onChange={e => setFormData({...formData, address: e.target.value})}
-                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all resize-none"
+                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all resize-none disabled:opacity-70 disabled:cursor-not-allowed"
               />
             </div>
         </div>
@@ -1617,44 +1714,48 @@ const SettingsView = ({ settings }: { settings: any }) => {
               {formData.categories.map((cat, i) => (
                 <div key={i} className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 rounded-sharp">
                   <span className="font-headline font-bold text-[11px] uppercase tracking-wider">{cat}</span>
-                  <button 
-                    onClick={() => setFormData({...formData, categories: formData.categories.filter((_, idx) => idx !== i)})}
-                    className="hover:text-tertiary transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  {isAdmin && (
+                    <button 
+                      onClick={() => setFormData({...formData, categories: formData.categories.filter((_, idx) => idx !== i)})}
+                      className="hover:text-tertiary transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
-            <div className="mt-4 flex gap-2">
-              <input 
-                type="text" 
-                placeholder="New classification..."
-                className="flex-1 border-0 border-b-2 border-surface-container bg-surface-container-low px-3 py-2 font-headline font-medium text-[12px] focus:ring-0 focus:border-primary transition-all"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    const val = e.currentTarget.value.trim();
+            {isAdmin && (
+              <div className="mt-4 flex gap-2">
+                <input 
+                  type="text" 
+                  placeholder="New classification..."
+                  className="flex-1 border-0 border-b-2 border-surface-container bg-surface-container-low px-3 py-2 font-headline font-medium text-[12px] focus:ring-0 focus:border-primary transition-all"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const val = e.currentTarget.value.trim();
+                      if (val && !formData.categories.includes(val)) {
+                        setFormData({...formData, categories: [...formData.categories, val]});
+                        e.currentTarget.value = '';
+                      }
+                    }
+                  }}
+                />
+                <button 
+                  className="p-2 bg-surface-container hover:bg-surface-container-high text-primary transition-colors rounded-sharp"
+                  onClick={(e) => {
+                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                    const val = input.value.trim();
                     if (val && !formData.categories.includes(val)) {
                       setFormData({...formData, categories: [...formData.categories, val]});
-                      e.currentTarget.value = '';
+                      input.value = '';
                     }
-                  }
-                }}
-              />
-              <button 
-                className="p-2 bg-surface-container hover:bg-surface-container-high text-primary transition-colors rounded-sharp"
-                onClick={(e) => {
-                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                  const val = input.value.trim();
-                  if (val && !formData.categories.includes(val)) {
-                    setFormData({...formData, categories: [...formData.categories, val]});
-                    input.value = '';
-                  }
-                }}
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -1669,21 +1770,26 @@ const SettingsView = ({ settings }: { settings: any }) => {
             <div className="flex items-center justify-between p-4 bg-surface-container border border-outline-variant rounded-sharp">
               <div>
                 <div className="font-headline font-bold text-[12px] text-primary">Timezone Alignment</div>
-                <input 
-                  type="text"
+                <select 
+                  disabled={!isAdmin}
                   value={formData.timezone}
                   onChange={e => setFormData({...formData, timezone: e.target.value})}
-                  className="bg-transparent border-0 p-0 font-mono text-[10px] text-on-surface-variant focus:ring-0 w-full"
-                />
+                  className="bg-transparent border-0 p-0 font-mono text-[10px] text-on-surface-variant focus:ring-0 w-full cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {timezones.map(tz => (
+                    <option key={tz} value={tz}>{tz}</option>
+                  ))}
+                </select>
               </div>
               <div className="h-2 w-2 bg-secondary rounded-full animate-pulse" />
             </div>
             <div className="space-y-4">
               <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Update Frequency</label>
               <select 
+                disabled={!isAdmin}
                 value={formData.updateFrequency}
                 onChange={e => setFormData({...formData, updateFrequency: e.target.value})}
-                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary appearance-none"
+                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary appearance-none disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 <option>Real-time (Atomic)</option>
                 <option>Every 15 Minutes</option>
@@ -1950,7 +2056,7 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
-              {activeTab === 'dashboard' && <DashboardView inventory={inventory} events={events} onEdit={handleEdit} auditLogs={auditLogs} setActiveTab={setActiveTab} isAdmin={isAdmin} />}
+              {activeTab === 'dashboard' && <DashboardView inventory={inventory} events={events} onEdit={handleEdit} auditLogs={auditLogs} setActiveTab={setActiveTab} isAdmin={isAdmin} settings={settings} />}
             {activeTab === 'inventory' && (
               <InventoryView 
                 inventory={inventory} 
@@ -1961,6 +2067,7 @@ export default function App() {
                   setIsBulkImportOpen(true);
                 }}
                 globalSearch={globalSearch} 
+                isAdmin={isAdmin}
               />
             )}
               {activeTab === 'reports' && <ReportsView inventory={inventory} events={events} auditLogs={auditLogs} settings={settings} />}
@@ -1973,12 +2080,14 @@ export default function App() {
                     setBulkImportInitialType('events');
                     setIsBulkImportOpen(true);
                   }} 
+                  settings={settings}
+                  isAdmin={isAdmin}
                 />
               )}
               {activeTab === 'users' && <UsersView users={users} />}
-              {activeTab === 'logs' && <LogsView logs={auditLogs} />}
+              {activeTab === 'logs' && <LogsView logs={auditLogs} settings={settings} />}
               {activeTab === 'ai_insights' && <AIInsightsView inventory={inventory} events={events} auditLogs={auditLogs} />}
-              {activeTab === 'settings' && <SettingsView settings={settings} />}
+              {activeTab === 'settings' && <SettingsView settings={settings} isAdmin={isAdmin} />}
             </motion.div>
           </AnimatePresence>
 
@@ -1987,12 +2096,15 @@ export default function App() {
             onClose={() => setIsModalOpen(false)} 
             item={selectedItem} 
             settings={settings}
+            isAdmin={isAdmin}
           />
 
           <EventModal 
             isOpen={isEventModalOpen} 
             onClose={() => setIsEventModalOpen(false)} 
             event={selectedEvent} 
+            settings={settings}
+            isAdmin={isAdmin}
           />
 
           <DistributionModal 
@@ -2007,6 +2119,7 @@ export default function App() {
             isOpen={isBulkImportOpen}
             onClose={() => setIsBulkImportOpen(false)}
             initialType={bulkImportInitialType}
+            isAdmin={isAdmin}
           />
 
           <QRScannerModal 

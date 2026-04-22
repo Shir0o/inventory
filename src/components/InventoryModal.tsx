@@ -9,9 +9,10 @@ interface InventoryModalProps {
   onClose: () => void;
   item?: any; // If present, we are editing
   settings?: any;
+  isAdmin?: boolean;
 }
 
-const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps) => {
+const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: InventoryModalProps) => {
   const [formData, setFormData] = useState({
     sku: '',
     title: '',
@@ -259,7 +260,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
               </div>
 
               <div className="pt-6 border-t border-outline-variant flex flex-col-reverse sm:flex-row justify-between gap-4 shrink-0">
-                {item && (
+                {item && isAdmin && (
                   <button
                     type="button"
                     onClick={handleDelete}
@@ -276,16 +277,18 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
                     onClick={onClose}
                     className="px-6 py-3 text-on-surface-variant font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-surface-container transition-colors rounded-sharp text-center"
                   >
-                    Cancel
+                    {isAdmin ? 'Cancel' : 'Close'}
                   </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
-                  >
-                    <Save className="w-4 h-4" />
-                    {loading ? 'Saving...' : (item ? 'Save Edits' : 'Add to Matrix')}
-                  </button>
+                  {isAdmin && (
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4" />
+                      {loading ? 'Saving...' : (item ? 'Save Edits' : 'Add to Matrix')}
+                    </button>
+                  )}
                 </div>
               </div>
             </form>

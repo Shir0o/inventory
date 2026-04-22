@@ -10,9 +10,10 @@ interface BulkImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialType?: 'inventory' | 'events';
+  isAdmin?: boolean;
 }
 
-const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory' }: BulkImportModalProps) => {
+const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin = false }: BulkImportModalProps) => {
   const [step, setStep] = useState<'upload' | 'parsing' | 'review' | 'success'>('upload');
   const [importType, setImportType] = useState<'inventory' | 'events'>(initialType);
   const [rawData, setRawData] = useState('');
@@ -93,6 +94,10 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory' }: BulkImp
   };
 
   const handleImport = async () => {
+    if (!isAdmin) {
+      alert("Only administrators can perform bulk imports.");
+      return;
+    }
     // Prevent import if there are existing SKUs
     if (importType === 'inventory' && hasValidationErrors) {
       setError("Please resolve all SKU conflicts before importing.");
@@ -638,25 +643,27 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory' }: BulkImp
                       onClick={onClose}
                       className="px-6 py-3 text-on-surface-variant font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-surface-container transition-colors rounded-sharp text-center"
                     >
-                      Cancel
+                      {isAdmin ? 'Cancel' : 'Close'}
                     </button>
-                    <button
-                      onClick={handleImport}
-                      disabled={loading}
-                      className="flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
-                    >
-                      {loading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Processing ({importProgress.current}/{importProgress.total})
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-4 h-4" />
-                          Commit Batch to Matrix
-                        </>
-                      )}
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={handleImport}
+                        disabled={loading}
+                        className="flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Processing ({importProgress.current}/{importProgress.total})
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4" />
+                            Commit Batch to Matrix
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

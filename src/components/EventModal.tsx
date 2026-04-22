@@ -9,9 +9,11 @@ interface EventModalProps {
   isOpen: boolean;
   onClose: () => void;
   event?: any;
+  settings?: any;
+  isAdmin?: boolean;
 }
 
-const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
+const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false }: EventModalProps) => {
   const [activeTab, setActiveTab] = useState<'details' | 'materials'>('details');
   const [materials, setMaterials] = useState<any[]>([]);
   const [formData, setFormData] = useState({
@@ -28,7 +30,8 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
       let dateStr = '';
       if (event.date) {
         const d = event.date.toDate ? event.date.toDate() : new Date(event.date);
-        dateStr = d.toISOString().split('T')[0];
+        // Use local parts to avoid UTC shift issues in date input
+        dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       }
       setFormData({
         name: event.name || '',
@@ -44,7 +47,7 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
     } else {
       setFormData({
         name: '',
-        date: new Date().toISOString().split('T')[0],
+        date: new Date().toLocaleDateString('en-CA'), // Formats as YYYY-MM-DD
         location: '',
         materialsDistributed: 0,
         status: 'Scheduled'
@@ -58,9 +61,13 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
     e.preventDefault();
     setLoading(true);
     try {
+      // Parse YYYY-MM-DD as a local date at noon to prevent day shifting
+      const [year, month, day] = formData.date.split('-').map(Number);
+      const localDate = new Date(year, month - 1, day, 12, 0, 0);
+      
       const submissionData = {
         ...formData,
-        date: Timestamp.fromDate(new Date(formData.date))
+        date: Timestamp.fromDate(localDate)
       };
       if (event?.id) {
         await updateEvent(event.id, submissionData);
@@ -250,7 +257,7 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
                 </div>
 
                 <div className="pt-6 border-t border-outline-variant flex flex-col-reverse sm:flex-row justify-between gap-4 shrink-0">
-                  {event && (
+                  {event && isAdmin && (
                     <button
                       type="button"
                       onClick={handleDelete}
@@ -267,16 +274,18 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
                       onClick={onClose}
                       className="px-6 py-3 text-on-surface-variant font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-surface-container transition-colors rounded-sharp text-center"
                     >
-                      Cancel
+                      {isAdmin ? 'Cancel' : 'Close'}
                     </button>
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
-                    >
-                      <Save className="w-4 h-4" />
-                      {loading ? 'Processing...' : (event ? 'Update Record' : 'Schedule')}
-                    </button>
+                    {isAdmin && (
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+                      >
+                        <Save className="w-4 h-4" />
+                        {loading ? 'Processing...' : (event ? 'Update Record' : 'Schedule')}
+                      </button>
+                    )}
                   </div>
                 </div>
               </form>

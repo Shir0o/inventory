@@ -669,9 +669,17 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
         }
       }
 
+      // Parse YYYY-MM-DD as a local date at noon to prevent day shifting
+      const parseSafeDate = (dStr: string) => {
+        if (!dStr) return new Date();
+        const [year, month, day] = dStr.split('-').map(Number);
+        if (isNaN(year)) return new Date(dStr);
+        return new Date(year, month - 1, day, 12, 0, 0);
+      };
+
       transaction.set(eventRef, {
         name: eventData.name,
-        date: Timestamp.fromDate(new Date(eventData.date)),
+        date: Timestamp.fromDate(parseSafeDate(eventData.date)),
         location: eventData.location,
         status: eventData.status,
         materialsDistributed: totalQuantity,
