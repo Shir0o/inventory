@@ -719,7 +719,7 @@ export async function seedData() {
 
   const { updateDoc, doc } = await import('firebase/firestore');
   await updateDoc(doc(db, settingsPath), {
-    timezone: "UTC-05:00 Eastern Standard",
+    timezone: "America/New_York",
     updateFrequency: "Real-time (Atomic)",
     categories: ['Bibles', 'Tracts', 'Booklets']
   });

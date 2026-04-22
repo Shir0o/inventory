@@ -1483,11 +1483,11 @@ const SettingsView = ({ settings }: { settings: any }) => {
   const [seeding, setSeeding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
-    timezone: '',
-    updateFrequency: '',
+    timezone: 'America/New_York',
+    updateFrequency: 'Real-time (Atomic)',
     warningThreshold: 250,
     criticalThreshold: 75,
-    categories: [] as string[]
+    categories: ['Bibles', 'Tracts', 'Booklets']
   });
 
   useEffect(() => {
@@ -1616,17 +1616,27 @@ const SettingsView = ({ settings }: { settings: any }) => {
           <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px]">Regional Sync</h2>
         </div>
           <div className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-surface-container border border-outline-variant rounded-sharp">
-              <div>
-                <div className="font-headline font-bold text-[12px] text-primary">Timezone Alignment</div>
-                <input 
-                  type="text"
-                  value={formData.timezone}
-                  onChange={e => setFormData({...formData, timezone: e.target.value})}
-                  className="bg-transparent border-0 p-0 font-mono text-[10px] text-on-surface-variant focus:ring-0 w-full"
-                />
+            <div className="space-y-2 p-4 bg-surface-container border border-outline-variant rounded-sharp relative overflow-hidden">
+              <div className="flex items-center justify-between relative z-10">
+                <div>
+                  <div className="font-headline font-bold text-[12px] text-primary">System Timezone</div>
+                  <select 
+                    value={formData.timezone}
+                    onChange={e => setFormData({...formData, timezone: e.target.value})}
+                    className="bg-transparent border-0 p-0 font-mono text-[11px] text-on-surface-variant focus:ring-0 w-full cursor-pointer appearance-none"
+                  >
+                    <option value="America/New_York">Eastern Time (ET)</option>
+                    <option value="America/Chicago">Central Time (CT)</option>
+                    <option value="America/Denver">Mountain Time (MT)</option>
+                    <option value="America/Los_Angeles">Pacific Time (PT) - LA/Seattle</option>
+                    <option value="America/Anchorage">Alaska Time</option>
+                    <option value="America/Adak">Hawaii-Aleutian Time</option>
+                    <option value="UTC">Universal Coordinated (UTC)</option>
+                  </select>
+                </div>
+                <div className="h-2 w-2 bg-secondary rounded-full animate-pulse" />
               </div>
-              <div className="h-2 w-2 bg-secondary rounded-full animate-pulse" />
+              <div className="text-[10px] text-on-surface-variant/60 italic">Used for regional sync alignment</div>
             </div>
             <div className="space-y-4">
               <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Update Frequency</label>
