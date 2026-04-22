@@ -441,7 +441,7 @@ export async function updateSettings(settings: any) {
   const path = 'settings/system';
   try {
     await updateDoc(doc(db, path), settings);
-    await createAuditLog('SETTINGS_UPDATE', 'system', 'settings', 'Updated system settings');
+    await createAuditLog('SETTINGS_UPDATE', 'system', 'settings', 'Updated system settings', { settings });
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -473,7 +473,7 @@ export async function updateUserRole(userId: string, role: 'admin' | 'user' | 'g
   const path = `users/${userId}`;
   try {
     await updateDoc(doc(db, 'users', userId), { role });
-    await createAuditLog('ROLE_UPDATE', userId, 'user', `Updated user role to ${role}`);
+    await createAuditLog('ROLE_UPDATE', userId, 'user', `Updated user role to ${role}`, { role });
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);

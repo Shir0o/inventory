@@ -919,6 +919,38 @@ const LogsView = ({ logs }: { logs: any[] }) => {
       );
     }
 
+    // Settings update details
+    if (log.action === 'SETTINGS_UPDATE' && log.metadata.settings) {
+      const s = log.metadata.settings;
+      return (
+        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono text-on-surface-variant uppercase">
+          {s.timezone && <span>TZ: {s.timezone.split('/').pop()?.replace('_', ' ')}</span>}
+          {s.warningThreshold && <span>Warn: {s.warningThreshold}</span>}
+          {s.criticalThreshold && <span>Crit: {s.criticalThreshold}</span>}
+        </div>
+      );
+    }
+
+    // Role update details
+    if (log.action === 'ROLE_UPDATE' && log.metadata.role) {
+      return (
+        <div className="mt-1 text-[11px] font-mono">
+          New Permission: <span className="text-secondary font-bold uppercase">{log.metadata.role}</span>
+        </div>
+      );
+    }
+
+    // Event updates
+    if (log.action === 'EVENT_UPDATED' && log.metadata.event) {
+      const e = log.metadata.event;
+      return (
+        <div className="mt-1 text-[10px] font-mono text-on-surface-variant uppercase">
+          {e.status && <span className="mr-3">Status: <span className="text-primary">{e.status}</span></span>}
+          {e.location && <span>Loc: {e.location}</span>}
+        </div>
+      );
+    }
+
     return null;
   };
 
