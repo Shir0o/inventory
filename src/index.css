@@ -30,24 +30,51 @@
 
 /* Custom scrollbar for the blueprint aesthetic */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
+}
+
+@media (min-width: 640px) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
 }
 
 ::-webkit-scrollbar-track {
-  background: #0A2540;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
   background: #1A365D;
-  border-radius: 0;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00D4B6;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #1A365D transparent;
 }
 
 .ledger-card {
-  @apply bg-surface border border-outline-variant rounded-sharp relative overflow-hidden;
+  @apply bg-surface border border-outline-variant rounded-sharp relative overflow-hidden transition-shadow duration-300;
 }
 
-.indicator-primary { @apply absolute top-0 left-0 w-1 h-full bg-primary; }
-.indicator-secondary { @apply absolute top-0 left-0 w-1 h-full bg-secondary; }
-.indicator-tertiary { @apply absolute top-0 left-0 w-1 h-full bg-tertiary; }
+.ledger-card:hover {
+  @apply shadow-lg shadow-primary/5;
+}
+
+.indicator-primary { @apply absolute top-0 left-0 w-1 sm:w-1.5 h-full bg-primary; }
+.indicator-secondary { @apply absolute top-0 left-0 w-1 sm:w-1.5 h-full bg-secondary; }
+.indicator-tertiary { @apply absolute top-0 left-0 w-1 sm:w-1.5 h-full bg-tertiary; }
+
+/* Prevent zoom on mobile inputs */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
 

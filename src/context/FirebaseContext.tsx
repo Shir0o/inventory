@@ -55,12 +55,10 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         } catch (error: any) {
           if (error.message === "NOT_AUTHORIZED") {
             setIsAuthorized(false);
-            // Sign out immediately so they stay on LoginView
-            await auth.signOut();
           }
         }
       }
-      setUser(auth.currentUser); // Use auth.currentUser to ensure we have the latest state after signOut
+      setUser(user);
       setLoading(false);
       setIsAuthReady(true);
     });

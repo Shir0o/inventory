@@ -138,16 +138,10 @@ service cloud.firestore {
       // PII Protection: Only owner or admin can read
       allow read: if isOwner(userId) || isAdmin();
       
-      // ONLY allow creation if the email is pre-authorized by an admin
-      // and the role matches what the admin assigned.
-      allow create: if isAuthenticated() && 
-                    isOwner(userId) &&
-                    isValidUser(request.resource.data) &&
+      // Prevent self-escalation and restrict creation to authorized emails
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
                     isAuthorizedEmail(request.resource.data.email) &&
-                    (
-                      request.resource.data.role == get(/databases/$(database)/documents/authorized_emails/$(request.resource.data.email)).data.role ||
-                      (request.resource.data.email.matches("(?i)YilongWang05@gmail\\.com") && request.resource.data.role == 'admin')
-                    );
+                    ((isOwner(userId) && request.resource.data.role == 'guest') || isAdmin());
                     
       allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
                     ((isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin());

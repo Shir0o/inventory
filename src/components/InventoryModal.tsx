@@ -99,104 +99,104 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-lg bg-background ledger-card overflow-hidden"
+            className="relative w-full max-w-lg bg-background ledger-card overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[90vh]"
           >
             <div className="indicator-primary" />
-            <div className="px-8 py-6 border-b border-outline-variant flex justify-between items-center bg-surface-container">
-              <h2 className="font-headline font-bold text-lg text-primary uppercase tracking-wider">
-                {item ? 'Edit Inventory Item' : 'Add New Resource'}
+            <div className="px-6 sm:px-8 py-4 sm:py-6 border-b border-outline-variant flex justify-between items-center bg-surface-container shrink-0">
+              <h2 className="font-headline font-bold text-base sm:text-lg text-primary uppercase tracking-wider">
+                {item ? 'Edit Resource' : 'Add New Resource'}
               </h2>
-              <button onClick={onClose} className="text-on-surface-variant hover:text-primary transition-colors">
-                <X className="w-6 h-6" />
+              <button onClick={onClose} className="text-on-surface-variant hover:text-primary transition-colors p-2">
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-8 space-y-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div className="col-span-2 md:col-span-1 space-y-2">
-                  <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">SKU / Reference ID</label>
+            <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6 overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-2">
+                  <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">SKU / Reference ID</label>
                   <input 
                     required
                     type="text" 
                     value={formData.sku}
                     onChange={e => setFormData({...formData, sku: e.target.value})}
-                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-mono text-[14px] focus:ring-0 focus:border-primary transition-all"
+                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-mono text-sm focus:ring-0 focus:border-primary transition-all"
                     placeholder="e.g. B-EN-001"
                   />
                 </div>
-                <div className="col-span-2 md:col-span-1 space-y-2">
-                  <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Category</label>
+                <div className="space-y-2">
+                  <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Category</label>
                   <select 
                     value={formData.category}
                     onChange={e => setFormData({...formData, category: e.target.value})}
-                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary appearance-none"
+                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-sans text-sm focus:ring-0 focus:border-primary appearance-none"
                   >
                     <option>Bibles</option>
                     <option>Tracts</option>
                     <option>Booklets</option>
                   </select>
                 </div>
-                <div className="col-span-2 space-y-2">
-                  <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Primary Title</label>
+                <div className="sm:col-span-2 space-y-2">
+                  <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Primary Title</label>
                   <input 
                     required
                     type="text" 
                     value={formData.title}
                     onChange={e => setFormData({...formData, title: e.target.value})}
-                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all"
+                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-sans text-sm focus:ring-0 focus:border-primary transition-all"
                     placeholder="e.g. The Great Controversy"
                   />
                 </div>
-                <div className="col-span-2 space-y-2">
-                  <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Subtitle / Edition</label>
+                <div className="sm:col-span-2 space-y-2">
+                  <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Subtitle / Edition</label>
                   <input 
                     type="text" 
                     value={formData.subtitle}
                     onChange={e => setFormData({...formData, subtitle: e.target.value})}
-                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all"
+                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-sans text-sm focus:ring-0 focus:border-primary transition-all"
                     placeholder="e.g. 1888 Edition - Hardcover"
                   />
                 </div>
-                <div className="col-span-2 md:col-span-1 space-y-2">
-                  <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Language</label>
+                <div className="space-y-2">
+                  <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Language</label>
                   <input 
                     type="text" 
                     value={formData.language}
                     onChange={e => setFormData({...formData, language: e.target.value})}
-                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all"
+                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-sans text-sm focus:ring-0 focus:border-primary transition-all"
                     placeholder="e.g. English"
                   />
                 </div>
-                <div className="col-span-2 md:col-span-1 space-y-2">
-                  <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Unit Price ($)</label>
+                <div className="space-y-2">
+                  <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Unit Price ($)</label>
                   <input 
                     required
                     type="number" 
                     step="0.01"
                     value={formData.unitPrice}
                     onChange={e => setFormData({...formData, unitPrice: parseFloat(e.target.value) || 0})}
-                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-mono text-[14px] focus:ring-0 focus:border-primary transition-all"
+                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-mono text-sm focus:ring-0 focus:border-primary transition-all"
                   />
                 </div>
-                <div className="col-span-2 md:col-span-1 space-y-2">
-                  <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Stock Level</label>
+                <div className="space-y-2">
+                  <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Stock Level</label>
                   <input 
                     required
                     type="number" 
                     value={formData.stockLevel}
                     onChange={e => setFormData({...formData, stockLevel: parseInt(e.target.value) || 0})}
-                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-mono text-[14px] focus:ring-0 focus:border-primary transition-all"
+                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-mono text-sm focus:ring-0 focus:border-primary transition-all"
                   />
                 </div>
-                <div className="col-span-2 space-y-2">
-                  <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">System Status</label>
-                  <div className="flex gap-4">
+                <div className="sm:col-span-2 space-y-2">
+                  <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">System Status</label>
+                  <div className="flex gap-2 sm:gap-4">
                     {['Healthy', 'Low', 'Out'].map(s => (
                       <button
                         key={s}
                         type="button"
                         onClick={() => setFormData({...formData, status: s})}
-                        className={`flex-1 py-2 text-[11px] font-bold uppercase tracking-wider border-2 rounded-sharp transition-all ${
+                        className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider border-2 rounded-sharp transition-all ${
                           formData.status === s 
                             ? 'bg-primary text-white border-primary' 
                             : 'border-outline-variant text-on-surface-variant hover:border-primary/50'
@@ -209,33 +209,33 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-outline-variant flex justify-between gap-4">
+              <div className="pt-6 border-t border-outline-variant flex flex-col-reverse sm:flex-row justify-between gap-4 shrink-0">
                 {item && (
                   <button
                     type="button"
                     onClick={handleDelete}
                     disabled={loading}
-                    className="flex items-center gap-2 px-6 py-3 border-2 border-tertiary text-tertiary font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-tertiary/5 transition-colors rounded-sharp disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 border-2 border-tertiary text-tertiary font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-tertiary/5 transition-colors rounded-sharp disabled:opacity-50"
                   >
                     <Trash2 className="w-4 h-4" />
                     Delete
                   </button>
                 )}
-                <div className="flex gap-4 ml-auto">
+                <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-4 sm:ml-auto w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-6 py-3 text-on-surface-variant font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-surface-container transition-colors rounded-sharp"
+                    className="px-6 py-3 text-on-surface-variant font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-surface-container transition-colors rounded-sharp text-center"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex items-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
                   >
                     <Save className="w-4 h-4" />
-                    {loading ? 'Saving...' : (item ? 'Update Ledger' : 'Add to Ledger')}
+                    {loading ? 'Saving...' : (item ? 'Save Edits' : 'Add to Matrix')}
                   </button>
                 </div>
               </div>

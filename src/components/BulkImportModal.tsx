@@ -89,32 +89,32 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-4xl bg-background ledger-card overflow-hidden flex flex-col max-h-[90vh]"
+            className="relative w-full max-w-4xl bg-background ledger-card overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[90vh]"
           >
             <div className="indicator-primary" />
-            <div className="px-8 py-6 border-b border-outline-variant flex justify-between items-center bg-surface-container">
+            <div className="px-6 sm:px-8 py-4 sm:py-6 border-b border-outline-variant flex justify-between items-center bg-surface-container shrink-0">
               <div className="flex items-center gap-3">
-                <Upload className="w-6 h-6 text-primary" />
-                <h2 className="font-headline font-bold text-lg text-primary uppercase tracking-wider">
-                  Bulk Inventory Import
+                <Upload className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                <h2 className="font-headline font-bold text-base sm:text-lg text-primary uppercase tracking-wider">
+                  Bulk Resource Import
                 </h2>
               </div>
-              <button onClick={onClose} className="text-on-surface-variant hover:text-primary transition-colors">
+              <button onClick={onClose} className="text-on-surface-variant hover:text-primary transition-colors p-2">
                 <X className="w-6 h-6" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar">
               {step === 'upload' && (
-                <div className="space-y-8">
+                <div className="space-y-6 sm:y-8">
                   <div className="text-center space-y-2">
-                    <h3 className="font-headline font-bold text-xl text-primary">Upload your data</h3>
-                    <p className="text-on-surface-variant text-sm">Upload a CSV, Excel export, or even a plain text list. Our AI will handle the formatting.</p>
+                    <h3 className="font-headline font-bold text-lg sm:text-xl text-primary">Upload your data</h3>
+                    <p className="text-on-surface-variant text-xs sm:text-sm">Upload a CSV, Excel export, or plain text. Gemini AI handles the schema mapping.</p>
                   </div>
 
                   <div 
                     onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-outline-variant rounded-sharp p-12 text-center hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group"
+                    className="border-2 border-dashed border-outline-variant rounded-sharp p-8 sm:p-12 text-center hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group"
                   >
                     <input 
                       type="file" 
@@ -124,33 +124,26 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
                       accept=".csv,.txt,.tsv"
                     />
                     <div className="flex flex-col items-center gap-4">
-                      <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <FileText className="w-8 h-8 text-primary" />
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-primary/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                       </div>
                       <div className="space-y-1">
-                        <p className="font-headline font-bold text-primary uppercase tracking-widest text-xs">Click to browse files</p>
-                        <p className="text-[10px] font-mono text-slate-400 uppercase">Supports CSV, TSV, TXT</p>
+                        <p className="font-headline font-bold text-primary uppercase tracking-widest text-[10px] sm:text-xs">Click to browse files</p>
+                        <p className="text-[9px] sm:text-[10px] font-mono text-slate-400 uppercase">Supports CSV, TSV, TXT</p>
                       </div>
                     </div>
                   </div>
 
-                  {error && (
-                    <div className="p-4 bg-tertiary/10 border border-tertiary/20 rounded-sharp flex items-center gap-3">
-                      <AlertCircle className="w-5 h-5 text-tertiary" />
-                      <p className="text-sm font-bold text-tertiary">{error}</p>
-                    </div>
-                  )}
-
-                  <div className="bg-surface-container p-6 rounded-sharp border border-outline-variant">
-                    <h4 className="font-headline font-bold text-[11px] uppercase tracking-widest text-primary mb-4">How it works</h4>
+                  <div className="bg-surface-container p-4 sm:p-6 rounded-sharp border border-outline-variant">
+                    <h4 className="font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-widest text-primary mb-4">How it works</h4>
                     <ul className="space-y-3">
                       {[
-                        "Upload your existing spreadsheet or list.",
-                        "Gemini AI analyzes the content and maps it to our system.",
-                        "Review the proposed changes in a clear table.",
-                        "Confirm to bulk-add everything to your inventory."
+                        "Upload your existing list.",
+                        "AI maps data to system fields.",
+                        "Review result in the matrix.",
+                        "Confirm for atomic reconciliation."
                       ].map((text, i) => (
-                        <li key={i} className="flex gap-3 text-sm text-on-surface-variant">
+                        <li key={i} className="flex gap-3 text-xs sm:text-sm text-on-surface-variant">
                           <span className="font-mono font-bold text-primary">{i + 1}.</span>
                           {text}
                         </li>
@@ -160,100 +153,85 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
                 </div>
               )}
 
-              {step === 'parsing' && (
-                <div className="h-64 flex flex-col items-center justify-center gap-6">
-                  <div className="relative">
-                    <Loader2 className="w-16 h-16 text-primary animate-spin" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-8 h-8 bg-secondary rounded-full animate-pulse" />
-                    </div>
-                  </div>
-                  <div className="text-center space-y-2">
-                    <h3 className="font-headline font-bold text-xl text-primary animate-pulse">AI is analyzing your data...</h3>
-                    <p className="text-on-surface-variant text-sm font-mono uppercase tracking-widest">Mapping columns and validating schema</p>
-                  </div>
-                </div>
-              )}
-
               {step === 'review' && (
                 <div className="space-y-6">
-                  <div className="flex justify-between items-end">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 px-1">
                     <div>
-                      <h3 className="font-headline font-bold text-xl text-primary">Review Proposed Changes</h3>
-                      <p className="text-on-surface-variant text-sm">We found {parsedItems.length} items. Please verify before importing.</p>
+                      <h3 className="font-headline font-bold text-lg sm:text-xl text-primary">Review Proposed Items</h3>
+                      <p className="text-on-surface-variant text-xs sm:text-sm">Found {parsedItems.length} valid resources.</p>
                     </div>
-                    <div className="flex gap-3">
-                      <button 
-                        onClick={reset}
-                        className="px-4 py-2 border border-outline-variant text-on-surface-variant font-headline font-bold text-[12px] uppercase tracking-wider rounded-sharp hover:bg-surface-container transition-colors"
-                      >
-                        Start Over
-                      </button>
-                    </div>
+                    <button 
+                      onClick={reset}
+                      className="px-3 py-1.5 border border-outline-variant text-on-surface-variant font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-wider rounded-sharp hover:bg-surface-container transition-colors"
+                    >
+                      Reset Upload
+                    </button>
                   </div>
 
-                  <div className="border border-outline-variant rounded-sharp overflow-hidden">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-surface-container border-b border-outline-variant">
-                          <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">SKU</th>
-                          <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Title</th>
-                          <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Category</th>
-                          <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Stock</th>
-                          <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-outline-variant">
-                        {parsedItems.map((item, i) => (
-                          <tr key={i} className="hover:bg-surface-container transition-colors">
-                            <td className="px-4 py-3 font-mono text-[12px] font-bold">{item.sku}</td>
-                            <td className="px-4 py-3">
-                              <div className="flex flex-col">
-                                <span className="font-bold text-[13px] text-primary">{item.title}</span>
-                                {item.subtitle && <span className="text-[10px] text-slate-400">{item.subtitle}</span>}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold uppercase rounded-sharp">
-                                {item.category}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 font-mono text-[12px]">{item.stockLevel}</td>
-                            <td className="px-4 py-3">
-                              <span className={cn(
-                                "text-[10px] font-bold uppercase tracking-wider",
-                                item.status === 'Healthy' ? 'text-secondary' : item.status === 'Low' ? 'text-primary' : 'text-tertiary'
-                              )}>
-                                {item.status}
-                              </span>
-                            </td>
+                  <div className="border border-outline-variant rounded-sharp overflow-hidden bg-surface">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse min-w-[500px]">
+                        <thead>
+                          <tr className="bg-surface-container border-b border-outline-variant">
+                            <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">SKU</th>
+                            <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Title</th>
+                            <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Category</th>
+                            <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Stock</th>
+                            <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Status</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-outline-variant">
+                          {parsedItems.map((item, i) => (
+                            <tr key={i} className="hover:bg-surface-container transition-colors">
+                              <td className="px-4 py-3 font-mono text-xs font-bold whitespace-nowrap">{item.sku}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-xs sm:text-[13px] text-primary">{item.title}</span>
+                                  {item.subtitle && <span className="text-[9px] sm:text-[10px] text-slate-400 line-clamp-1">{item.subtitle}</span>}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="px-2 py-0.5 bg-primary/10 text-primary text-[9px] sm:text-[10px] font-bold uppercase rounded-sharp">
+                                  {item.category}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{item.stockLevel}</td>
+                              <td className="px-4 py-3">
+                                <span className={cn(
+                                  "text-[9px] sm:text-[10px] font-bold uppercase tracking-wider",
+                                  item.status === 'Healthy' ? 'text-secondary' : item.status === 'Low' ? 'text-primary' : 'text-tertiary'
+                                )}>
+                                  {item.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
 
-                  <div className="pt-6 border-t border-outline-variant flex justify-end gap-4">
+                  <div className="pt-6 border-t border-outline-variant flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4 shrink-0">
                     <button
                       onClick={onClose}
-                      className="px-6 py-3 text-on-surface-variant font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-surface-container transition-colors rounded-sharp"
+                      className="px-6 py-3 text-on-surface-variant font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-surface-container transition-colors rounded-sharp text-center"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleImport}
                       disabled={loading}
-                      className="flex items-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+                      className="flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
                     >
                       {loading ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          Importing ({importProgress.current}/{importProgress.total})
+                          Syncing ({importProgress.current}/{importProgress.total})
                         </>
                       ) : (
                         <>
                           <Save className="w-4 h-4" />
-                          Confirm & Import All
+                          Commit Batch to Matrix
                         </>
                       )}
                     </button>

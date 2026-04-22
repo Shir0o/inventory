@@ -90,21 +90,21 @@ const DistributionModal = ({ isOpen, onClose, events, inventory, settings }: Dis
             className="relative w-full max-w-4xl bg-background ledger-card overflow-hidden flex flex-col max-h-[90vh]"
           >
             <div className="indicator-primary" />
-            <div className="px-8 py-6 border-b border-outline-variant flex justify-between items-center bg-surface-container">
+            <div className="px-6 sm:px-8 py-4 sm:py-6 border-b border-outline-variant flex justify-between items-center bg-surface-container shrink-0">
               <div className="flex items-center gap-3">
-                <ShoppingCart className="w-6 h-6 text-primary" />
-                <h2 className="font-headline font-bold text-lg text-primary uppercase tracking-wider">
-                  Outreach Material Distribution
+                <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                <h2 className="font-headline font-bold text-base sm:text-lg text-primary uppercase tracking-wider">
+                  Material Distribution
                 </h2>
               </div>
-              <button onClick={onClose} className="text-on-surface-variant hover:text-primary transition-colors">
+              <button onClick={onClose} className="text-on-surface-variant hover:text-primary transition-colors p-2">
                 <X className="w-6 h-6" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+            <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
               {/* Left Side: Inventory Selection */}
-              <div className="flex-1 p-6 border-r border-outline-variant overflow-y-auto">
+              <div className="flex-1 p-4 sm:p-6 border-b lg:border-b-0 lg:border-r border-outline-variant overflow-y-auto custom-scrollbar">
                 <div className="space-y-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -112,23 +112,23 @@ const DistributionModal = ({ isOpen, onClose, events, inventory, settings }: Dis
                       type="text"
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
-                      placeholder="Search inventory to add..."
+                      placeholder="Search inventory..."
                       className="w-full pl-10 pr-4 py-2 bg-surface-container-low border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm transition-all"
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
                     {filteredInventory.map(item => (
                       <button
                         key={item.id}
                         onClick={() => addToCart(item)}
-                        className="flex items-center justify-between p-3 hover:bg-surface-container transition-colors text-left rounded-sharp group border border-transparent hover:border-outline-variant"
+                        className="flex items-center justify-between p-3 hover:bg-surface-container transition-colors text-left rounded-sharp group border border-transparent hover:border-outline-variant bg-surface"
                       >
                         <div>
-                          <p className="font-bold text-[13px] text-primary">{item.title}</p>
-                          <p className="text-[11px] font-mono text-on-surface-variant">{item.sku} • {item.stockLevel} in stock</p>
+                          <p className="font-bold text-[13px] text-primary line-clamp-1">{item.title}</p>
+                          <p className="text-[11px] font-mono text-on-surface-variant whitespace-nowrap">{item.sku} • {item.stockLevel} units</p>
                         </div>
-                        <Plus className="w-4 h-4 text-slate-400 group-hover:text-primary" />
+                        <Plus className="w-4 h-4 text-slate-400 group-hover:text-primary shrink-0 ml-2" />
                       </button>
                     ))}
                   </div>
@@ -136,58 +136,58 @@ const DistributionModal = ({ isOpen, onClose, events, inventory, settings }: Dis
               </div>
 
               {/* Right Side: Cart and Event Selection */}
-              <div className="w-full md:w-80 bg-surface-container-low p-6 flex flex-col">
+              <div className="w-full lg:w-80 bg-surface-container-low p-4 sm:p-6 flex flex-col shrink-0 overflow-y-auto lg:overflow-visible">
                 <form onSubmit={handleSubmit} className="flex flex-col h-full space-y-6">
                   <div className="space-y-2">
-                    <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Assign to Event</label>
+                    <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Assign to Event</label>
                     <select 
                       required
                       value={selectedEventId}
                       onChange={e => setSelectedEventId(e.target.value)}
                       className="w-full px-4 py-2 bg-surface border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm appearance-none"
                     >
-                      <option value="">Select Event...</option>
+                      <option value="">Select Target Event...</option>
                       {events.map(e => (
                         <option key={e.id} value={e.id}>{e.name}</option>
                       ))}
                     </select>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto space-y-3">
-                    <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Selected Materials ({cart.length})</label>
+                  <div className="flex-1 min-h-[150px] lg:min-h-0 overflow-y-auto space-y-3 custom-scrollbar">
+                    <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Allocated Resources ({cart.length})</label>
                     {cart.length === 0 ? (
-                      <div className="py-8 text-center border-2 border-dashed border-outline-variant rounded-sharp">
-                        <p className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">Cart is empty</p>
+                      <div className="py-8 text-center border-2 border-dashed border-outline-variant rounded-sharp bg-surface/50">
+                        <p className="text-[10px] font-mono text-on-surface-variant uppercase tracking-widest">Cart is empty</p>
                       </div>
                     ) : (
                       <div className="space-y-2">
                         {cart.map(item => (
-                          <div key={item.itemId} className="bg-surface p-3 rounded-sharp border border-outline-variant space-y-2">
-                            <div className="flex justify-between items-start">
-                              <p className="font-bold text-[12px] text-primary leading-tight">{item.title}</p>
+                          <div key={item.itemId} className="bg-surface p-3 rounded-sharp border border-outline-variant space-y-2 shadow-sm">
+                            <div className="flex justify-between items-start gap-2">
+                              <p className="font-bold text-[12px] text-primary leading-tight line-clamp-2">{item.title}</p>
                               <button 
                                 type="button"
                                 onClick={() => removeFromCart(item.itemId)}
-                                className="text-tertiary hover:text-tertiary/80"
+                                className="text-tertiary hover:text-tertiary/80 p-1 shrink-0"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] font-mono text-on-surface-variant">{item.sku}</span>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1.5">
                                 <button 
                                   type="button"
                                   onClick={() => updateQuantity(item.itemId, -1)}
-                                  className="p-1 hover:bg-surface-container rounded-sharp"
+                                  className="p-1 hover:bg-surface-container rounded-sharp border border-outline-variant"
                                 >
                                   <Minus className="w-3 h-3" />
                                 </button>
-                                <span className="font-mono font-bold text-[12px] w-8 text-center">{item.quantity}</span>
+                                <span className="font-mono font-bold text-xs w-6 text-center">{item.quantity}</span>
                                 <button 
                                   type="button"
                                   onClick={() => updateQuantity(item.itemId, 1)}
-                                  className="p-1 hover:bg-surface-container rounded-sharp"
+                                  className="p-1 hover:bg-surface-container rounded-sharp border border-outline-variant"
                                 >
                                   <Plus className="w-3 h-3" />
                                 </button>

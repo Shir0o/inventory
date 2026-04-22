@@ -41,10 +41,7 @@ import {
   Plus,
   FileText,
   Menu,
-  X,
-  BookOpen,
-  ScrollText,
-  Library
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { seedData, updateSettings } from './services/firestoreService';
@@ -76,6 +73,26 @@ import { exportToCSV } from './lib/csvExport';
 // --- Types ---
 
 type Tab = 'dashboard' | 'inventory' | 'events' | 'reports' | 'settings' | 'users' | 'logs' | 'ai_insights';
+
+// --- Mock Data ---
+
+const lineData = [
+  { name: 'Jan', bibles: 450, tracts: 2500, booklets: 120 },
+  { name: 'Feb', bibles: 420, tracts: 2300, booklets: 110 },
+  { name: 'Mar', bibles: 440, tracts: 2100, booklets: 115 },
+  { name: 'Apr', bibles: 380, tracts: 1900, booklets: 105 },
+  { name: 'May', bibles: 400, tracts: 1800, booklets: 95 },
+  { name: 'Jun', bibles: 320, tracts: 1600, booklets: 85 },
+  { name: 'Jul', bibles: 340, tracts: 1400, booklets: 80 },
+  { name: 'Aug', bibles: 300, tracts: 1200, booklets: 75 },
+  { name: 'Sep', bibles: 310, tracts: 1100, booklets: 70 },
+];
+
+const pieData = [
+  { name: 'Bibles', value: 45, color: '#0A2540' },
+  { name: 'Tracts', value: 35, color: '#00D4B6' },
+  { name: 'Booklets', value: 20, color: '#FF7369' },
+];
 
 // --- Components ---
 
@@ -165,17 +182,10 @@ const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin, isOpen, onClo
   );
 };
 
-const Topbar = ({ inventory, searchQuery, setSearchQuery, onScan, onMenuClick }: { inventory: any[], searchQuery: string, setSearchQuery: (s: string) => void, onScan: () => void, onMenuClick: () => void }) => {
+const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: { searchQuery: string, setSearchQuery: (s: string) => void, onScan: () => void, onMenuClick: () => void }) => {
   const { user, logout, notifications } = useFirebase();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const unreadCount = notifications.filter(n => !n.read).length;
-
-  const categories = [...new Set(inventory.map(item => item.category))].slice(0, 3);
-  const getCategoryIcon = (cat: string) => {
-    if (cat.toLowerCase().includes('bible')) return BookOpen;
-    if (cat.toLowerCase().includes('tract')) return ScrollText;
-    return Library;
-  };
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -188,49 +198,45 @@ const Topbar = ({ inventory, searchQuery, setSearchQuery, onScan, onMenuClick }:
 
   return (
     <header className="fixed top-0 right-0 h-16 left-0 lg:left-64 bg-surface border-b border-outline-variant flex items-center justify-between px-4 lg:px-8 z-50">
-      <div className="flex items-center gap-4 lg:gap-6 flex-1 min-w-0">
-        <button onClick={onMenuClick} className="lg:hidden p-2 text-primary hover:bg-surface-container rounded-sharp transition-colors shrink-0">
+      <div className="flex items-center gap-4 lg:gap-8 flex-1">
+        <button onClick={onMenuClick} className="lg:hidden p-2 text-primary hover:bg-surface-container rounded-sharp transition-colors">
           <Menu className="w-6 h-6" />
         </button>
 
-        <div className="relative group w-32 sm:w-48 lg:w-64 transition-all duration-300 focus-within:w-40 sm:focus-within:w-72 shrink-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+        <div className="relative group w-48 lg:w-64 hidden sm:block">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input 
             type="text" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="SEARCH..." 
-            className="w-full pl-10 pr-4 py-2 bg-surface-container border-none text-[11px] font-mono tracking-wider focus:ring-1 focus:ring-primary rounded-sharp transition-all"
+            className="w-full pl-10 pr-4 py-1.5 bg-surface-container border-none text-[12px] font-mono tracking-tight focus:ring-1 focus:ring-primary rounded-sharp"
           />
         </div>
 
-        <div className="hidden xl:flex items-center gap-6 2xl:gap-10 border-l border-outline-variant pl-6 2xl:pl-8 ml-2 2xl:ml-4">
-          {categories.map((cat) => {
-            const Icon = getCategoryIcon(cat);
-            return (
-              <a key={cat} href="#" onClick={(e) => { e.preventDefault(); setSearchQuery(cat); }} className="flex items-center gap-2.5 text-slate-500 hover:text-primary font-headline font-bold text-[11px] uppercase tracking-[2px] transition-all group whitespace-nowrap">
-                <Icon className="w-4 h-4 opacity-40 group-hover:opacity-100 transition-opacity" />
-                {cat}
-              </a>
-            );
-          })}
+        <div className="hidden lg:flex items-center gap-6">
+          {['Bibles', 'Tracts', 'Booklets'].map((link) => (
+            <a key={link} href="#" className="text-slate-500 hover:text-primary font-headline font-bold text-[11px] uppercase tracking-[1px] transition-all whitespace-nowrap">
+              {link}
+            </a>
+          ))}
         </div>
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-2 lg:gap-4 shrink-0">
+      <div className="flex items-center gap-2 lg:gap-4">
         <button 
           onClick={onScan}
-          className="p-2 text-slate-500 hover:text-primary hover:bg-surface-container transition-all flex items-center gap-2 group rounded-sharp"
+          className="p-2 text-slate-500 hover:text-primary transition-colors flex items-center gap-2 group"
           title="Scan QR Code"
         >
-          <Camera className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+          <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
           <span className="text-[10px] font-mono uppercase tracking-widest hidden xl:block">Scan</span>
         </button>
 
         <div className="relative">
           <button 
             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-            className="p-2 text-slate-500 hover:text-primary hover:bg-surface-container transition-all relative rounded-sharp"
+            className="p-2 text-slate-500 hover:text-primary transition-colors relative"
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
@@ -293,10 +299,10 @@ const Topbar = ({ inventory, searchQuery, setSearchQuery, onScan, onMenuClick }:
           </AnimatePresence>
         </div>
         
-        <button className="p-2 text-slate-500 hover:text-primary hover:bg-surface-container transition-all rounded-sharp" onClick={logout} title="Logout">
+        <button className="p-2 text-slate-500 hover:text-primary transition-colors" onClick={logout} title="Logout">
           <LogOut className="w-5 h-5" />
         </button>
-        <div className="flex items-center gap-3 lg:gap-4 ml-2 lg:ml-4 pl-4 lg:pl-6 border-l border-outline-variant">
+        <div className="flex items-center gap-2 lg:gap-3 ml-1 lg:ml-2 pl-2 lg:pl-4 border-l border-outline-variant">
           <div className="text-right hidden sm:block">
             <div className="text-[11px] font-bold text-primary truncate max-w-[120px]">{user?.displayName || 'Admin'}</div>
           </div>
@@ -316,23 +322,10 @@ const Topbar = ({ inventory, searchQuery, setSearchQuery, onScan, onMenuClick }:
 
 // --- Page Views ---
 
-const DashboardView = ({ inventory, events, auditLogs, onEdit }: { inventory: any[], events: any[], auditLogs: any[], onEdit: (item: any) => void }) => {
+const DashboardView = ({ inventory, events, onEdit }: { inventory: any[], events: any[], onEdit: (item: any) => void }) => {
   const lowStockItems = inventory.filter(item => item.status === 'Low' || item.status === 'Out');
+  const totalUnits = inventory.reduce((acc, item) => acc + (item.stockLevel || 0), 0);
   const distributedMTD = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
-
-  const getLogIcon = (action: string) => {
-    switch (action) {
-      case 'ITEM_CREATED':
-      case 'RESTOCK':
-        return { icon: Package, color: 'bg-primary-container text-white' };
-      case 'STOCK_UPDATE':
-        return { icon: AlertTriangle, color: 'bg-tertiary/10 text-tertiary' };
-      case 'DISTRIBUTION':
-        return { icon: Truck, color: 'bg-secondary/10 text-primary' };
-      default:
-        return { icon: Shield, color: 'bg-slate-100 text-slate-500' };
-    }
-  };
 
   return (
     <div className="space-y-8">
@@ -464,23 +457,20 @@ const DashboardView = ({ inventory, events, auditLogs, onEdit }: { inventory: an
           <div className="p-6 flex-1">
             <div className="space-y-8 relative">
               <div className="absolute left-[11px] top-2 bottom-2 w-px bg-outline-variant" />
-              {auditLogs.slice(0, 4).map((log, i) => {
-                const { icon: Icon, color } = getLogIcon(log.action);
-                return (
-                  <div key={log.id || i} className="relative pl-10">
-                    <div className={cn("absolute left-0 top-0 w-6 h-6 flex items-center justify-center rounded-full z-10", color)}>
-                      <Icon className="w-3 h-3" />
-                    </div>
-                    <div className="text-[11px] text-on-surface-variant font-mono mb-1">
-                      {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {log.action.replace('_', ' ')}
-                    </div>
-                    <p className="text-sm font-medium text-primary leading-tight">{log.details}</p>
+              {[
+                { time: '10:24 AM', type: 'INVENTORY IN', msg: '500 units of "The Great Controversy" received.', icon: Package, color: 'bg-primary-container text-white' },
+                { time: '09:15 AM', type: 'THRESHOLD ALERT', msg: 'Stock level for #SG-0211 dropped below critical margin.', icon: AlertTriangle, color: 'bg-tertiary/10 text-tertiary' },
+                { time: '08:00 AM', type: 'SHIPMENT OUT', msg: 'Batch #442 dispatched to North Regional Center.', icon: Truck, color: 'bg-secondary/10 text-primary' },
+                { time: '07:45 AM', type: 'USER AUTH', msg: 'User "David Miller" logged into the system.', icon: Shield, color: 'bg-slate-100 text-slate-500' },
+              ].map((item, i) => (
+                <div key={i} className="relative pl-10">
+                  <div className={cn("absolute left-0 top-0 w-6 h-6 flex items-center justify-center rounded-full z-10", item.color)}>
+                    <item.icon className="w-3 h-3" />
                   </div>
-                );
-              })}
-              {auditLogs.length === 0 && (
-                <div className="py-8 text-center text-on-surface-variant text-xs font-mono uppercase tracking-widest">No recent activity</div>
-              )}
+                  <div className="text-[11px] text-on-surface-variant font-mono mb-1">{item.time} • {item.type}</div>
+                  <p className="text-sm font-medium text-primary leading-tight">{item.msg}</p>
+                </div>
+              ))}
             </div>
           </div>
           <div className="px-6 py-4 border-t border-outline-variant bg-surface-container text-center">
@@ -496,7 +486,7 @@ const DashboardView = ({ inventory, events, auditLogs, onEdit }: { inventory: an
   );
 };
 
-const InventoryView = ({ inventory, events, onAdd, onEdit, onBulkImport, globalSearch }: { inventory: any[], events: any[], onAdd: () => void, onEdit: (item: any) => void, onBulkImport: () => void, globalSearch: string }) => {
+const InventoryView = ({ inventory, onAdd, onEdit, onBulkImport, globalSearch }: { inventory: any[], onAdd: () => void, onEdit: (item: any) => void, onBulkImport: () => void, globalSearch: string }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [localSearch, setLocalSearch] = useState('');
   const [filters, setFilters] = useState({
@@ -523,9 +513,6 @@ const InventoryView = ({ inventory, events, onAdd, onEdit, onBulkImport, globalS
 
   const totalUnits = filteredInventory.reduce((acc, item) => acc + (item.stockLevel || 0), 0);
   const lowStockCount = filteredInventory.filter(item => item.status === 'Low' || item.status === 'Out').length;
-  const distributedMTD = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
-  const monthlyTarget = 1500; // This could come from settings
-  const targetPercentage = Math.min(100, Math.round((distributedMTD / monthlyTarget) * 100));
 
   return (
     <div className="space-y-8">
@@ -651,11 +638,11 @@ const InventoryView = ({ inventory, events, onAdd, onEdit, onBulkImport, globalS
         <div className="col-span-12 md:col-span-6 bg-primary p-5 rounded-sharp relative overflow-hidden">
           <div className="relative z-10">
             <p className="text-[11px] font-headline font-bold text-slate-400 uppercase tracking-wider">Active Distributions</p>
-            <p className="text-3xl font-mono font-bold text-white mt-1">{distributedMTD.toLocaleString()} <span className="text-sm font-normal text-slate-400">vols</span></p>
+            <p className="text-3xl font-mono font-bold text-white mt-1">942 <span className="text-sm font-normal text-slate-400">vols</span></p>
             <div className="w-full bg-slate-700 h-[2px] mt-4">
-              <div className="bg-secondary h-full transition-all duration-500" style={{ width: `${targetPercentage}%` }} />
+              <div className="bg-secondary h-full w-[65%]" />
             </div>
-            <p className="text-[11px] text-slate-400 mt-2">{targetPercentage}% of monthly target reached</p>
+            <p className="text-[11px] text-slate-400 mt-2">65% of monthly target reached</p>
           </div>
           <Truck className="absolute right-[-20px] top-[-20px] w-32 h-32 text-white opacity-10 rotate-12" />
         </div>
@@ -1010,7 +997,6 @@ const LogsView = ({ logs }: { logs: any[] }) => {
 
 const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: any[], events: any[], auditLogs: any[], settings: any }) => {
   const totalDistributions = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
-  const totalUnits = inventory.reduce((acc, item) => acc + (item.stockLevel || 0), 0);
   
   const categoryCounts = inventory.reduce((acc: any, item) => {
     acc[item.category] = (acc[item.category] || 0) + 1;
@@ -1019,36 +1005,8 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
 
   const dynamicPieData = Object.keys(categoryCounts).map((cat, i) => ({
     name: cat,
-    value: Math.round((categoryCounts[cat] / (inventory.length || 1)) * 100) || 0,
-    color: i === 0 ? '#0A2540' : i === 1 ? '#00D4B6' : i === 2 ? '#FF7369' : `hsl(${i * 137.5}deg, 50%, 50%)`
-  }));
-
-  // Group events by month for the line chart (last 9 months)
-  const last9Months = Array.from({ length: 9 }).map((_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - (8 - i));
-    return {
-      name: d.toLocaleString('default', { month: 'short' }),
-      month: d.getMonth(),
-      year: d.getFullYear(),
-      total: 0
-    };
-  });
-
-  events.forEach(event => {
-    const date = event.date?.toDate ? event.date.toDate() : new Date(event.date);
-    const month = date.getMonth();
-    const year = date.getFullYear();
-    
-    const monthData = last9Months.find(m => m.month === month && m.year === year);
-    if (monthData) {
-      monthData.total += (event.materialsDistributed || 0);
-    }
-  });
-
-  const dynamicLineData = last9Months.map(m => ({
-    name: m.name,
-    distributed: m.total
+    value: Math.round((categoryCounts[cat] / inventory.length) * 100) || 0,
+    color: i === 0 ? '#0A2540' : i === 1 ? '#00D4B6' : '#FF7369'
   }));
 
   return (
@@ -1084,8 +1042,8 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {[
           { label: 'Total Distributions', val: totalDistributions.toLocaleString(), trend: 'LIFETIME VOLUME', color: 'indicator-secondary', trendColor: 'text-secondary', icon: TrendingUp },
-          { label: 'Active Events', val: events.length.toString().padStart(2, '0'), trend: 'Historical events tracked', color: 'indicator-tertiary', trendColor: 'text-on-surface-variant', icon: null },
-          { label: 'Filtered Units', val: totalUnits.toLocaleString(), trend: 'Current system total', color: 'indicator-primary', trendColor: 'text-primary', icon: Package },
+          { label: 'Active Events', val: events.length.toString().padStart(2, '0'), trend: 'Stabilized distribution flow', color: 'indicator-tertiary', trendColor: 'text-on-surface-variant', icon: null },
+          { label: 'Inventory Velocity', val: '82%', trend: '-2.4% below target', color: 'indicator-primary', trendColor: 'text-tertiary', icon: TrendingDown },
           { label: 'Unique Resources', val: inventory.length.toString(), trend: 'Catalog diversity', color: 'bg-slate-400', trendColor: 'text-on-surface-variant', icon: null },
         ].map((stat, i) => (
           <div key={i} className="ledger-card p-6">
@@ -1107,12 +1065,26 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
               <h3 className="font-headline text-[14px] font-bold uppercase tracking-wider text-primary">Volume Trends Over Time</h3>
               <p className="text-on-surface-variant text-[12px]">Daily distribution counts aggregated monthly</p>
             </div>
+            <div className="flex gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-primary rounded-full" />
+                <span className="text-[11px] font-headline uppercase font-bold text-on-surface-variant">Bibles</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-secondary rounded-full" />
+                <span className="text-[11px] font-headline uppercase font-bold text-on-surface-variant">Tracts</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-tertiary rounded-full" />
+                <span className="text-[11px] font-headline uppercase font-bold text-on-surface-variant">Booklets</span>
+              </div>
+            </div>
           </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dynamicLineData}>
+              <AreaChart data={lineData}>
                 <defs>
-                  <linearGradient id="colorDistributed" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="colorBibles" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#0A2540" stopOpacity={0.1}/>
                     <stop offset="95%" stopColor="#0A2540" stopOpacity={0}/>
                   </linearGradient>
@@ -1124,20 +1096,11 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
                   tickLine={false} 
                   tick={{ fontSize: 10, fill: '#8898AA', fontWeight: 'bold' }}
                 />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#8898AA', fontWeight: 'bold' }}
-                />
+                <YAxis hide />
                 <Tooltip />
-                <Area 
-                  type="monotone" 
-                  dataKey="distributed" 
-                  stroke="#0A2540" 
-                  strokeWidth={3} 
-                  fillOpacity={1} 
-                  fill="url(#colorDistributed)" 
-                />
+                <Area type="monotone" dataKey="bibles" stroke="#0A2540" strokeWidth={3} fillOpacity={1} fill="url(#colorBibles)" />
+                <Line type="monotone" dataKey="tracts" stroke="#00D4B6" strokeWidth={3} dot={false} />
+                <Line type="monotone" dataKey="booklets" stroke="#FF7369" strokeWidth={3} strokeDasharray="8 4" dot={false} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -1150,7 +1113,7 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={dynamicPieData}
+                  data={dynamicPieData.length > 0 ? dynamicPieData : pieData}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -1158,7 +1121,7 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {dynamicPieData.map((entry, index) => (
+                  {(dynamicPieData.length > 0 ? dynamicPieData : pieData).map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -1170,7 +1133,7 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
             </div>
           </div>
           <div className="w-full mt-10 space-y-3">
-            {dynamicPieData.map((item) => (
+            {(dynamicPieData.length > 0 ? dynamicPieData : pieData).map((item) => (
               <div key={item.name} className="flex items-center justify-between text-[12px]">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-sharp" style={{ backgroundColor: item.color }} />
@@ -1188,17 +1151,6 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
 
 const EventsView = ({ events, onAdd, onEdit }: { events: any[], onAdd: () => void, onEdit: (event: any) => void }) => {
   const totalDistributed = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
-  
-  const nextEvent = [...events]
-    .filter(e => {
-      const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-      return d >= new Date();
-    })
-    .sort((a, b) => {
-      const da = a.date?.toDate ? a.date.toDate() : new Date(a.date);
-      const db = b.date?.toDate ? b.date.toDate() : new Date(b.date);
-      return da.getTime() - db.getTime();
-    })[0];
 
   return (
     <div className="space-y-8">
@@ -1251,11 +1203,9 @@ const EventsView = ({ events, onAdd, onEdit }: { events: any[], onAdd: () => voi
 
         <div className="col-span-12 md:col-span-4 bg-primary text-white p-6 rounded-sharp relative overflow-hidden">
           <div className="relative z-10">
-            <span className="font-headline text-[11px] uppercase tracking-[1px] text-secondary font-bold">Next Scheduled Event</span>
-            <h3 className="font-headline font-bold text-[18px] mt-2 truncate">{nextEvent?.name || 'No upcoming events'}</h3>
-            <p className="font-mono text-[13px] mt-1 text-slate-300">
-              {nextEvent ? (nextEvent.date?.toDate ? nextEvent.date.toDate().toLocaleDateString() : new Date(nextEvent.date).toLocaleDateString()) : '---'} • {nextEvent?.location || '---'}
-            </p>
+            <span className="font-headline text-[11px] uppercase tracking-[1px] text-secondary font-bold">Next Regional Sync</span>
+            <h3 className="font-headline font-bold text-[18px] mt-2">Western Conference Hall</h3>
+            <p className="font-mono text-[13px] mt-1 text-slate-300">OCT 14, 2024 • 09:00 AM</p>
             <div className="mt-4 flex -space-x-2">
               {[1, 2, 3].map(i => (
                 <img 
@@ -1351,6 +1301,9 @@ const SettingsView = ({ settings }: { settings: any }) => {
   const [seeding, setSeeding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
+    orgName: '',
+    taxId: '',
+    address: '',
     timezone: '',
     updateFrequency: '',
     warningThreshold: 250,
@@ -1360,6 +1313,9 @@ const SettingsView = ({ settings }: { settings: any }) => {
   useEffect(() => {
     if (settings) {
       setFormData({
+        orgName: settings.orgName || '',
+        taxId: settings.taxId || '',
+        address: settings.address || '',
         timezone: settings.timezone || '',
         updateFrequency: settings.updateFrequency || 'Real-time (Atomic)',
         warningThreshold: settings.warningThreshold || 250,
@@ -1420,6 +1376,43 @@ const SettingsView = ({ settings }: { settings: any }) => {
       </div>
 
     <div className="grid grid-cols-12 gap-8">
+      <section className="col-span-12 lg:col-span-8 ledger-card p-8">
+        <div className="indicator-primary" />
+        <div className="flex items-center gap-3 mb-8">
+          <Building2 className="w-5 h-5 text-primary" />
+          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px]">Organization Identity</h2>
+        </div>
+        <div className="grid grid-cols-2 gap-6">
+            <div className="col-span-2 md:col-span-1 space-y-2">
+              <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Legal Organization Name</label>
+              <input 
+                type="text" 
+                value={formData.orgName}
+                onChange={e => setFormData({...formData, orgName: e.target.value})}
+                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all"
+              />
+            </div>
+            <div className="col-span-2 md:col-span-1 space-y-2">
+              <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Tax Identification Number</label>
+              <input 
+                type="text" 
+                value={formData.taxId}
+                onChange={e => setFormData({...formData, taxId: e.target.value})}
+                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-mono text-[14px] focus:ring-0 focus:border-primary transition-all"
+              />
+            </div>
+            <div className="col-span-2 space-y-2">
+              <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Principal Business Address</label>
+              <textarea 
+                rows={3}
+                value={formData.address}
+                onChange={e => setFormData({...formData, address: e.target.value})}
+                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all resize-none"
+              />
+            </div>
+        </div>
+      </section>
+
       <section className="col-span-12 lg:col-span-4 ledger-card p-8">
         <div className="indicator-secondary" />
         <div className="flex items-center gap-3 mb-8">
@@ -1459,39 +1452,6 @@ const SettingsView = ({ settings }: { settings: any }) => {
             </div>
             <div className="font-mono text-[10px] text-slate-400">UUID: 8829-XJ-0012-PZ</div>
           </div>
-        </div>
-      </section>
-
-      <section className="col-span-12 lg:col-span-8 ledger-card p-8">
-        <div className="indicator-primary" />
-        <div className="flex items-center gap-3 mb-8">
-          <Database className="w-5 h-5 text-primary" />
-          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px]">System Metadata</h2>
-        </div>
-        <div className="grid grid-cols-2 gap-6">
-            <div className="col-span-2 space-y-4">
-              <div className="p-4 bg-surface-container border border-outline-variant rounded-sharp flex justify-between items-center">
-                <div>
-                  <p className="font-headline font-bold text-[11px] text-primary uppercase tracking-widest">Database Provider</p>
-                  <p className="text-sm font-mono text-on-surface-variant">Google Cloud Firestore (Native)</p>
-                </div>
-                <div className="px-2 py-1 bg-secondary/10 text-secondary text-[10px] font-bold rounded-sharp">ENCRYPTED</div>
-              </div>
-              <div className="p-4 bg-surface-container border border-outline-variant rounded-sharp flex justify-between items-center">
-                <div>
-                  <p className="font-headline font-bold text-[11px] text-primary uppercase tracking-widest">Authentication Engine</p>
-                  <p className="text-sm font-mono text-on-surface-variant">Firebase Auth (OpenID Connect)</p>
-                </div>
-                <div className="px-2 py-1 bg-secondary/10 text-secondary text-[10px] font-bold rounded-sharp">VERIFIED</div>
-              </div>
-              <div className="p-4 bg-surface-container border border-outline-variant rounded-sharp flex justify-between items-center">
-                <div>
-                  <p className="font-headline font-bold text-[11px] text-primary uppercase tracking-widest">AI Core</p>
-                  <p className="text-sm font-mono text-on-surface-variant">Gemini 1.5 Flash (Multimodal)</p>
-                </div>
-                <div className="px-2 py-1 bg-secondary/10 text-secondary text-[10px] font-bold rounded-sharp">READY</div>
-              </div>
-            </div>
         </div>
       </section>
 
@@ -1731,7 +1691,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onDistribute={() => setIsDistributionOpen(true)} isAdmin={isAdmin} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-      <Topbar inventory={inventory} searchQuery={globalSearch} setSearchQuery={setGlobalSearch} onScan={() => setIsScannerOpen(true)} onMenuClick={() => setIsSidebarOpen(true)} />      
+      <Topbar searchQuery={globalSearch} setSearchQuery={setGlobalSearch} onScan={() => setIsScannerOpen(true)} onMenuClick={() => setIsSidebarOpen(true)} />
+      
       <main className="lg:ml-64 pt-20 lg:pt-24 pb-12 px-4 lg:px-12">
         <div className="max-w-7xl mx-auto">
           <AnimatePresence mode="wait">
@@ -1742,17 +1703,16 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
-              {activeTab === 'dashboard' && <DashboardView inventory={inventory} events={events} auditLogs={auditLogs} onEdit={handleEdit} />}
-              {activeTab === 'inventory' && (
-                <InventoryView
-                  inventory={inventory}
-                  events={events}
-                  onAdd={handleAdd}
-                  onEdit={handleEdit}
-                  onBulkImport={() => setIsBulkImportOpen(true)}
-                  globalSearch={globalSearch}
-                />
-              )}
+              {activeTab === 'dashboard' && <DashboardView inventory={inventory} events={events} onEdit={handleEdit} />}
+            {activeTab === 'inventory' && (
+              <InventoryView 
+                inventory={inventory} 
+                onAdd={handleAdd} 
+                onEdit={handleEdit} 
+                onBulkImport={() => setIsBulkImportOpen(true)}
+                globalSearch={globalSearch} 
+              />
+            )}
               {activeTab === 'reports' && <ReportsView inventory={inventory} events={events} auditLogs={auditLogs} settings={settings} />}
               {activeTab === 'events' && <EventsView events={events} onAdd={handleAddEvent} onEdit={handleEditEvent} />}
               {activeTab === 'users' && <UsersView users={users} />}

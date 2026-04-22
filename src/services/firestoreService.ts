@@ -51,12 +51,12 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
       emailVerified: auth.currentUser?.emailVerified,
       isAnonymous: auth.currentUser?.isAnonymous,
       tenantId: auth.currentUser?.tenantId,
-      providerInfo: (auth.currentUser?.providerData || []).map(provider => ({
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
         providerId: provider.providerId,
         displayName: provider.displayName,
         email: provider.email,
         photoUrl: provider.photoURL
-      }))
+      })) || []
     },
     operationType,
     path
@@ -493,19 +493,16 @@ export async function syncUserProfile(user: any) {
       const isPrimaryAdmin = normalizedEmail === "yilongwang05@gmail.com";
 
       if (!authEmailDoc.exists() && !isPrimaryAdmin) {
-        // CRITICAL: If not authorized by admin, do NOT create a record
+        // Not authorized - this will trigger a permission error in rules
+        // or we can throw a custom error here
         throw new Error("NOT_AUTHORIZED");
       }
 
-      // Use the role assigned by admin in authorized_emails, or 'admin' for primary
-      const assignedRole = authEmailDoc.exists() ? authEmailDoc.data().role : (isPrimaryAdmin ? 'admin' : null);
-      
-      if (!assignedRole) {
-        throw new Error("NOT_AUTHORIZED");
-      }
-
+      // New user defaults to 'guest' role for admin approval flow
+      // Unless it's the default admin email
+      const role = isPrimaryAdmin ? 'admin' : 'guest';
       const { setDoc } = await import('firebase/firestore');
-      return await setDoc(userRef, { ...data, role: assignedRole });
+      return await setDoc(userRef, { ...data, role });
     } else {
       return await updateDoc(userRef, data);
     }
@@ -529,17 +526,16 @@ export function subscribeToAuthorizedEmails(callback: (emails: string[]) => void
   });
 }
 
-export async function authorizeEmail(email: string, role: 'admin' | 'user' | 'guest' = 'user') {
+export async function authorizeEmail(email: string) {
   const normalizedEmail = email.toLowerCase();
   const path = `authorized_emails/${normalizedEmail}`;
   try {
     const { setDoc } = await import('firebase/firestore');
     await setDoc(doc(db, 'authorized_emails', normalizedEmail), { 
-      role,
       addedAt: new Date().toISOString(),
       addedBy: auth.currentUser?.email 
     });
-    await createAuditLog('EMAIL_AUTHORIZED', normalizedEmail, 'auth', `Authorized email: ${normalizedEmail} with role: ${role}`);
+    await createAuditLog('EMAIL_AUTHORIZED', normalizedEmail, 'auth', `Authorized email: ${normalizedEmail}`);
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -587,9 +583,10 @@ export async function seedData() {
   }
 
   await updateDoc(doc(db, settingsPath), {
+    orgName: "Literature Inventory Management",
+    taxId: "TX-9920-441-B",
+    address: "722 Industrial Parkway, Suite 400\nNew London, CT 06320\nUnited States",
     timezone: "UTC-05:00 Eastern Standard",
-    updateFrequency: "Real-time (Atomic)",
-    warningThreshold: 250,
-    criticalThreshold: 75
+    updateFrequency: "Real-time (Atomic)"
   });
 }
