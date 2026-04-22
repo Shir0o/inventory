@@ -719,9 +719,6 @@ export async function seedData() {
 
   const { updateDoc, doc } = await import('firebase/firestore');
   await updateDoc(doc(db, settingsPath), {
-    orgName: "Literature Inventory Management",
-    taxId: "TX-9920-441-B",
-    address: "722 Industrial Parkway, Suite 400\nNew London, CT 06320\nUnited States",
     timezone: "UTC-05:00 Eastern Standard",
     updateFrequency: "Real-time (Atomic)",
     categories: ['Bibles', 'Tracts', 'Booklets']

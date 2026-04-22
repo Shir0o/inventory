@@ -1449,9 +1449,6 @@ const SettingsView = ({ settings }: { settings: any }) => {
   const [seeding, setSeeding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
-    orgName: '',
-    taxId: '',
-    address: '',
     timezone: '',
     updateFrequency: '',
     warningThreshold: 250,
@@ -1462,9 +1459,6 @@ const SettingsView = ({ settings }: { settings: any }) => {
   useEffect(() => {
     if (settings) {
       setFormData({
-        orgName: settings.orgName || '',
-        taxId: settings.taxId || '',
-        address: settings.address || '',
         timezone: settings.timezone || '',
         updateFrequency: settings.updateFrequency || 'Real-time (Atomic)',
         warningThreshold: settings.warningThreshold || 250,
@@ -1526,44 +1520,7 @@ const SettingsView = ({ settings }: { settings: any }) => {
       </div>
 
     <div className="grid grid-cols-12 gap-8">
-      <section className="col-span-12 lg:col-span-8 ledger-card p-8">
-        <div className="indicator-primary" />
-        <div className="flex items-center gap-3 mb-8">
-          <Building2 className="w-5 h-5 text-primary" />
-          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px]">Organization Identity</h2>
-        </div>
-        <div className="grid grid-cols-2 gap-6">
-            <div className="col-span-2 md:col-span-1 space-y-2">
-              <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Legal Organization Name</label>
-              <input 
-                type="text" 
-                value={formData.orgName}
-                onChange={e => setFormData({...formData, orgName: e.target.value})}
-                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all"
-              />
-            </div>
-            <div className="col-span-2 md:col-span-1 space-y-2">
-              <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Tax Identification Number</label>
-              <input 
-                type="text" 
-                value={formData.taxId}
-                onChange={e => setFormData({...formData, taxId: e.target.value})}
-                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-mono text-[14px] focus:ring-0 focus:border-primary transition-all"
-              />
-            </div>
-            <div className="col-span-2 space-y-2">
-              <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Principal Business Address</label>
-              <textarea 
-                rows={3}
-                value={formData.address}
-                onChange={e => setFormData({...formData, address: e.target.value})}
-                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all resize-none"
-              />
-            </div>
-        </div>
-      </section>
-
-      <section className="col-span-12 lg:col-span-4 ledger-card p-8">
+      <section className="col-span-12 md:col-span-6 ledger-card p-8">
         <div className="indicator-tertiary" />
         <div className="flex items-center gap-3 mb-8">
           <Database className="w-5 h-5 text-primary" />
@@ -1618,7 +1575,7 @@ const SettingsView = ({ settings }: { settings: any }) => {
         </div>
       </section>
 
-      <section className="col-span-12 lg:col-span-4 ledger-card p-8">
+      <section className="col-span-12 md:col-span-6 ledger-card p-8">
         <div className="indicator-secondary" />
         <div className="flex items-center gap-3 mb-8">
           <RefreshCw className="w-5 h-5 text-secondary" />
