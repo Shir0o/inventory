@@ -64,7 +64,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
       };
 
       if (item?.id) {
-        await updateInventoryItem(item.id, formData, thresholds, item);
+        await updateInventoryItem(item.id, formData, thresholds);
       } else {
         await addInventoryItem(formData);
       }
@@ -85,7 +85,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings }: InventoryModalProps
     if (!item?.id || !confirm("Are you sure you want to delete this item?")) return;
     setLoading(true);
     try {
-      await deleteInventoryItem(item.id, item.title);
+      await deleteInventoryItem(item.id);
       onClose();
     } catch (error) {
       console.error("Failed to delete inventory item", error);

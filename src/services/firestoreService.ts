@@ -185,14 +185,14 @@ export async function addInventoryItem(item: any) {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
-    await createAuditLog('ITEM_CREATED', docRef.id, 'inventory', `Created item: ${item.title} (${item.sku})`, { item });
+    await createAuditLog('ITEM_CREATED', docRef.id, 'inventory', `Created item: ${item.title} (${item.sku})`);
     return docRef;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
-export async function updateInventoryItem(id: string, item: any, thresholds?: { warning: number, critical: number }, previousItem?: any) {
+export async function updateInventoryItem(id: string, item: any, thresholds?: { warning: number, critical: number }) {
   const path = `inventory/${id}`;
   try {
     const docRef = doc(db, 'inventory', id);
@@ -210,32 +210,19 @@ export async function updateInventoryItem(id: string, item: any, thresholds?: { 
       }
     }
 
-    const changes: any = {};
-    if (previousItem) {
-      if (previousItem.stockLevel !== item.stockLevel) {
-        changes.stockDelta = item.stockLevel - previousItem.stockLevel;
-        changes.oldStock = previousItem.stockLevel;
-        changes.newStock = item.stockLevel;
-      }
-      if (previousItem.status !== item.status) {
-        changes.oldStatus = previousItem.status;
-        changes.newStatus = item.status;
-      }
-    }
-
-    await createAuditLog('STOCK_UPDATE', id, 'inventory', `Updated item: ${item.title}`, { item, changes });
+    await createAuditLog('STOCK_UPDATE', id, 'inventory', `Updated item: ${item.title}`, { item });
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
-export async function deleteInventoryItem(id: string, itemTitle?: string) {
+export async function deleteInventoryItem(id: string) {
   const path = `inventory/${id}`;
   try {
     const docRef = doc(db, 'inventory', id);
     await deleteDoc(docRef);
-    await createAuditLog('ITEM_DELETED', id, 'inventory', `Deleted item: ${itemTitle || id}`);
+    await createAuditLog('ITEM_DELETED', id, 'inventory', `Deleted item ID: ${id}`);
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
@@ -454,7 +441,7 @@ export async function updateSettings(settings: any) {
   const path = 'settings/system';
   try {
     await updateDoc(doc(db, path), settings);
-    await createAuditLog('SETTINGS_UPDATE', 'system', 'settings', 'Updated system settings', { settings });
+    await createAuditLog('SETTINGS_UPDATE', 'system', 'settings', 'Updated system settings');
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -486,7 +473,7 @@ export async function updateUserRole(userId: string, role: 'admin' | 'user' | 'g
   const path = `users/${userId}`;
   try {
     await updateDoc(doc(db, 'users', userId), { role });
-    await createAuditLog('ROLE_UPDATE', userId, 'user', `Updated user role to ${role}`, { role });
+    await createAuditLog('ROLE_UPDATE', userId, 'user', `Updated user role to ${role}`);
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -682,12 +669,9 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
         }
       }
 
-      // Fix for one-day-off bug: parse date as noon to avoid UTC/Local midnight shifts
-      const eventDate = eventData.date.includes('T') ? new Date(eventData.date) : new Date(`${eventData.date}T12:00:00`);
-
       transaction.set(eventRef, {
         name: eventData.name,
-        date: Timestamp.fromDate(eventDate),
+        date: Timestamp.fromDate(new Date(eventData.date)),
         location: eventData.location,
         status: eventData.status,
         materialsDistributed: totalQuantity,
@@ -732,7 +716,10 @@ export async function seedData() {
 
   const { updateDoc, doc } = await import('firebase/firestore');
   await updateDoc(doc(db, settingsPath), {
-    timezone: "America/New_York",
+    orgName: "Literature Inventory Management",
+    taxId: "TX-9920-441-B",
+    address: "722 Industrial Parkway, Suite 400\nNew London, CT 06320\nUnited States",
+    timezone: "UTC-05:00 Eastern Standard",
     updateFrequency: "Real-time (Atomic)",
     categories: ['Bibles', 'Tracts', 'Booklets']
   });

@@ -1,17 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-let aiInstance: GoogleGenAI | null = null;
-
-function getAI() {
-  const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Gemini API Key is missing. Please set GEMINI_API_KEY or VITE_GEMINI_API_KEY.");
-  }
-  if (!aiInstance) {
-    aiInstance = new GoogleGenAI({ apiKey });
-  }
-  return aiInstance;
-}
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 export interface InventoryNeed {
   itemId: string;
@@ -29,13 +18,12 @@ export async function getInventoryPredictions(
   events: any[],
   auditLogs: any[]
 ): Promise<InventoryNeed[]> {
-  const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn("Gemini API Key is missing. Predictive analysis will not work.");
+  if (!process.env.GEMINI_API_KEY) {
+    console.warn("GEMINI_API_KEY is not set. Predictive analysis will not work.");
     return [];
   }
 
-  // ... rest of data prep ...
+  // Prepare data for the prompt
   const inventoryData = inventory.map(item => ({
     id: item.id,
     sku: item.sku,
@@ -69,13 +57,13 @@ export async function getInventoryPredictions(
     Your goal is to predict future inventory procurement needs based on current stock levels, upcoming events, and historical distribution trends.
 
     Current Inventory:
-    \${JSON.stringify(inventoryData, null, 2)}
+    ${JSON.stringify(inventoryData, null, 2)}
 
     Upcoming/Recent Events:
-    \${JSON.stringify(eventData, null, 2)}
+    ${JSON.stringify(eventData, null, 2)}
 
     Recent Distribution Trends (Audit Logs):
-    \${JSON.stringify(trendLogs, null, 2)}
+    ${JSON.stringify(trendLogs, null, 2)}
 
     Analyze this data and identify which items are likely to run out soon or need replenishment to support upcoming events.
     Consider:
@@ -96,7 +84,7 @@ export async function getInventoryPredictions(
   `;
 
   try {
-    const response = await getAI().models.generateContent({
+    const response = await ai.models.generateContent({
       model: "gemini-3.1-pro-preview",
       contents: prompt,
       config: {
