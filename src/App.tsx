@@ -1288,24 +1288,50 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], on
           </div>
         </div>
 
-        <div className="col-span-12 md:col-span-4 bg-primary text-white p-6 rounded-sharp relative overflow-hidden">
-          <div className="relative z-10">
-            <span className="font-headline text-[11px] uppercase tracking-[1px] text-secondary font-bold">Next Regional Sync</span>
-            <h3 className="font-headline font-bold text-[18px] mt-2">Western Conference Hall</h3>
-            <p className="font-mono text-[13px] mt-1 text-slate-300">OCT 14, 2024 • 09:00 AM</p>
-            <div className="mt-4 flex -space-x-2">
-              {[1, 2, 3].map(i => (
-                <img 
-                  key={i}
-                  src={`https://picsum.photos/seed/user${i}/100/100`} 
-                  alt="User" 
-                  className="w-8 h-8 rounded-full border-2 border-primary"
-                  referrerPolicy="no-referrer"
-                />
-              ))}
-              <div className="w-8 h-8 rounded-full border-2 border-primary bg-primary-container flex items-center justify-center text-[10px] font-bold">+4</div>
-            </div>
-          </div>
+        <div className="col-span-12 md:col-span-4 bg-primary text-white p-6 rounded-sharp relative overflow-hidden flex flex-col justify-between min-h-[160px]">
+          {(() => {
+            const nextEvent = events
+              .filter(e => e.status === 'Scheduled')
+              .sort((a, b) => {
+                const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+                const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+                return dateA.getTime() - dateB.getTime();
+              })[0];
+
+            if (nextEvent) {
+              return (
+                <div className="relative z-10">
+                  <span className="font-headline text-[11px] uppercase tracking-[1px] text-secondary font-bold">Next Scheduled Event</span>
+                  <h3 className="font-headline font-bold text-[18px] mt-2 line-clamp-1">{nextEvent.name}</h3>
+                  <p className="font-mono text-[13px] mt-1 text-slate-300 uppercase whitespace-nowrap overflow-hidden text-ellipsis">
+                    {formatDate(nextEvent.date)} • {nextEvent.location}
+                  </p>
+                  <button 
+                    onClick={() => onEdit(nextEvent)}
+                    className="mt-4 px-3 py-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded-sharp text-[10px] font-bold uppercase tracking-wider transition-colors"
+                  >
+                    View Details
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <div className="relative z-10 h-full flex flex-col justify-center items-center text-center space-y-3">
+                <Calendar className="w-8 h-8 text-secondary/60" />
+                <div>
+                  <p className="font-headline font-bold text-[13px] uppercase tracking-wider">No Upcoming Events</p>
+                  <button 
+                    onClick={onAdd}
+                    className="mt-2 text-[10px] font-bold text-secondary hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Schedule Now
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
           <RefreshCw className="absolute right-[-20px] bottom-[-20px] w-32 h-32 text-white opacity-10" />
         </div>
       </div>
