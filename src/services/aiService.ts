@@ -1,7 +1,16 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
-const ai = new GoogleGenAI({ apiKey });
+let aiInstance: any = null;
+
+function getAI() {
+  if (aiInstance) return aiInstance;
+  const key = import.meta.env.VITE_GEMINI_API_KEY || "";
+  if (!key) {
+    console.warn("VITE_GEMINI_API_KEY is missing. AI features will be disabled.");
+  }
+  aiInstance = new GoogleGenAI({ apiKey: key || "MISSING_KEY" });
+  return aiInstance;
+}
 
 export interface ParsedInventoryItem {
   sku: string;
@@ -35,7 +44,7 @@ export interface ParsedEvent {
 
 export async function parseInventoryData(rawData: string, categories: string[] = ['Bibles', 'Tracts', 'Booklets']): Promise<ParsedInventoryItem[]> {
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Parse the following inventory data into a structured JSON format. 
       The data might be from a CSV, a list, or a messy text block.
@@ -96,7 +105,7 @@ export async function parseInventoryData(rawData: string, categories: string[] =
 
 export async function parseEventData(rawData: string): Promise<ParsedEvent[]> {
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Parse the following event distribution data into a structured JSON format. 
       The data might contain multiple rows for the same event showing different materials distributed. 

@@ -116,6 +116,27 @@ export function subscribeToAuditLogs(callback: (logs: any[]) => void, limitCount
   });
 }
 
+export function subscribeToItemHistory(itemId: string, callback: (logs: any[]) => void) {
+  const path = 'audit_logs';
+  const q = query(collection(db, path), orderBy('timestamp', 'desc'), limit(100));
+  
+  return onSnapshot(q, (snapshot) => {
+    const logs = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter((log: any) => {
+        const isTarget = log.targetId === itemId;
+        const inDistribution = log.action === 'DISTRIBUTION' && 
+                             log.metadata?.itemIds && 
+                             Array.isArray(log.metadata.itemIds) && 
+                             log.metadata.itemIds.includes(itemId);
+        return isTarget || inDistribution;
+      });
+    callback(logs);
+  }, (error: FirestoreError) => {
+    handleFirestoreError(error, OperationType.LIST, path);
+  });
+}
+
 // --- Notifications ---
 
 export type NotificationType = 'LOW_STOCK' | 'CRITICAL_STOCK' | 'SYSTEM' | 'EVENT';
@@ -396,7 +417,8 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
       }
     }
 
-    await createAuditLog('DISTRIBUTION', eventId, 'event', `Distributed ${items.length} items to event`, { items });
+    const itemIds = items.map(i => i.itemId);
+    await createAuditLog('DISTRIBUTION', eventId, 'event', `Distributed ${items.length} items to event`, { items, itemIds });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }

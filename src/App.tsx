@@ -67,6 +67,7 @@ import DistributionModal from './components/DistributionModal';
 import BulkImportModal from './components/BulkImportModal';
 import QRScannerModal from './components/QRScannerModal';
 import AIInsightsView from './components/AIInsightsView';
+import StockHistoryModal from './components/StockHistoryModal';
 import { generateMonthlyReport } from './lib/pdfGenerator';
 import { exportToCSV } from './lib/csvExport';
 
@@ -545,7 +546,7 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
   );
 };
 
-const InventoryView = ({ inventory, onAdd, onEdit, onBulkImport, globalSearch, isAdmin }: { inventory: any[], onAdd: () => void, onEdit: (item: any) => void, onBulkImport: () => void, globalSearch: string, isAdmin: boolean }) => {
+const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, globalSearch, isAdmin }: { inventory: any[], onAdd: () => void, onEdit: (item: any) => void, onShowHistory: (item: any) => void, onBulkImport: () => void, globalSearch: string, isAdmin: boolean }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [localSearch, setLocalSearch] = useState('');
   const [filters, setFilters] = useState({
@@ -748,13 +749,23 @@ const InventoryView = ({ inventory, onAdd, onEdit, onBulkImport, globalSearch, i
                       <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface">{row.status}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <button 
-                      onClick={() => onEdit(row)}
-                      className="text-slate-400 hover:text-primary transition-colors p-2 hover:bg-surface-container rounded-sharp"
-                    >
-                      <Settings className="w-4 h-4" />
-                    </button>
+                   <td className="px-6 py-4 text-right">
+                    <div className="flex justify-end gap-1">
+                      <button 
+                        onClick={() => onShowHistory(row)}
+                        title="View Stock History"
+                        className="text-slate-400 hover:text-secondary transition-colors p-2 hover:bg-surface-container rounded-sharp"
+                      >
+                        <History className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => onEdit(row)}
+                        title="Edit Item"
+                        className="text-slate-400 hover:text-primary transition-colors p-2 hover:bg-surface-container rounded-sharp"
+                      >
+                        <Settings className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1988,6 +1999,8 @@ export default function App() {
   const [bulkImportInitialType, setBulkImportInitialType] = useState<'inventory' | 'events'>('inventory');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<any>(null);
 
   const isAdmin = currentUserProfile?.role === 'admin';
 
@@ -2009,6 +2022,11 @@ export default function App() {
   const handleEditEvent = (event: any) => {
     setSelectedEvent(event);
     setIsEventModalOpen(true);
+  };
+
+  const handleShowHistory = (item: any) => {
+    setSelectedHistoryItem(item);
+    setIsHistoryOpen(true);
   };
 
   const handleScanSuccess = (decodedText: string) => {
@@ -2062,6 +2080,7 @@ export default function App() {
                 inventory={inventory} 
                 onAdd={handleAdd} 
                 onEdit={handleEdit} 
+                onShowHistory={handleShowHistory}
                 onBulkImport={() => {
                   setBulkImportInitialType('inventory');
                   setIsBulkImportOpen(true);
@@ -2126,6 +2145,13 @@ export default function App() {
             isOpen={isScannerOpen}
             onClose={() => setIsScannerOpen(false)}
             onScanSuccess={handleScanSuccess}
+          />
+
+          <StockHistoryModal 
+            isOpen={isHistoryOpen}
+            onClose={() => setIsHistoryOpen(false)}
+            item={selectedHistoryItem}
+            settings={settings}
           />
 
           <footer className="mt-12 flex items-center justify-between pt-8 border-t border-outline-variant">

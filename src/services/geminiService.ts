@@ -1,7 +1,16 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
-const ai = new GoogleGenAI({ apiKey });
+let aiInstance: GoogleGenAI | null = null;
+
+function getAI() {
+  if (aiInstance) return aiInstance;
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+  if (!apiKey) {
+    console.warn("Gemini API key is missing. AI features will be disabled. Set VITE_GEMINI_API_KEY in your environment.");
+  }
+  aiInstance = new GoogleGenAI({ apiKey: apiKey || "MISSING_KEY" });
+  return aiInstance;
+}
 
 export interface InventoryNeed {
   itemId: string;
@@ -19,7 +28,7 @@ export async function getInventoryPredictions(
   events: any[],
   auditLogs: any[]
 ): Promise<InventoryNeed[]> {
-  if (!apiKey) {
+  if (!import.meta.env.VITE_GEMINI_API_KEY) {
     console.warn("Gemini API Key is not set. Predictive analysis will not work.");
     return [];
   }
@@ -85,7 +94,7 @@ export async function getInventoryPredictions(
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3.1-pro-preview",
       contents: prompt,
       config: {
