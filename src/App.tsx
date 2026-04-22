@@ -1512,7 +1512,6 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], on
 };
 
 const SettingsView = ({ settings }: { settings: any }) => {
-  const [seeding, setSeeding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     timezone: 'America/New_York',
@@ -1546,20 +1545,6 @@ const SettingsView = ({ settings }: { settings: any }) => {
     }
   };
 
-  const handleSeed = async () => {
-    if (!confirm("This will populate your database with sample data. Continue?")) return;
-    setSeeding(true);
-    try {
-      await seedData();
-      alert("Database seeded successfully!");
-    } catch (error) {
-      console.error("Seeding failed", error);
-      alert("Seeding failed. Check console for details.");
-    } finally {
-      setSeeding(false);
-    }
-  };
-
   return (
     <div className="space-y-8">
       <div className="flex items-end justify-between">
@@ -1568,13 +1553,6 @@ const SettingsView = ({ settings }: { settings: any }) => {
           <h1 className="font-headline font-bold text-3xl text-primary tracking-tight">System Settings</h1>
         </div>
         <div className="flex gap-3">
-          <button 
-            onClick={handleSeed}
-            disabled={seeding}
-            className="px-6 py-2 border-2 border-tertiary text-tertiary font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-tertiary/5 transition-colors rounded-sharp disabled:opacity-50"
-          >
-            {seeding ? 'Seeding...' : 'Seed Initial Data'}
-          </button>
           <button 
             onClick={handleSave}
             disabled={saving}
