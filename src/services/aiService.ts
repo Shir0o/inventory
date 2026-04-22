@@ -26,7 +26,7 @@ export interface ParsedEvent {
   materials: ParsedEventMaterial[];
 }
 
-export async function parseInventoryData(rawData: string): Promise<ParsedInventoryItem[]> {
+export async function parseInventoryData(rawData: string, categories: string[] = ['Bibles', 'Tracts', 'Booklets']): Promise<ParsedInventoryItem[]> {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -37,7 +37,7 @@ export async function parseInventoryData(rawData: string): Promise<ParsedInvento
       - sku: string (required)
       - title: string (required)
       - subtitle: string (optional)
-      - category: string (required, must be one of: Bibles, Tracts, Booklets)
+      - category: string (required, must be one of: ${categories.join(', ')})
       - language: string (optional)
       - stockLevel: number (required)
       - status: string (required, must be one of: Healthy, Low, Out. Logic: Healthy > 250, Low <= 250, Out = 0)
@@ -57,7 +57,7 @@ export async function parseInventoryData(rawData: string): Promise<ParsedInvento
               subtitle: { type: Type.STRING },
               category: { 
                 type: Type.STRING,
-                enum: ['Bibles', 'Tracts', 'Booklets']
+                enum: categories
               },
               language: { type: Type.STRING },
               stockLevel: { type: Type.NUMBER },

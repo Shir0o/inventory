@@ -3,7 +3,7 @@ import { X, Upload, FileText, Check, AlertCircle, Loader2, Save } from 'lucide-r
 import { motion, AnimatePresence } from 'motion/react';
 import Papa from 'papaparse';
 import { parseInventoryData, parseEventData, ParsedInventoryItem, ParsedEvent } from '../services/aiService';
-import { addInventoryItem, importEventWithMaterials } from '../services/firestoreService';
+import { addInventoryItem, importEventWithMaterials, subscribeToSettings } from '../services/firestoreService';
 import { cn } from '../lib/utils';
 
 interface BulkImportModalProps {
@@ -19,7 +19,17 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [settings, setSettings] = useState<any>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Subscribe to settings for dynamic categories
+  React.useEffect(() => {
+    return subscribeToSettings((data) => {
+      setSettings(data);
+    });
+  }, []);
+
+  const categories = settings.categories || ['Bibles', 'Tracts', 'Booklets'];
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -41,7 +51,7 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
     try {
       let items: any[] = [];
       if (importType === 'inventory') {
-        items = await parseInventoryData(content);
+        items = await parseInventoryData(content, categories);
       } else {
         items = await parseEventData(content);
       }
@@ -298,9 +308,9 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
                                       onChange={(e) => updateParsedItem(i, 'category', e.target.value)}
                                       className="bg-primary/10 text-primary text-[9px] sm:text-[10px] font-bold uppercase rounded-sharp border-none outline-none cursor-pointer hover:bg-primary/20 p-1"
                                     >
-                                      <option value="Bibles">Bibles</option>
-                                      <option value="Tracts">Tracts</option>
-                                      <option value="Booklets">Booklets</option>
+                                      {categories.map((cat: string) => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                      ))}
                                     </select>
                                   </td>
                                   <td className="px-4 py-3 whitespace-nowrap">

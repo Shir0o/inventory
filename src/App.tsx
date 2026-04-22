@@ -74,26 +74,6 @@ import { exportToCSV } from './lib/csvExport';
 
 type Tab = 'dashboard' | 'inventory' | 'events' | 'reports' | 'settings' | 'users' | 'logs' | 'ai_insights';
 
-// --- Mock Data ---
-
-const lineData = [
-  { name: 'Jan', bibles: 450, tracts: 2500, booklets: 120 },
-  { name: 'Feb', bibles: 420, tracts: 2300, booklets: 110 },
-  { name: 'Mar', bibles: 440, tracts: 2100, booklets: 115 },
-  { name: 'Apr', bibles: 380, tracts: 1900, booklets: 105 },
-  { name: 'May', bibles: 400, tracts: 1800, booklets: 95 },
-  { name: 'Jun', bibles: 320, tracts: 1600, booklets: 85 },
-  { name: 'Jul', bibles: 340, tracts: 1400, booklets: 80 },
-  { name: 'Aug', bibles: 300, tracts: 1200, booklets: 75 },
-  { name: 'Sep', bibles: 310, tracts: 1100, booklets: 70 },
-];
-
-const pieData = [
-  { name: 'Bibles', value: 45, color: '#0A2540' },
-  { name: 'Tracts', value: 35, color: '#00D4B6' },
-  { name: 'Booklets', value: 20, color: '#FF7369' },
-];
-
 // --- Components ---
 
 const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin, isOpen, onClose }: { activeTab: Tab, setActiveTab: (t: Tab) => void, onDistribute: () => void, isAdmin: boolean, isOpen: boolean, onClose: () => void }) => {
@@ -1005,9 +985,49 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
 
   const dynamicPieData = Object.keys(categoryCounts).map((cat, i) => ({
     name: cat,
-    value: Math.round((categoryCounts[cat] / inventory.length) * 100) || 0,
-    color: i === 0 ? '#0A2540' : i === 1 ? '#00D4B6' : '#FF7369'
+    value: Math.round((categoryCounts[cat] / (inventory.length || 1)) * 100) || 0,
+    color: i === 0 ? '#0A2540' : i === 1 ? '#00D4B6' : i === 2 ? '#FF7369' : `hsl(${i * 60}, 70%, 50%)`
   }));
+
+  // Dynamic Line Data calculation
+  const skuToCategory = inventory.reduce((acc: any, item) => {
+    acc[item.sku] = item.category;
+    return acc;
+  }, {});
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthlyMap: any = {};
+  
+  // Initialize current year's months
+  months.forEach(m => {
+    monthlyMap[m] = { name: m, bibles: 0, tracts: 0, booklets: 0 };
+  });
+
+  events.forEach(event => {
+    try {
+      const date = event.date?.toDate ? event.date.toDate() : new Date(event.date);
+      if (isNaN(date.getTime())) return;
+      
+      const monthLabel = months[date.getMonth()];
+      
+      if (event.materials && Array.isArray(event.materials)) {
+        event.materials.forEach((m: any) => {
+          const category = (skuToCategory[m.sku] || '').toLowerCase();
+          if (category.includes('bible')) monthlyMap[monthLabel].bibles += (m.quantity || 0);
+          else if (category.includes('tract')) monthlyMap[monthLabel].tracts += (m.quantity || 0);
+          else if (category.includes('booklet')) monthlyMap[monthLabel].booklets += (m.quantity || 0);
+          else monthlyMap[monthLabel].tracts += (m.quantity || 0); // Default fallback
+        });
+      } else {
+        // Fallback for legacy events
+        monthlyMap[monthLabel].tracts += (event.materialsDistributed || 0);
+      }
+    } catch (e) {
+      console.warn("Skipping malformed event date in reports", e);
+    }
+  });
+
+  const dynamicLineData = Object.values(monthlyMap);
 
   return (
     <div className="space-y-8">
@@ -1082,7 +1102,7 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
           </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={lineData}>
+              <AreaChart data={dynamicLineData}>
                 <defs>
                   <linearGradient id="colorBibles" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#0A2540" stopOpacity={0.1}/>
@@ -1113,7 +1133,7 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={dynamicPieData.length > 0 ? dynamicPieData : pieData}
+                  data={dynamicPieData}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -1121,7 +1141,7 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {(dynamicPieData.length > 0 ? dynamicPieData : pieData).map((entry, index) => (
+                  {dynamicPieData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -1133,7 +1153,7 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
             </div>
           </div>
           <div className="w-full mt-10 space-y-3">
-            {(dynamicPieData.length > 0 ? dynamicPieData : pieData).map((item) => (
+            {dynamicPieData.map((item) => (
               <div key={item.name} className="flex items-center justify-between text-[12px]">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-sharp" style={{ backgroundColor: item.color }} />
@@ -1307,7 +1327,8 @@ const SettingsView = ({ settings }: { settings: any }) => {
     timezone: '',
     updateFrequency: '',
     warningThreshold: 250,
-    criticalThreshold: 75
+    criticalThreshold: 75,
+    categories: [] as string[]
   });
 
   useEffect(() => {
@@ -1319,7 +1340,8 @@ const SettingsView = ({ settings }: { settings: any }) => {
         timezone: settings.timezone || '',
         updateFrequency: settings.updateFrequency || 'Real-time (Atomic)',
         warningThreshold: settings.warningThreshold || 250,
-        criticalThreshold: settings.criticalThreshold || 75
+        criticalThreshold: settings.criticalThreshold || 75,
+        categories: settings.categories || ['Bibles', 'Tracts', 'Booklets']
       });
     }
   }, [settings]);
@@ -1410,6 +1432,61 @@ const SettingsView = ({ settings }: { settings: any }) => {
                 className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all resize-none"
               />
             </div>
+        </div>
+      </section>
+
+      <section className="col-span-12 lg:col-span-4 ledger-card p-8">
+        <div className="indicator-tertiary" />
+        <div className="flex items-center gap-3 mb-8">
+          <Database className="w-5 h-5 text-primary" />
+          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px]">Taxonomies</h2>
+        </div>
+        <div className="space-y-6">
+          <div className="space-y-4">
+            <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Material Categories</label>
+            <div className="flex flex-wrap gap-2">
+              {formData.categories.map((cat, i) => (
+                <div key={i} className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 rounded-sharp">
+                  <span className="font-headline font-bold text-[11px] uppercase tracking-wider">{cat}</span>
+                  <button 
+                    onClick={() => setFormData({...formData, categories: formData.categories.filter((_, idx) => idx !== i)})}
+                    className="hover:text-tertiary transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex gap-2">
+              <input 
+                type="text" 
+                placeholder="New classification..."
+                className="flex-1 border-0 border-b-2 border-surface-container bg-surface-container-low px-3 py-2 font-headline font-medium text-[12px] focus:ring-0 focus:border-primary transition-all"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const val = e.currentTarget.value.trim();
+                    if (val && !formData.categories.includes(val)) {
+                      setFormData({...formData, categories: [...formData.categories, val]});
+                      e.currentTarget.value = '';
+                    }
+                  }
+                }}
+              />
+              <button 
+                className="p-2 bg-surface-container hover:bg-surface-container-high text-primary transition-colors rounded-sharp"
+                onClick={(e) => {
+                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                  const val = input.value.trim();
+                  if (val && !formData.categories.includes(val)) {
+                    setFormData({...formData, categories: [...formData.categories, val]});
+                    input.value = '';
+                  }
+                }}
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 

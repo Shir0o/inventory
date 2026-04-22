@@ -490,7 +490,9 @@ export async function syncUserProfile(user: any) {
       const normalizedEmail = user.email?.toLowerCase();
       const authEmailRef = doc(db, 'authorized_emails', normalizedEmail);
       const authEmailDoc = await getDoc(authEmailRef);
-      const isPrimaryAdmin = normalizedEmail === "yilongwang05@gmail.com";
+      // Use environment variable with hardcoded fallback if not set
+      const primaryAdminEmail = import.meta.env.VITE_PRIMARY_ADMIN_EMAIL?.toLowerCase() || "yilongwang05@gmail.com";
+      const isPrimaryAdmin = normalizedEmail === primaryAdminEmail;
 
       if (!authEmailDoc.exists() && !isPrimaryAdmin) {
         // Not authorized - this will trigger a permission error in rules
@@ -663,6 +665,7 @@ export async function seedData() {
     taxId: "TX-9920-441-B",
     address: "722 Industrial Parkway, Suite 400\nNew London, CT 06320\nUnited States",
     timezone: "UTC-05:00 Eastern Standard",
-    updateFrequency: "Real-time (Atomic)"
+    updateFrequency: "Real-time (Atomic)",
+    categories: ['Bibles', 'Tracts', 'Booklets']
   });
 }
