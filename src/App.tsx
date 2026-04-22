@@ -317,7 +317,7 @@ const DashboardView = ({ inventory, events, onEdit }: { inventory: any[], events
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="ledger-card p-6 h-40 flex flex-col justify-between">
+        <div className="ledger-card p-6 min-h-[160px] flex flex-col justify-between">
           <div className="indicator-primary" />
           <div className="flex justify-between items-start">
             <span className="font-headline text-[12px] font-bold uppercase tracking-[1px] text-on-surface-variant">Total Catalog Items</span>
@@ -332,7 +332,7 @@ const DashboardView = ({ inventory, events, onEdit }: { inventory: any[], events
           </div>
         </div>
 
-        <div className="ledger-card p-6 h-40 flex flex-col justify-between">
+        <div className="ledger-card p-6 min-h-[160px] flex flex-col justify-between">
           <div className="indicator-tertiary" />
           <div className="flex justify-between items-start">
             <span className="font-headline text-[12px] font-bold uppercase tracking-[1px] text-on-surface-variant">Critical Stock Alerts</span>
@@ -347,7 +347,7 @@ const DashboardView = ({ inventory, events, onEdit }: { inventory: any[], events
           </div>
         </div>
 
-        <div className="ledger-card p-6 h-40 flex flex-col justify-between">
+        <div className="ledger-card p-6 min-h-[160px] flex flex-col justify-between">
           <div className="indicator-secondary" />
           <div className="flex justify-between items-start">
             <span className="font-headline text-[12px] font-bold uppercase tracking-[1px] text-on-surface-variant">Distributed MTD</span>
@@ -1263,7 +1263,7 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], on
       </div>
 
       <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 md:col-span-4 ledger-card p-6 h-40 flex flex-col justify-between">
+        <div className="col-span-12 md:col-span-4 ledger-card p-6 min-h-[160px] flex flex-col justify-between">
           <div className="indicator-secondary" />
           <div>
             <span className="font-headline text-[11px] uppercase tracking-[1px] text-on-surface-variant font-bold">Total Active Events</span>
@@ -1277,7 +1277,7 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], on
           </div>
         </div>
 
-        <div className="col-span-12 md:col-span-4 ledger-card p-6 h-40 flex flex-col justify-between">
+        <div className="col-span-12 md:col-span-4 ledger-card p-6 min-h-[160px] flex flex-col justify-between">
           <div className="indicator-primary" />
           <div>
             <span className="font-headline text-[11px] uppercase tracking-[1px] text-on-surface-variant font-bold">Items Distributed (LIFETIME)</span>
