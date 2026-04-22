@@ -59,7 +59,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { cn } from './lib/utils';
+import { cn, formatDate } from './lib/utils';
 import { useFirebase } from './context/FirebaseContext';
 import InventoryModal from './components/InventoryModal';
 import EventModal from './components/EventModal';
@@ -302,24 +302,10 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: { searchQu
 
 // --- Page Views ---
 
-const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isAdmin }: { inventory: any[], events: any[], onEdit: (item: any) => void, auditLogs: any[], setActiveTab: (t: Tab) => void, isAdmin: boolean }) => {
+const DashboardView = ({ inventory, events, onEdit }: { inventory: any[], events: any[], onEdit: (item: any) => void }) => {
   const lowStockItems = inventory.filter(item => item.status === 'Low' || item.status === 'Out');
   const totalUnits = inventory.reduce((acc, item) => acc + (item.stockLevel || 0), 0);
   const distributedMTD = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
-
-  const getLogIcon = (action: string) => {
-    if (action.includes('STOCK') || action.includes('ITEM')) return Package;
-    if (action.includes('EVENT') || action.includes('DISTRIBUTION')) return Calendar;
-    if (action.includes('USER') || action.includes('ROLE') || action.includes('EMAIL')) return Shield;
-    return History;
-  };
-
-  const getLogColor = (action: string) => {
-    if (action.includes('CREATED') || action.includes('AUTHORIZED')) return 'bg-secondary/10 text-secondary';
-    if (action.includes('UPDATE')) return 'bg-primary-container text-white';
-    if (action.includes('ALERT') || action.includes('THRESHOLD')) return 'bg-tertiary/10 text-tertiary';
-    return 'bg-slate-100 text-slate-500';
-  };
 
   return (
     <div className="space-y-8">
@@ -331,7 +317,7 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="ledger-card p-6 h-40 flex flex-col justify-between">
+        <div className="ledger-card p-6 min-h-[160px] flex flex-col justify-between">
           <div className="indicator-primary" />
           <div className="flex justify-between items-start">
             <span className="font-headline text-[12px] font-bold uppercase tracking-[1px] text-on-surface-variant">Total Catalog Items</span>
@@ -346,7 +332,7 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
           </div>
         </div>
 
-        <div className="ledger-card p-6 h-40 flex flex-col justify-between">
+        <div className="ledger-card p-6 min-h-[160px] flex flex-col justify-between">
           <div className="indicator-tertiary" />
           <div className="flex justify-between items-start">
             <span className="font-headline text-[12px] font-bold uppercase tracking-[1px] text-on-surface-variant">Critical Stock Alerts</span>
@@ -361,7 +347,7 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
           </div>
         </div>
 
-        <div className="ledger-card p-6 h-40 flex flex-col justify-between">
+        <div className="ledger-card p-6 min-h-[160px] flex flex-col justify-between">
           <div className="indicator-secondary" />
           <div className="flex justify-between items-start">
             <span className="font-headline text-[12px] font-bold uppercase tracking-[1px] text-on-surface-variant">Distributed MTD</span>
@@ -377,7 +363,7 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className={cn("space-y-6", isAdmin ? "lg:col-span-2" : "col-span-full")}>
+        <div className="lg:col-span-2 space-y-6">
           <div className="ledger-card">
             <div className="px-4 sm:px-6 py-4 border-b border-outline-variant flex flex-col sm:flex-row justify-between sm:items-center gap-3 bg-surface-container">
               <h2 className="font-headline font-bold text-xs sm:text-sm uppercase tracking-wider text-primary">Action Required: Low Stock</h2>
@@ -443,52 +429,38 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
         </div>
       </div>
 
-      {isAdmin && (
-        <div className="space-y-6">
-          <div className="ledger-card flex flex-col h-full">
-            <div className="px-6 py-4 border-b border-outline-variant bg-surface-container">
-              <h2 className="font-headline font-bold text-sm uppercase tracking-wider text-primary">System Log</h2>
-            </div>
-            <div className="p-6 flex-1">
-              <div className="space-y-8 relative">
-                <div className="absolute left-[11px] top-2 bottom-2 w-px bg-outline-variant" />
-                {auditLogs.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 opacity-40">
-                    <History className="w-8 h-8 mb-2" />
-                    <p className="font-mono text-[10px] uppercase tracking-widest">No activity</p>
+      <div className="space-y-6">
+        <div className="ledger-card flex flex-col h-full">
+          <div className="px-6 py-4 border-b border-outline-variant bg-surface-container">
+            <h2 className="font-headline font-bold text-sm uppercase tracking-wider text-primary">System Log</h2>
+          </div>
+          <div className="p-6 flex-1">
+            <div className="space-y-8 relative">
+              <div className="absolute left-[11px] top-2 bottom-2 w-px bg-outline-variant" />
+              {[
+                { time: '10:24 AM', type: 'INVENTORY IN', msg: '500 units of "The Great Controversy" received.', icon: Package, color: 'bg-primary-container text-white' },
+                { time: '09:15 AM', type: 'THRESHOLD ALERT', msg: 'Stock level for #SG-0211 dropped below critical margin.', icon: AlertTriangle, color: 'bg-tertiary/10 text-tertiary' },
+                { time: '08:00 AM', type: 'SHIPMENT OUT', msg: 'Batch #442 dispatched to North Regional Center.', icon: Truck, color: 'bg-secondary/10 text-primary' },
+                { time: '07:45 AM', type: 'USER AUTH', msg: 'User "David Miller" logged into the system.', icon: Shield, color: 'bg-slate-100 text-slate-500' },
+              ].map((item, i) => (
+                <div key={i} className="relative pl-10">
+                  <div className={cn("absolute left-0 top-0 w-6 h-6 flex items-center justify-center rounded-full z-10", item.color)}>
+                    <item.icon className="w-3 h-3" />
                   </div>
-                ) : (
-                  auditLogs.slice(0, 5).map((log, i) => {
-                    const Icon = getLogIcon(log.action);
-                    const timeStr = log.timestamp?.toDate 
-                      ? log.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                      : new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    
-                    return (
-                      <div key={log.id || i} className="relative pl-10">
-                        <div className={cn("absolute left-0 top-0 w-6 h-6 flex items-center justify-center rounded-full z-10", getLogColor(log.action))}>
-                          <Icon className="w-3 h-3" />
-                        </div>
-                        <div className="text-[11px] text-on-surface-variant font-mono mb-1">{timeStr} • {log.action.replace('_', ' ')}</div>
-                        <p className="text-sm font-medium text-primary leading-tight line-clamp-2">{log.details}</p>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-            <div className="px-6 py-4 border-t border-outline-variant bg-surface-container text-center">
-              <button 
-                onClick={() => setActiveTab('logs')}
-                className="text-xs font-bold text-secondary flex items-center justify-center gap-2 w-full hover:text-primary transition-all"
-              >
-                VIEW FULL AUDIT TRAIL
-                <ArrowRight className="w-3 h-3" />
-              </button>
+                  <div className="text-[11px] text-on-surface-variant font-mono mb-1">{item.time} • {item.type}</div>
+                  <p className="text-sm font-medium text-primary leading-tight">{item.msg}</p>
+                </div>
+              ))}
             </div>
           </div>
+          <div className="px-6 py-4 border-t border-outline-variant bg-surface-container text-center">
+            <button className="text-xs font-bold text-secondary flex items-center justify-center gap-2 w-full hover:text-primary transition-all">
+              VIEW FULL AUDIT TRAIL
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   </div>
   );
@@ -898,22 +870,6 @@ const UsersView = ({ users }: { users: any[] }) => {
 };
 
 const LogsView = ({ logs }: { logs: any[] }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [actionFilter, setActionFilter] = useState('ALL');
-
-  const filteredLogs = logs.filter(log => {
-    const matchesSearch = 
-      log.details?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.userEmail?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesAction = actionFilter === 'ALL' || log.action === actionFilter;
-    
-    return matchesSearch && matchesAction;
-  });
-
-  const actions = ['ALL', ...new Set(logs.map(l => l.action))];
-
   const getActionColor = (action: string) => {
     if (action.includes('CREATED') || action.includes('AUTHORIZED')) return 'text-secondary bg-secondary/10';
     if (action.includes('DELETED') || action.includes('DEAUTHORIZED')) return 'text-tertiary bg-tertiary/10';
@@ -928,6 +884,128 @@ const LogsView = ({ logs }: { logs: any[] }) => {
     return <History className="w-3 h-3" />;
   };
 
+  const formatLogDetails = (log: any) => {
+    if (!log.metadata) return null;
+
+    // Distribution details (Multiple items)
+    if (log.action === 'DISTRIBUTION' && Array.isArray(log.metadata.items)) {
+      return (
+        <div className="space-y-1.5 mt-2">
+          <div className="text-[10px] font-bold text-secondary uppercase tracking-widest">Inventory Outflow</div>
+          <div className="grid grid-cols-1 gap-1">
+            {log.metadata.items.map((item: any, idx: number) => (
+              <div key={idx} className="flex items-center gap-3 bg-surface-container-low px-2 py-1 rounded-sharp border border-outline-variant/50">
+                <span className="font-mono text-[11px] font-bold text-primary">-{item.quantity}</span>
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold leading-none">{item.title}</span>
+                  <span className="font-mono text-[9px] text-on-surface-variant">{item.sku}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Stock update details (Manual edit)
+    if (log.action === 'STOCK_UPDATE' && log.metadata.changes) {
+      const { stockDelta, oldStock, newStock, oldStatus, newStatus } = log.metadata.changes;
+      return (
+        <div className="mt-2 p-2 bg-surface-container-low rounded-sharp border border-outline-variant/30 space-y-1">
+          {stockDelta !== undefined && (
+            <div className="flex items-center gap-2">
+              <span className={cn("font-mono text-[11px] font-bold px-1.5 py-0.5 rounded-sharp", stockDelta > 0 ? "text-secondary bg-secondary/10" : "text-tertiary bg-tertiary/10")}>
+                {stockDelta > 0 ? `+${stockDelta}` : stockDelta}
+              </span>
+              <span className="text-[10px] text-on-surface-variant uppercase">Quantity Shift</span>
+              <span className="font-mono text-[10px] text-slate-400 ml-auto">({oldStock} → {newStock})</span>
+            </div>
+          )}
+          {newStatus && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-on-surface-variant uppercase font-bold">Status Update:</span>
+              <span className="text-[10px] font-mono text-primary">{oldStatus} → {newStatus}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Fallback for old stock update format
+    if (log.action === 'STOCK_UPDATE' && log.metadata.item && !log.metadata.changes) {
+      return (
+        <div className="mt-1 text-[11px] font-mono text-on-surface-variant">
+          Current Level: <span className="text-primary font-bold">{log.metadata.item.stockLevel}</span>
+        </div>
+      );
+    }
+
+    // Item creation details
+    if (log.action === 'ITEM_CREATED' && log.metadata.item) {
+      const item = log.metadata.item;
+      return (
+        <div className="mt-2 space-y-1">
+          <div className="text-[10px] font-bold text-secondary uppercase tracking-widest">New Resource Initialized</div>
+          <div className="p-2 bg-secondary/5 border border-secondary/20 rounded-sharp">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <div className="flex justify-between border-b border-outline-variant/30 pb-1">
+                <span className="text-[9px] text-on-surface-variant uppercase">Initial Stock</span>
+                <span className="font-mono text-[10px] font-bold">{item.stockLevel}</span>
+              </div>
+              <div className="flex justify-between border-b border-outline-variant/30 pb-1">
+                <span className="text-[9px] text-on-surface-variant uppercase">Category</span>
+                <span className="font-headline text-[10px] font-bold text-primary uppercase">{item.category}</span>
+              </div>
+              <div className="flex justify-between pt-1">
+                <span className="text-[9px] text-on-surface-variant uppercase">Language</span>
+                <span className="text-[10px] font-medium">{item.language}</span>
+              </div>
+              <div className="flex justify-between pt-1">
+                <span className="text-[9px] text-on-surface-variant uppercase">SKU</span>
+                <span className="font-mono text-[10px]">{item.sku}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Settings update details
+    if (log.action === 'SETTINGS_UPDATE' && log.metadata.settings) {
+      const s = log.metadata.settings;
+      return (
+        <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-mono uppercase">
+          {s.timezone && <span className="bg-surface-container-low px-2 py-0.5 rounded-sharp border border-outline-variant">TZ: {s.timezone.split('/').pop()?.replace('_', ' ')}</span>}
+          {s.warningThreshold && <span className="bg-primary/5 text-primary px-2 py-0.5 rounded-sharp border border-primary/20 font-bold">WARN: {s.warningThreshold}</span>}
+          {s.criticalThreshold && <span className="bg-tertiary/5 text-tertiary px-2 py-0.5 rounded-sharp border border-tertiary/20 font-bold">CRIT: {s.criticalThreshold}</span>}
+        </div>
+      );
+    }
+
+    // Event updates
+    if (log.action === 'EVENT_UPDATED' && log.metadata.event) {
+      const e = log.metadata.event;
+      return (
+        <div className="mt-2 p-2 bg-primary/5 border border-primary/10 rounded-sharp space-y-1">
+          {e.status && (
+            <div className="flex justify-between items-center">
+              <span className="text-[9px] text-on-surface-variant uppercase">Status set to</span>
+              <span className="text-[10px] font-bold text-primary uppercase tracking-wider bg-white px-2 py-0.5 rounded-sharp shadow-sm">{e.status}</span>
+            </div>
+          )}
+          {e.location && (
+            <div className="flex justify-between items-center">
+              <span className="text-[9px] text-on-surface-variant uppercase">Relocated to</span>
+              <span className="text-[10px] font-medium">{e.location}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
@@ -935,34 +1013,16 @@ const LogsView = ({ logs }: { logs: any[] }) => {
           <span className="font-headline font-bold text-[12px] uppercase tracking-[2px] text-on-surface-variant">Audit Trail</span>
           <h1 className="font-headline font-extrabold text-2xl sm:text-[32px] text-primary tracking-tight leading-none mt-1 uppercase">System Logs</h1>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
-              type="text"
-              placeholder="Search logs..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-surface-container border border-outline-variant text-xs font-mono rounded-sharp focus:ring-1 focus:ring-primary w-64"
-            />
-          </div>
-          <select 
-            value={actionFilter}
-            onChange={(e) => setActionFilter(e.target.value)}
-            className="px-4 py-2 bg-surface-container border border-outline-variant text-[10px] font-headline font-bold uppercase tracking-wider rounded-sharp focus:ring-1 focus:ring-primary appearance-none pr-10 relative"
-            style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%230A2540\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'%3E%3C/path%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '12px' }}
-          >
-            {actions.map(action => (
-              <option key={action} value={action}>{action.replace('_', ' ')}</option>
-            ))}
-          </select>
+        <div className="px-3 py-1.5 sm:px-4 sm:py-2 bg-surface-container border border-outline-variant rounded-sharp flex items-center gap-3">
+          <div className="w-2 h-2 bg-secondary rounded-full animate-pulse" />
+          <span className="font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Live Monitoring</span>
         </div>
       </div>
 
       <div className="ledger-card">
         <div className="px-6 py-4 border-b border-outline-variant flex items-center justify-between">
           <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1px] text-primary">Activity Stream</h2>
-          <span className="font-mono text-[10px] text-slate-400 uppercase">Showing {filteredLogs.length} matching events</span>
+          <span className="font-mono text-[10px] text-slate-400 uppercase">Showing last 50 events</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -975,25 +1035,25 @@ const LogsView = ({ logs }: { logs: any[] }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
-              {filteredLogs.length === 0 ? (
+              {logs.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-3 opacity-40">
                       <History className="w-8 h-8" />
-                      <p className="font-mono text-[11px] uppercase tracking-widest">No activity matches your filters</p>
+                      <p className="font-mono text-[11px] uppercase tracking-widest">No activity recorded yet</p>
                     </div>
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map((log) => (
+                logs.map((log) => (
                   <tr key={log.id} className="hover:bg-surface-container transition-colors group">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col">
                         <span className="font-mono text-[12px] text-on-surface font-bold">
-                          {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          {log.timestamp?.toDate ? log.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </span>
                         <span className="font-mono text-[10px] text-slate-400">
-                          {new Date(log.timestamp).toLocaleDateString()}
+                          {log.timestamp?.toDate ? log.timestamp.toDate().toLocaleDateString() : new Date(log.timestamp).toLocaleDateString()}
                         </span>
                       </div>
                     </td>
@@ -1015,16 +1075,12 @@ const LogsView = ({ logs }: { logs: any[] }) => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-[13px] text-on-surface leading-relaxed max-w-md">
-                        {log.details}
-                      </p>
-                      {log.metadata && (
-                        <div className="mt-2 hidden group-hover:block">
-                          <pre className="text-[9px] font-mono bg-surface-container-low p-2 rounded-sharp border border-outline-variant overflow-x-auto max-w-xs">
-                            {JSON.stringify(log.metadata, null, 2)}
-                          </pre>
-                        </div>
-                      )}
+                      <div>
+                        <p className="text-[13px] text-on-surface leading-relaxed max-w-md">
+                          {log.details}
+                        </p>
+                        {formatLogDetails(log)}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -1325,7 +1381,7 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], on
       </div>
 
       <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 md:col-span-4 ledger-card p-6 h-40 flex flex-col justify-between">
+        <div className="col-span-12 md:col-span-4 ledger-card p-6 min-h-[160px] flex flex-col justify-between">
           <div className="indicator-secondary" />
           <div>
             <span className="font-headline text-[11px] uppercase tracking-[1px] text-on-surface-variant font-bold">Total Active Events</span>
@@ -1339,7 +1395,7 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], on
           </div>
         </div>
 
-        <div className="col-span-12 md:col-span-4 ledger-card p-6 h-40 flex flex-col justify-between">
+        <div className="col-span-12 md:col-span-4 ledger-card p-6 min-h-[160px] flex flex-col justify-between">
           <div className="indicator-primary" />
           <div>
             <span className="font-headline text-[11px] uppercase tracking-[1px] text-on-surface-variant font-bold">Items Distributed (LIFETIME)</span>
@@ -1350,24 +1406,50 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], on
           </div>
         </div>
 
-        <div className="col-span-12 md:col-span-4 bg-primary text-white p-6 rounded-sharp relative overflow-hidden">
-          <div className="relative z-10">
-            <span className="font-headline text-[11px] uppercase tracking-[1px] text-secondary font-bold">Next Regional Sync</span>
-            <h3 className="font-headline font-bold text-[18px] mt-2">Western Conference Hall</h3>
-            <p className="font-mono text-[13px] mt-1 text-slate-300">OCT 14, 2024 • 09:00 AM</p>
-            <div className="mt-4 flex -space-x-2">
-              {[1, 2, 3].map(i => (
-                <img 
-                  key={i}
-                  src={`https://picsum.photos/seed/user${i}/100/100`} 
-                  alt="User" 
-                  className="w-8 h-8 rounded-full border-2 border-primary"
-                  referrerPolicy="no-referrer"
-                />
-              ))}
-              <div className="w-8 h-8 rounded-full border-2 border-primary bg-primary-container flex items-center justify-center text-[10px] font-bold">+4</div>
-            </div>
-          </div>
+        <div className="col-span-12 md:col-span-4 bg-primary text-white p-6 rounded-sharp relative overflow-hidden flex flex-col justify-between min-h-[160px]">
+          {(() => {
+            const nextEvent = events
+              .filter(e => e.status === 'Scheduled')
+              .sort((a, b) => {
+                const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+                const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+                return dateA.getTime() - dateB.getTime();
+              })[0];
+
+            if (nextEvent) {
+              return (
+                <div className="relative z-10">
+                  <span className="font-headline text-[11px] uppercase tracking-[1px] text-secondary font-bold">Next Scheduled Event</span>
+                  <h3 className="font-headline font-bold text-[18px] mt-2 line-clamp-1">{nextEvent.name}</h3>
+                  <p className="font-mono text-[13px] mt-1 text-slate-300 uppercase whitespace-nowrap overflow-hidden text-ellipsis">
+                    {formatDate(nextEvent.date)} • {nextEvent.location}
+                  </p>
+                  <button 
+                    onClick={() => onEdit(nextEvent)}
+                    className="mt-4 px-3 py-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded-sharp text-[10px] font-bold uppercase tracking-wider transition-colors"
+                  >
+                    View Details
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <div className="relative z-10 h-full flex flex-col justify-center items-center text-center space-y-3">
+                <Calendar className="w-8 h-8 text-secondary/60" />
+                <div>
+                  <p className="font-headline font-bold text-[13px] uppercase tracking-wider">No Upcoming Events</p>
+                  <button 
+                    onClick={onAdd}
+                    className="mt-2 text-[10px] font-bold text-secondary hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Schedule Now
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
           <RefreshCw className="absolute right-[-20px] bottom-[-20px] w-32 h-32 text-white opacity-10" />
         </div>
       </div>
@@ -1416,7 +1498,7 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], on
                     </div>
                   </td>
                   <td className="px-6 py-4 font-mono text-[13px] text-on-surface">
-                    {row.date?.toDate ? row.date.toDate().toLocaleDateString() : row.date}
+                    {formatDate(row.date)}
                   </td>
                   <td className="px-6 py-4 text-[13px] text-on-surface">{row.location}</td>
                   <td className="px-6 py-4 text-right">
@@ -1481,26 +1563,19 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], on
   );
 };
 
-const SettingsView = ({ settings }: { settings: any }) => {
-  const [seeding, setSeeding] = useState(false);
+const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }) => {
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
-    orgName: '',
-    taxId: '',
-    address: '',
-    timezone: '',
-    updateFrequency: '',
+    timezone: 'America/New_York',
+    updateFrequency: 'Real-time (Atomic)',
     warningThreshold: 250,
     criticalThreshold: 75,
-    categories: [] as string[]
+    categories: ['Bibles', 'Tracts', 'Booklets']
   });
 
   useEffect(() => {
     if (settings) {
       setFormData({
-        orgName: settings.orgName || '',
-        taxId: settings.taxId || '',
-        address: settings.address || '',
         timezone: settings.timezone || '',
         updateFrequency: settings.updateFrequency || 'Real-time (Atomic)',
         warningThreshold: settings.warningThreshold || 250,
@@ -1522,20 +1597,6 @@ const SettingsView = ({ settings }: { settings: any }) => {
     }
   };
 
-  const handleSeed = async () => {
-    if (!confirm("This will populate your database with sample data. Continue?")) return;
-    setSeeding(true);
-    try {
-      await seedData();
-      alert("Database seeded successfully!");
-    } catch (error) {
-      console.error("Seeding failed", error);
-      alert("Seeding failed. Check console for details.");
-    } finally {
-      setSeeding(false);
-    }
-  };
-
   return (
     <div className="space-y-8">
       <div className="flex items-end justify-between">
@@ -1544,62 +1605,26 @@ const SettingsView = ({ settings }: { settings: any }) => {
           <h1 className="font-headline font-bold text-3xl text-primary tracking-tight">System Settings</h1>
         </div>
         <div className="flex gap-3">
-          <button 
-            onClick={handleSeed}
-            disabled={seeding}
-            className="px-6 py-2 border-2 border-tertiary text-tertiary font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-tertiary/5 transition-colors rounded-sharp disabled:opacity-50"
-          >
-            {seeding ? 'Seeding...' : 'Seed Initial Data'}
-          </button>
-          <button 
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-2 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={handleSave}
+              disabled={saving}
+              className="px-6 py-2 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          )}
+          {!isAdmin && (
+            <div className="px-4 py-2 bg-surface-container border border-outline-variant rounded-sharp text-[10px] font-mono text-on-surface-variant flex items-center gap-2">
+              <Shield className="w-3 h-3 text-secondary" />
+              READ-ONLY MODE
+            </div>
+          )}
         </div>
       </div>
 
     <div className="grid grid-cols-12 gap-8">
-      <section className="col-span-12 lg:col-span-8 ledger-card p-8">
-        <div className="indicator-primary" />
-        <div className="flex items-center gap-3 mb-8">
-          <Building2 className="w-5 h-5 text-primary" />
-          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px]">Organization Identity</h2>
-        </div>
-        <div className="grid grid-cols-2 gap-6">
-            <div className="col-span-2 md:col-span-1 space-y-2">
-              <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Legal Organization Name</label>
-              <input 
-                type="text" 
-                value={formData.orgName}
-                onChange={e => setFormData({...formData, orgName: e.target.value})}
-                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all"
-              />
-            </div>
-            <div className="col-span-2 md:col-span-1 space-y-2">
-              <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Tax Identification Number</label>
-              <input 
-                type="text" 
-                value={formData.taxId}
-                onChange={e => setFormData({...formData, taxId: e.target.value})}
-                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-mono text-[14px] focus:ring-0 focus:border-primary transition-all"
-              />
-            </div>
-            <div className="col-span-2 space-y-2">
-              <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Principal Business Address</label>
-              <textarea 
-                rows={3}
-                value={formData.address}
-                onChange={e => setFormData({...formData, address: e.target.value})}
-                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all resize-none"
-              />
-            </div>
-        </div>
-      </section>
-
-      <section className="col-span-12 lg:col-span-4 ledger-card p-8">
+      <section className="col-span-12 md:col-span-6 ledger-card p-8">
         <div className="indicator-tertiary" />
         <div className="flex items-center gap-3 mb-8">
           <Database className="w-5 h-5 text-primary" />
@@ -1612,73 +1637,89 @@ const SettingsView = ({ settings }: { settings: any }) => {
               {formData.categories.map((cat, i) => (
                 <div key={i} className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 rounded-sharp">
                   <span className="font-headline font-bold text-[11px] uppercase tracking-wider">{cat}</span>
-                  <button 
-                    onClick={() => setFormData({...formData, categories: formData.categories.filter((_, idx) => idx !== i)})}
-                    className="hover:text-tertiary transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  {isAdmin && (
+                    <button 
+                      onClick={() => setFormData({...formData, categories: formData.categories.filter((_, idx) => idx !== i)})}
+                      className="hover:text-tertiary transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
-            <div className="mt-4 flex gap-2">
-              <input 
-                type="text" 
-                placeholder="New classification..."
-                className="flex-1 border-0 border-b-2 border-surface-container bg-surface-container-low px-3 py-2 font-headline font-medium text-[12px] focus:ring-0 focus:border-primary transition-all"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    const val = e.currentTarget.value.trim();
+            {isAdmin && (
+              <div className="mt-4 flex gap-2">
+                <input 
+                  type="text" 
+                  placeholder="New classification..."
+                  className="flex-1 border-0 border-b-2 border-surface-container bg-surface-container-low px-3 py-2 font-headline font-medium text-[12px] focus:ring-0 focus:border-primary transition-all"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const val = e.currentTarget.value.trim();
+                      if (val && !formData.categories.includes(val)) {
+                        setFormData({...formData, categories: [...formData.categories, val]});
+                        e.currentTarget.value = '';
+                      }
+                    }
+                  }}
+                />
+                <button 
+                  className="p-2 bg-surface-container hover:bg-surface-container-high text-primary transition-colors rounded-sharp"
+                  onClick={(e) => {
+                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                    const val = input.value.trim();
                     if (val && !formData.categories.includes(val)) {
                       setFormData({...formData, categories: [...formData.categories, val]});
-                      e.currentTarget.value = '';
+                      input.value = '';
                     }
-                  }
-                }}
-              />
-              <button 
-                className="p-2 bg-surface-container hover:bg-surface-container-high text-primary transition-colors rounded-sharp"
-                onClick={(e) => {
-                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                  const val = input.value.trim();
-                  if (val && !formData.categories.includes(val)) {
-                    setFormData({...formData, categories: [...formData.categories, val]});
-                    input.value = '';
-                  }
-                }}
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>
 
-      <section className="col-span-12 lg:col-span-4 ledger-card p-8">
+      <section className="col-span-12 md:col-span-6 ledger-card p-8">
         <div className="indicator-secondary" />
         <div className="flex items-center gap-3 mb-8">
           <RefreshCw className="w-5 h-5 text-secondary" />
           <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px]">Regional Sync</h2>
         </div>
           <div className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-surface-container border border-outline-variant rounded-sharp">
-              <div>
-                <div className="font-headline font-bold text-[12px] text-primary">Timezone Alignment</div>
-                <input 
-                  type="text"
-                  value={formData.timezone}
-                  onChange={e => setFormData({...formData, timezone: e.target.value})}
-                  className="bg-transparent border-0 p-0 font-mono text-[10px] text-on-surface-variant focus:ring-0 w-full"
-                />
+            <div className="space-y-2 p-4 bg-surface-container border border-outline-variant rounded-sharp relative overflow-hidden">
+              <div className="flex items-center justify-between relative z-10">
+                <div>
+                  <div className="font-headline font-bold text-[12px] text-primary">System Timezone</div>
+                  <select 
+                    value={formData.timezone}
+                    disabled={!isAdmin}
+                    onChange={e => setFormData({...formData, timezone: e.target.value})}
+                    className="bg-transparent border-0 p-0 font-mono text-[11px] text-on-surface-variant focus:ring-0 w-full cursor-pointer appearance-none disabled:cursor-default"
+                  >
+                    <option value="America/New_York">Eastern Time (ET)</option>
+                    <option value="America/Chicago">Central Time (CT)</option>
+                    <option value="America/Denver">Mountain Time (MT)</option>
+                    <option value="America/Los_Angeles">Pacific Time (PT) - LA/Seattle</option>
+                    <option value="America/Anchorage">Alaska Time</option>
+                    <option value="America/Adak">Hawaii-Aleutian Time</option>
+                    <option value="UTC">Universal Coordinated (UTC)</option>
+                  </select>
+                </div>
+                <div className="h-2 w-2 bg-secondary rounded-full animate-pulse" />
               </div>
-              <div className="h-2 w-2 bg-secondary rounded-full animate-pulse" />
+              <div className="text-[10px] text-on-surface-variant/60 italic">Used for regional sync alignment</div>
             </div>
             <div className="space-y-4">
               <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Update Frequency</label>
               <select 
                 value={formData.updateFrequency}
+                disabled={!isAdmin}
                 onChange={e => setFormData({...formData, updateFrequency: e.target.value})}
-                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary appearance-none"
+                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary appearance-none disabled:opacity-70"
               >
                 <option>Real-time (Atomic)</option>
                 <option>Every 15 Minutes</option>
@@ -1714,8 +1755,9 @@ const SettingsView = ({ settings }: { settings: any }) => {
                     <input 
                       type="number"
                       value={formData.warningThreshold}
+                      disabled={!isAdmin}
                       onChange={e => setFormData({...formData, warningThreshold: parseInt(e.target.value) || 0})}
-                      className="w-20 bg-transparent border-0 border-b border-primary font-mono text-2xl font-bold text-primary text-right focus:ring-0"
+                      className="w-20 bg-transparent border-0 border-b border-primary font-mono text-2xl font-bold text-primary text-right focus:ring-0 disabled:opacity-70"
                     />
                     <span className="text-[14px] text-on-surface-variant uppercase">units</span>
                   </div>
@@ -1735,8 +1777,9 @@ const SettingsView = ({ settings }: { settings: any }) => {
                     <input 
                       type="number"
                       value={formData.criticalThreshold}
+                      disabled={!isAdmin}
                       onChange={e => setFormData({...formData, criticalThreshold: parseInt(e.target.value) || 0})}
-                      className="w-20 bg-transparent border-0 border-b border-tertiary font-mono text-2xl font-bold text-tertiary text-right focus:ring-0"
+                      className="w-20 bg-transparent border-0 border-b border-tertiary font-mono text-2xl font-bold text-tertiary text-right focus:ring-0 disabled:opacity-70"
                     />
                     <span className="text-[14px] text-on-surface-variant uppercase">units</span>
                   </div>
@@ -1945,7 +1988,7 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
-              {activeTab === 'dashboard' && <DashboardView inventory={inventory} events={events} onEdit={handleEdit} auditLogs={auditLogs} setActiveTab={setActiveTab} isAdmin={isAdmin} />}
+              {activeTab === 'dashboard' && <DashboardView inventory={inventory} events={events} onEdit={handleEdit} />}
             {activeTab === 'inventory' && (
               <InventoryView 
                 inventory={inventory} 
@@ -1973,7 +2016,7 @@ export default function App() {
               {activeTab === 'users' && <UsersView users={users} />}
               {activeTab === 'logs' && <LogsView logs={auditLogs} />}
               {activeTab === 'ai_insights' && <AIInsightsView inventory={inventory} events={events} auditLogs={auditLogs} />}
-              {activeTab === 'settings' && <SettingsView settings={settings} />}
+              {activeTab === 'settings' && <SettingsView settings={settings} isAdmin={isAdmin} />}
             </motion.div>
           </AnimatePresence>
 

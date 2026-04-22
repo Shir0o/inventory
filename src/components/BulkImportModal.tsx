@@ -12,6 +12,13 @@ interface BulkImportModalProps {
   initialType?: 'inventory' | 'events';
 }
 
+const BULK_SKUS = [
+  'GENERAL', 
+  'BIBLES', 'BIBLES_EN', 'BIBLES_ES', 
+  'TRACTS', 'TRACTS_EN', 'TRACTS_ES', 
+  'BOOKLETS', 'BOOKLETS_EN', 'BOOKLETS_ES'
+];
+
 const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory' }: BulkImportModalProps) => {
   const [step, setStep] = useState<'upload' | 'parsing' | 'review' | 'success'>('upload');
   const [importType, setImportType] = useState<'inventory' | 'events'>(initialType);
@@ -70,10 +77,9 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory' }: BulkImp
         
         // Validate all SKUs found in event materials
         const skuSet = new Set<string>();
-        const bulkSkus = ['GENERAL', 'BIBLES', 'TRACTS', 'BOOKLETS'];
         for (const item of items) {
           for (const m of item.materials) {
-            if (bulkSkus.includes(m.sku)) continue;
+            if (BULK_SKUS.includes(m.sku)) continue;
             const existing = await getInventoryItemBySku(m.sku);
             if (existing) {
               skuSet.add(m.sku);
@@ -157,9 +163,8 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory' }: BulkImp
 
     // For events, if materials change, validate the new SKUs
     if (importType === 'events' && field === 'materials') {
-      const bulkSkus = ['GENERAL', 'BIBLES', 'TRACTS', 'BOOKLETS'];
       for (const m of updatedItem.materials) {
-        if (bulkSkus.includes(m.sku)) continue;
+        if (BULK_SKUS.includes(m.sku)) continue;
         const existing = await getInventoryItemBySku(m.sku);
         setExistingSkus(prev => {
           const next = new Set(prev);
@@ -599,15 +604,15 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory' }: BulkImp
                                         onBlur={(e) => updateParsedItem(i, 'materials', parseMaterials(e.target.value))}
                                         className={cn(
                                           "w-full bg-transparent font-mono text-[10px] border-b outline-none focus:bg-surface px-1 py-0.5 rounded",
-                                          item.materials.some((m: any) => !['GENERAL', 'BIBLES', 'TRACTS', 'BOOKLETS'].includes(m.sku) && !existingSkus.has(m.sku)) 
+                                          item.materials.some((m: any) => !BULK_SKUS.includes(m.sku) && !existingSkus.has(m.sku)) 
                                             ? "border-tertiary text-tertiary" 
                                             : "text-on-surface-variant border-transparent focus:border-primary"
                                         )}
                                         placeholder="SKU:QTY or Total"
                                       />
-                                      {item.materials.some((m: any) => !['GENERAL', 'BIBLES', 'TRACTS', 'BOOKLETS'].includes(m.sku) && !existingSkus.has(m.sku)) && (
+                                      {item.materials.some((m: any) => !BULK_SKUS.includes(m.sku) && !existingSkus.has(m.sku)) && (
                                         <span className="text-[7px] text-tertiary font-bold uppercase tracking-wider">
-                                          Unknown SKUs: {item.materials.filter((m: any) => !['GENERAL', 'BIBLES', 'TRACTS', 'BOOKLETS'].includes(m.sku) && !existingSkus.has(m.sku)).map((m: any) => m.sku).join(', ')}
+                                          Unknown SKUs: {item.materials.filter((m: any) => !BULK_SKUS.includes(m.sku) && !existingSkus.has(m.sku)).map((m: any) => m.sku).join(', ')}
                                         </span>
                                       )}
                                     </div>
