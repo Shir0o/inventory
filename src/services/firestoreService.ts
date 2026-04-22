@@ -616,15 +616,16 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
     const { getDocs, where, query, collection } = await import('firebase/firestore');
     
     // 1. Pre-fetch all relevant inventory items to avoid queries inside transaction
-    const skus = materials.map(m => m.sku);
-    // Note: where('sku', 'in', ...) limited to 30 items. 
-    // If more, we might need a better strategy, but for typical imports this is fine.
-    const inventoryQ = query(collection(db, 'inventory'), where('sku', 'in', skus.slice(0, 30)));
-    const inventorySnapshot = await getDocs(inventoryQ);
+    const skus = materials.map(m => m.sku).filter(Boolean);
     const inventoryMap = new Map();
-    inventorySnapshot.forEach(doc => {
-      inventoryMap.set(doc.data().sku, { id: doc.id, ...doc.data() });
-    });
+    
+    if (skus.length > 0) {
+      const inventoryQ = query(collection(db, 'inventory'), where('sku', 'in', skus.slice(0, 30)));
+      const inventorySnapshot = await getDocs(inventoryQ);
+      inventorySnapshot.forEach(doc => {
+        inventoryMap.set(doc.data().sku, { id: doc.id, ...doc.data() });
+      });
+    }
 
     return await runTransaction(db, async (transaction) => {
       // 2. Create the event
