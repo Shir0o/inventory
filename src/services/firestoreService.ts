@@ -555,6 +555,81 @@ export async function removeAuthorizedEmail(email: string) {
   }
 }
 
+export async function importEventWithMaterials(eventData: any, materials: { sku: string, quantity: number, title?: string }[]) {
+  const eventsPath = 'events';
+  try {
+    const { getDocs, where, query, collection } = await import('firebase/firestore');
+    
+    // 1. Pre-fetch all relevant inventory items to avoid queries inside transaction
+    const skus = materials.map(m => m.sku);
+    // Note: where('sku', 'in', ...) limited to 30 items. 
+    // If more, we might need a better strategy, but for typical imports this is fine.
+    const inventoryQ = query(collection(db, 'inventory'), where('sku', 'in', skus.slice(0, 30)));
+    const inventorySnapshot = await getDocs(inventoryQ);
+    const inventoryMap = new Map();
+    inventorySnapshot.forEach(doc => {
+      inventoryMap.set(doc.data().sku, { id: doc.id, ...doc.data() });
+    });
+
+    return await runTransaction(db, async (transaction) => {
+      // 2. Create the event
+      const eventRef = doc(collection(db, eventsPath));
+      const totalQuantity = materials.reduce((sum, m) => sum + m.quantity, 0);
+      
+      transaction.set(eventRef, {
+        name: eventData.name,
+        date: Timestamp.fromDate(new Date(eventData.date)),
+        location: eventData.location,
+        status: eventData.status,
+        materialsDistributed: totalQuantity,
+        createdAt: new Date().toISOString()
+      });
+
+      // 3. Process each material
+      for (const material of materials) {
+        const itemInfo = inventoryMap.get(material.sku);
+        
+        if (itemInfo) {
+          const itemRef = doc(db, 'inventory', itemInfo.id);
+
+          // Update inventory stock (we should ideally transaction.get here to be safe)
+          const itemDocForLock = await transaction.get(itemRef);
+          const currentStock = itemDocForLock.data()?.stockLevel || 0;
+          
+          transaction.update(itemRef, {
+            stockLevel: Math.max(0, currentStock - material.quantity),
+            updatedAt: new Date().toISOString()
+          });
+
+          // Add to event materials
+          const materialRef = doc(collection(db, `events/${eventRef.id}/materials`));
+          transaction.set(materialRef, {
+            itemId: itemInfo.id,
+            sku: material.sku,
+            title: material.title || itemInfo.title,
+            quantity: material.quantity,
+            assignedAt: new Date().toISOString()
+          });
+        } else {
+          const materialRef = doc(collection(db, `events/${eventRef.id}/materials`));
+          transaction.set(materialRef, {
+            sku: material.sku,
+            title: material.title || 'Unknown Item',
+            quantity: material.quantity,
+            assignedAt: new Date().toISOString(),
+            unlinked: true
+          });
+        }
+      }
+
+      await createAuditLog('EVENT_CREATED', eventRef.id, 'event', `Imported event via AI: ${eventData.name}`, { materialCount: materials.length });
+      return eventRef;
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, eventsPath);
+  }
+}
+
 export async function seedData() {
   const inventoryPath = 'inventory';
   const eventsPath = 'events';
@@ -582,6 +657,7 @@ export async function seedData() {
     await addDoc(collection(db, eventsPath), event);
   }
 
+  const { updateDoc, doc } = await import('firebase/firestore');
   await updateDoc(doc(db, settingsPath), {
     orgName: "Literature Inventory Management",
     taxId: "TX-9920-441-B",

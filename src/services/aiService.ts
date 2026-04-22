@@ -12,6 +12,20 @@ export interface ParsedInventoryItem {
   status: 'Healthy' | 'Low' | 'Out';
 }
 
+export interface ParsedEventMaterial {
+  sku: string;
+  quantity: number;
+  title?: string; // AI might infer title from context if possible, but SKU is primary
+}
+
+export interface ParsedEvent {
+  name: string;
+  date: string; // ISO format or clear date string
+  location: string;
+  status: 'Scheduled' | 'Stock Alert' | 'Completed';
+  materials: ParsedEventMaterial[];
+}
+
 export async function parseInventoryData(rawData: string): Promise<ParsedInventoryItem[]> {
   try {
     const response = await ai.models.generateContent({
@@ -64,6 +78,70 @@ export async function parseInventoryData(rawData: string): Promise<ParsedInvento
     return JSON.parse(text);
   } catch (error) {
     console.error("AI Parsing failed:", error);
-    throw new Error("Failed to parse data with AI. Please check your format.");
+    throw new Error("Failed to parse inventory data with AI.");
+  }
+}
+
+export async function parseEventData(rawData: string): Promise<ParsedEvent[]> {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Parse the following event distribution data into a structured JSON format. 
+      The data might contain multiple rows for the same event showing different materials distributed. 
+      Group materials by event.
+      
+      Schema:
+      - name: string (Event name)
+      - date: string (ISO date string YYYY-MM-DD)
+      - location: string
+      - status: string (Scheduled, Stock Alert, or Completed)
+      - materials: array of objects
+        - sku: string (SKU of the material)
+        - quantity: number (count distributed)
+        - title: string (optional, title of material if mentioned)
+      
+      Data to parse:
+      ${rawData}
+      `,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              date: { type: Type.STRING },
+              location: { type: Type.STRING },
+              status: { 
+                type: Type.STRING,
+                enum: ['Scheduled', 'Stock Alert', 'Completed']
+              },
+              materials: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    sku: { type: Type.STRING },
+                    quantity: { type: Type.NUMBER },
+                    title: { type: Type.STRING }
+                  },
+                  required: ['sku', 'quantity']
+                }
+              }
+            },
+            required: ['name', 'date', 'location', 'status', 'materials']
+          }
+        }
+      }
+    });
+
+    const text = response.text;
+    if (!text) return [];
+    
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("AI Event Parsing failed:", error);
+    throw new Error("Failed to parse event data with AI.");
   }
 }
