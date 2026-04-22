@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { formatDate } from './utils';
 
 // Extend jsPDF type to include autoTable
 interface jsPDFWithAutoTable extends jsPDF {
@@ -57,7 +58,7 @@ export const generateMonthlyReport = (
 
   const eventRows = events.slice(0, 10).map(event => [
     event.name,
-    event.date?.toDate ? event.date.toDate().toLocaleDateString() : new Date(event.date).toLocaleDateString(),
+    formatDate(event.date),
     event.location,
     event.materialsDistributed.toLocaleString(),
     event.status

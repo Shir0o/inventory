@@ -59,7 +59,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { cn } from './lib/utils';
+import { cn, formatDate } from './lib/utils';
 import { useFirebase } from './context/FirebaseContext';
 import InventoryModal from './components/InventoryModal';
 import EventModal from './components/EventModal';
@@ -928,10 +928,10 @@ const LogsView = ({ logs }: { logs: any[] }) => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col">
                         <span className="font-mono text-[12px] text-on-surface font-bold">
-                          {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          {log.timestamp?.toDate ? log.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </span>
                         <span className="font-mono text-[10px] text-slate-400">
-                          {new Date(log.timestamp).toLocaleDateString()}
+                          {log.timestamp?.toDate ? log.timestamp.toDate().toLocaleDateString() : new Date(log.timestamp).toLocaleDateString()}
                         </span>
                       </div>
                     </td>
@@ -1354,7 +1354,7 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], on
                     </div>
                   </td>
                   <td className="px-6 py-4 font-mono text-[13px] text-on-surface">
-                    {row.date?.toDate ? row.date.toDate().toLocaleDateString() : row.date}
+                    {formatDate(row.date)}
                   </td>
                   <td className="px-6 py-4 text-[13px] text-on-surface">{row.location}</td>
                   <td className="px-6 py-4 text-right">
