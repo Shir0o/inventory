@@ -1511,7 +1511,7 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], on
   );
 };
 
-const SettingsView = ({ settings }: { settings: any }) => {
+const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }) => {
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     timezone: 'America/New_York',
@@ -1553,13 +1553,21 @@ const SettingsView = ({ settings }: { settings: any }) => {
           <h1 className="font-headline font-bold text-3xl text-primary tracking-tight">System Settings</h1>
         </div>
         <div className="flex gap-3">
-          <button 
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-2 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={handleSave}
+              disabled={saving}
+              className="px-6 py-2 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          )}
+          {!isAdmin && (
+            <div className="px-4 py-2 bg-surface-container border border-outline-variant rounded-sharp text-[10px] font-mono text-on-surface-variant flex items-center gap-2">
+              <Shield className="w-3 h-3 text-secondary" />
+              READ-ONLY MODE
+            </div>
+          )}
         </div>
       </div>
 
@@ -1577,44 +1585,48 @@ const SettingsView = ({ settings }: { settings: any }) => {
               {formData.categories.map((cat, i) => (
                 <div key={i} className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 rounded-sharp">
                   <span className="font-headline font-bold text-[11px] uppercase tracking-wider">{cat}</span>
-                  <button 
-                    onClick={() => setFormData({...formData, categories: formData.categories.filter((_, idx) => idx !== i)})}
-                    className="hover:text-tertiary transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  {isAdmin && (
+                    <button 
+                      onClick={() => setFormData({...formData, categories: formData.categories.filter((_, idx) => idx !== i)})}
+                      className="hover:text-tertiary transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
-            <div className="mt-4 flex gap-2">
-              <input 
-                type="text" 
-                placeholder="New classification..."
-                className="flex-1 border-0 border-b-2 border-surface-container bg-surface-container-low px-3 py-2 font-headline font-medium text-[12px] focus:ring-0 focus:border-primary transition-all"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    const val = e.currentTarget.value.trim();
+            {isAdmin && (
+              <div className="mt-4 flex gap-2">
+                <input 
+                  type="text" 
+                  placeholder="New classification..."
+                  className="flex-1 border-0 border-b-2 border-surface-container bg-surface-container-low px-3 py-2 font-headline font-medium text-[12px] focus:ring-0 focus:border-primary transition-all"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const val = e.currentTarget.value.trim();
+                      if (val && !formData.categories.includes(val)) {
+                        setFormData({...formData, categories: [...formData.categories, val]});
+                        e.currentTarget.value = '';
+                      }
+                    }
+                  }}
+                />
+                <button 
+                  className="p-2 bg-surface-container hover:bg-surface-container-high text-primary transition-colors rounded-sharp"
+                  onClick={(e) => {
+                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                    const val = input.value.trim();
                     if (val && !formData.categories.includes(val)) {
                       setFormData({...formData, categories: [...formData.categories, val]});
-                      e.currentTarget.value = '';
+                      input.value = '';
                     }
-                  }
-                }}
-              />
-              <button 
-                className="p-2 bg-surface-container hover:bg-surface-container-high text-primary transition-colors rounded-sharp"
-                onClick={(e) => {
-                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                  const val = input.value.trim();
-                  if (val && !formData.categories.includes(val)) {
-                    setFormData({...formData, categories: [...formData.categories, val]});
-                    input.value = '';
-                  }
-                }}
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -1632,8 +1644,9 @@ const SettingsView = ({ settings }: { settings: any }) => {
                   <div className="font-headline font-bold text-[12px] text-primary">System Timezone</div>
                   <select 
                     value={formData.timezone}
+                    disabled={!isAdmin}
                     onChange={e => setFormData({...formData, timezone: e.target.value})}
-                    className="bg-transparent border-0 p-0 font-mono text-[11px] text-on-surface-variant focus:ring-0 w-full cursor-pointer appearance-none"
+                    className="bg-transparent border-0 p-0 font-mono text-[11px] text-on-surface-variant focus:ring-0 w-full cursor-pointer appearance-none disabled:cursor-default"
                   >
                     <option value="America/New_York">Eastern Time (ET)</option>
                     <option value="America/Chicago">Central Time (CT)</option>
@@ -1652,8 +1665,9 @@ const SettingsView = ({ settings }: { settings: any }) => {
               <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Update Frequency</label>
               <select 
                 value={formData.updateFrequency}
+                disabled={!isAdmin}
                 onChange={e => setFormData({...formData, updateFrequency: e.target.value})}
-                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary appearance-none"
+                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary appearance-none disabled:opacity-70"
               >
                 <option>Real-time (Atomic)</option>
                 <option>Every 15 Minutes</option>
@@ -1689,8 +1703,9 @@ const SettingsView = ({ settings }: { settings: any }) => {
                     <input 
                       type="number"
                       value={formData.warningThreshold}
+                      disabled={!isAdmin}
                       onChange={e => setFormData({...formData, warningThreshold: parseInt(e.target.value) || 0})}
-                      className="w-20 bg-transparent border-0 border-b border-primary font-mono text-2xl font-bold text-primary text-right focus:ring-0"
+                      className="w-20 bg-transparent border-0 border-b border-primary font-mono text-2xl font-bold text-primary text-right focus:ring-0 disabled:opacity-70"
                     />
                     <span className="text-[14px] text-on-surface-variant uppercase">units</span>
                   </div>
@@ -1710,8 +1725,9 @@ const SettingsView = ({ settings }: { settings: any }) => {
                     <input 
                       type="number"
                       value={formData.criticalThreshold}
+                      disabled={!isAdmin}
                       onChange={e => setFormData({...formData, criticalThreshold: parseInt(e.target.value) || 0})}
-                      className="w-20 bg-transparent border-0 border-b border-tertiary font-mono text-2xl font-bold text-tertiary text-right focus:ring-0"
+                      className="w-20 bg-transparent border-0 border-b border-tertiary font-mono text-2xl font-bold text-tertiary text-right focus:ring-0 disabled:opacity-70"
                     />
                     <span className="text-[14px] text-on-surface-variant uppercase">units</span>
                   </div>
@@ -1948,7 +1964,7 @@ export default function App() {
               {activeTab === 'users' && <UsersView users={users} />}
               {activeTab === 'logs' && <LogsView logs={auditLogs} />}
               {activeTab === 'ai_insights' && <AIInsightsView inventory={inventory} events={events} auditLogs={auditLogs} />}
-              {activeTab === 'settings' && <SettingsView settings={settings} />}
+              {activeTab === 'settings' && <SettingsView settings={settings} isAdmin={isAdmin} />}
             </motion.div>
           </AnimatePresence>
 
