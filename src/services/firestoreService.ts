@@ -669,9 +669,12 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
         }
       }
 
+      // Fix for one-day-off bug: parse date as noon to avoid UTC/Local midnight shifts
+      const eventDate = eventData.date.includes('T') ? new Date(eventData.date) : new Date(`${eventData.date}T12:00:00`);
+
       transaction.set(eventRef, {
         name: eventData.name,
-        date: Timestamp.fromDate(new Date(eventData.date)),
+        date: Timestamp.fromDate(eventDate),
         location: eventData.location,
         status: eventData.status,
         materialsDistributed: totalQuantity,
