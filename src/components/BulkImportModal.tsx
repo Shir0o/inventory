@@ -141,6 +141,36 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
     }
   };
 
+  const bulkSetLanguage = async (language: string) => {
+    const langKey = language.toLowerCase();
+    const newItems = parsedItems.map(item => {
+      let currentSku = item.sku || '';
+      
+      // Clean existing extensions if they match our pattern
+      if (currentSku.endsWith('-001') || currentSku.endsWith('-002')) {
+        currentSku = currentSku.slice(0, -4);
+      }
+
+      let newSku = currentSku;
+      if (langKey === 'english') newSku = `${currentSku}-001`;
+      else if (langKey === 'spanish') newSku = `${currentSku}-002`;
+
+      return { ...item, language, sku: newSku };
+    });
+
+    setParsedItems(newItems);
+
+    // Refresh existing SKU check for the entire batch
+    const newExistingSet = new Set<string>();
+    for (const item of newItems) {
+      const existing = await getInventoryItemBySku(item.sku);
+      if (existing) {
+        newExistingSet.add(item.sku);
+      }
+    }
+    setExistingSkus(newExistingSet);
+  };
+
   const reset = () => {
     setStep('upload');
     setRawData('');
@@ -317,12 +347,32 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
                         <span className="text-[10px] font-headline font-bold uppercase tracking-wider">Duplicate SKUs Detected</span>
                       </div>
                     )}
-                    <button 
-                      onClick={reset}
-                      className="px-3 py-1.5 border border-outline-variant text-on-surface-variant font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-wider rounded-sharp hover:bg-surface-container transition-colors"
-                    >
-                      Reset AI
-                    </button>
+                    
+                    <div className="flex items-center gap-2">
+                      {importType === 'inventory' && (
+                        <div className="flex items-center gap-1.5 p-1 bg-surface-container rounded-sharp border border-outline-variant mr-1">
+                          <span className="text-[9px] font-headline font-bold uppercase tracking-widest text-on-surface-variant px-1.5">Apply All:</span>
+                          <button 
+                            onClick={() => bulkSetLanguage('English')}
+                            className="px-2 py-1 bg-surface text-primary border border-outline-variant rounded-sharp font-headline font-bold text-[9px] uppercase hover:bg-primary/10 transition-colors"
+                          >
+                            EN
+                          </button>
+                          <button 
+                            onClick={() => bulkSetLanguage('Spanish')}
+                            className="px-2 py-1 bg-surface text-primary border border-outline-variant rounded-sharp font-headline font-bold text-[9px] uppercase hover:bg-primary/10 transition-colors"
+                          >
+                            ES
+                          </button>
+                        </div>
+                      )}
+                      <button 
+                        onClick={reset}
+                        className="px-3 py-1.5 border border-outline-variant text-on-surface-variant font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-wider rounded-sharp hover:bg-surface-container transition-colors"
+                      >
+                        Reset AI
+                      </button>
+                    </div>
                   </div>
 
                   <div className="border border-outline-variant rounded-sharp overflow-hidden bg-surface">
