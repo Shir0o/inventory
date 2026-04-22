@@ -171,6 +171,26 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
     setExistingSkus(newExistingSet);
   };
 
+  const stringifyMaterials = (materials: any[]) => {
+    if (!materials || !materials.length) return '';
+    return materials.map(m => `${m.sku}:${m.quantity}`).join(', ');
+  };
+
+  const parseMaterials = (str: string) => {
+    const parts = str.split(',').map(p => p.trim()).filter(Boolean);
+    return parts.map(p => {
+      if (p.includes(':')) {
+        const [sku, qty] = p.split(':');
+        return { sku: sku.trim().toUpperCase(), quantity: parseInt(qty) || 0 };
+      }
+      // If it's just a number, treat as GENERAL distribution
+      if (!isNaN(parseInt(p))) {
+        return { sku: 'GENERAL', quantity: parseInt(p) || 0, title: 'Miscellaneous Distribution' };
+      }
+      return { sku: p.toUpperCase(), quantity: 1 };
+    });
+  };
+
   const reset = () => {
     setStep('upload');
     setRawData('');
@@ -504,16 +524,13 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
                                     />
                                   </td>
                                   <td className="px-4 py-3">
-                                    <div className="flex flex-wrap gap-1">
-                                      {item.materials.slice(0, 3).map((m: any, idx: number) => (
-                                        <span key={idx} className="bg-surface-container border border-outline-variant px-1.5 py-0.5 rounded text-[8px] font-mono group-hover:bg-surface transition-colors">
-                                          {m.sku}×{m.quantity}
-                                        </span>
-                                      ))}
-                                      {item.materials.length > 3 && (
-                                        <span className="text-[8px] font-bold text-slate-400">+{item.materials.length - 3} more</span>
-                                      )}
-                                    </div>
+                                    <input 
+                                      type="text"
+                                      defaultValue={stringifyMaterials(item.materials)}
+                                      onBlur={(e) => updateParsedItem(i, 'materials', parseMaterials(e.target.value))}
+                                      className="w-full bg-transparent font-mono text-[10px] text-on-surface-variant border-b border-transparent focus:border-primary outline-none focus:bg-surface px-1 py-0.5 rounded"
+                                      placeholder="SKU:QTY or Total"
+                                    />
                                   </td>
                                   <td className="px-4 py-3">
                                     <select 

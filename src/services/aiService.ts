@@ -101,9 +101,9 @@ export async function parseEventData(rawData: string): Promise<ParsedEvent[]> {
       - location: string
       - status: string (Scheduled, Stock Alert, or Completed)
       - materials: array of objects
-        - sku: string (SKU of the material)
+        - sku: string (SKU of the material. If only a total count is provided without specific item names, use 'GENERAL' as the SKU)
         - quantity: number (count distributed)
-        - title: string (optional, title of material if mentioned)
+        - title: string (optional, title of material if mentioned. If sku is 'GENERAL', use 'Miscellaneous Distribution' or a context-aware description)
       
       Data to parse:
       ${rawData}
