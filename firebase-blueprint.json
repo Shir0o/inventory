@@ -27,6 +27,21 @@
         "location": { "type": "string" },
         "materialsDistributed": { "type": "number", "description": "Total count of materials distributed" },
         "status": { "type": "string", "enum": ["Scheduled", "Stock Alert", "Drafting", "Completed"] },
+        "categoryStats": {
+          "type": "object",
+          "properties": {
+            "bibles": { "type": "number" },
+            "bibles_en": { "type": "number" },
+            "bibles_es": { "type": "number" },
+            "tracts": { "type": "number" },
+            "tracts_en": { "type": "number" },
+            "tracts_es": { "type": "number" },
+            "booklets": { "type": "number" },
+            "booklets_en": { "type": "number" },
+            "booklets_es": { "type": "number" },
+            "total": { "type": "number" }
+          }
+        },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "date", "location", "materialsDistributed", "status"]
@@ -90,6 +105,18 @@
     "/users/{userId}": {
       "schema": "User",
       "description": "Collection of user profiles."
+    },
+    "/authorized_emails/{email}": {
+      "schema": { "type": "object", "properties": { "addedAt": { "type": "string" }, "addedBy": { "type": "string" } } },
+      "description": "Whitelist of emails allowed to register."
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "type": "object", "properties": { "action": { "type": "string" }, "timestamp": { "type": "string" } } },
+      "description": "System audit logs."
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "type": "object", "properties": { "type": { "type": "string" }, "read": { "type": "boolean" } } },
+      "description": "User notifications."
     }
   }
 }

@@ -12,7 +12,8 @@ import {
   runTransaction,
   limit,
   where,
-  getDocs
+  getDocs,
+  serverTimestamp
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
@@ -96,7 +97,7 @@ export async function createAuditLog(action: AuditAction, targetId: string, targ
       userId: auth.currentUser?.uid,
       userName: auth.currentUser?.displayName || 'Unknown User',
       userEmail: auth.currentUser?.email,
-      timestamp: new Date().toISOString()
+      timestamp: serverTimestamp()
     });
   } catch (error) {
     console.error("Failed to create audit log", error);
@@ -129,7 +130,7 @@ export async function createNotification(type: NotificationType, title: string, 
       message,
       metadata,
       read: false,
-      createdAt: new Date().toISOString(),
+      createdAt: serverTimestamp(),
       userId: auth.currentUser?.uid
     });
   } catch (error) {
@@ -154,7 +155,7 @@ export async function markNotificationAsRead(id: string) {
   try {
     return await updateDoc(doc(db, 'notifications', id), {
       read: true,
-      readAt: new Date().toISOString()
+      readAt: serverTimestamp()
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -182,7 +183,8 @@ export async function addInventoryItem(item: any) {
 
     const docRef = await addDoc(collection(db, path), {
       ...item,
-      updatedAt: new Date().toISOString()
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     });
     await createAuditLog('ITEM_CREATED', docRef.id, 'inventory', `Created item: ${item.title} (${item.sku})`);
     return docRef;
@@ -197,7 +199,7 @@ export async function updateInventoryItem(id: string, item: any, thresholds?: { 
     const docRef = doc(db, 'inventory', id);
     await updateDoc(docRef, {
       ...item,
-      updatedAt: new Date().toISOString()
+      updatedAt: serverTimestamp()
     });
     
     // Check thresholds if provided
@@ -247,7 +249,7 @@ export async function addEvent(event: any) {
   try {
     const docRef = await addDoc(collection(db, path), {
       ...event,
-      createdAt: new Date().toISOString()
+      createdAt: serverTimestamp()
     });
     await createAuditLog('EVENT_CREATED', docRef.id, 'event', `Created event: ${event.name}`);
     return docRef;
@@ -294,8 +296,14 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
       let totalNewMaterials = 0;
       const statsDelta = {
         bibles: 0,
+        bibles_en: 0,
+        bibles_es: 0,
         tracts: 0,
-        booklets: 0
+        tracts_en: 0,
+        tracts_es: 0,
+        booklets: 0,
+        booklets_en: 0,
+        booklets_es: 0
       };
 
       for (const item of items) {
@@ -317,14 +325,26 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
         // Update inventory
         transaction.update(itemRef, {
           stockLevel: newStock,
-          updatedAt: new Date().toISOString()
+          updatedAt: serverTimestamp()
         });
 
         // Add to stats delta
         const cat = (data.category || '').toLowerCase();
-        if (cat.includes('bible')) statsDelta.bibles += item.quantity;
-        else if (cat.includes('tract')) statsDelta.tracts += item.quantity;
-        else if (cat.includes('booklet')) statsDelta.booklets += item.quantity;
+        const lang = (data.language || '').toLowerCase();
+        
+        if (cat.includes('bible')) {
+          statsDelta.bibles += item.quantity;
+          if (lang.includes('english')) statsDelta.bibles_en += item.quantity;
+          else if (lang.includes('spanish')) statsDelta.bibles_es += item.quantity;
+        } else if (cat.includes('tract')) {
+          statsDelta.tracts += item.quantity;
+          if (lang.includes('english')) statsDelta.tracts_en += item.quantity;
+          else if (lang.includes('spanish')) statsDelta.tracts_es += item.quantity;
+        } else if (cat.includes('booklet')) {
+          statsDelta.booklets += item.quantity;
+          if (lang.includes('english')) statsDelta.booklets_en += item.quantity;
+          else if (lang.includes('spanish')) statsDelta.booklets_es += item.quantity;
+        }
 
         // Add to event materials
         const materialRef = doc(collection(db, `events/${eventId}/materials`));
@@ -333,7 +353,7 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
           sku: item.sku,
           title: item.title,
           quantity: item.quantity,
-          assignedAt: new Date().toISOString()
+          assignedAt: serverTimestamp()
         });
 
         totalNewMaterials += item.quantity;
@@ -342,14 +362,20 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
       // Update event total and stats
       const eventData = eventDoc.data();
       const currentEventMaterials = eventData.materialsDistributed || 0;
-      const currentStats = eventData.categoryStats || { bibles: 0, tracts: 0, booklets: 0, total: 0 };
+      const currentStats = eventData.categoryStats || { bibles: 0, bibles_en: 0, bibles_es: 0, tracts: 0, tracts_en: 0, tracts_es: 0, booklets: 0, booklets_en: 0, booklets_es: 0, total: 0 };
 
       transaction.update(eventRef, {
         materialsDistributed: currentEventMaterials + totalNewMaterials,
         categoryStats: {
           bibles: (currentStats.bibles || 0) + statsDelta.bibles,
+          bibles_en: (currentStats.bibles_en || 0) + statsDelta.bibles_en,
+          bibles_es: (currentStats.bibles_es || 0) + statsDelta.bibles_es,
           tracts: (currentStats.tracts || 0) + statsDelta.tracts,
+          tracts_en: (currentStats.tracts_en || 0) + statsDelta.tracts_en,
+          tracts_es: (currentStats.tracts_es || 0) + statsDelta.tracts_es,
           booklets: (currentStats.booklets || 0) + statsDelta.booklets,
+          booklets_en: (currentStats.booklets_en || 0) + statsDelta.booklets_en,
+          booklets_es: (currentStats.booklets_es || 0) + statsDelta.booklets_es,
           total: (currentStats.total || 0) + totalNewMaterials
         }
       });
@@ -428,7 +454,7 @@ export async function restockItem(eventId: string, materialId: string, itemId: s
       // 1. Update Inventory
       transaction.update(itemRef, {
         stockLevel: currentInventoryQty + quantityToRestock,
-        updatedAt: new Date().toISOString()
+        updatedAt: serverTimestamp()
       });
 
       // 2. Update Event Material Record
@@ -442,21 +468,38 @@ export async function restockItem(eventId: string, materialId: string, itemId: s
 
       // 3. Update Event Total and Stats
       const eventData = eventDoc.data();
-      const currentStats = eventData.categoryStats || { bibles: 0, tracts: 0, booklets: 0, total: 0 };
+      const currentStats = eventData.categoryStats || { bibles: 0, bibles_en: 0, bibles_es: 0, tracts: 0, tracts_en: 0, tracts_es: 0, booklets: 0, booklets_en: 0, booklets_es: 0, total: 0 };
       const itemData = itemDoc.data();
       const cat = (itemData.category || '').toLowerCase();
+      const lang = (itemData.language || '').toLowerCase();
       
-      const statsDelta = { bibles: 0, tracts: 0, booklets: 0 };
-      if (cat.includes('bible')) statsDelta.bibles = quantityToRestock;
-      else if (cat.includes('tract')) statsDelta.tracts = quantityToRestock;
-      else if (cat.includes('booklet')) statsDelta.booklets = quantityToRestock;
+      const statsDelta = { bibles: 0, bibles_en: 0, bibles_es: 0, tracts: 0, tracts_en: 0, tracts_es: 0, booklets: 0, booklets_en: 0, booklets_es: 0 };
+      if (cat.includes('bible')) {
+        statsDelta.bibles = quantityToRestock;
+        if (lang.includes('english')) statsDelta.bibles_en = quantityToRestock;
+        else if (lang.includes('spanish')) statsDelta.bibles_es = quantityToRestock;
+      } else if (cat.includes('tract')) {
+        statsDelta.tracts = quantityToRestock;
+        if (lang.includes('english')) statsDelta.tracts_en = quantityToRestock;
+        else if (lang.includes('spanish')) statsDelta.tracts_es = quantityToRestock;
+      } else if (cat.includes('booklet')) {
+        statsDelta.booklets = quantityToRestock;
+        if (lang.includes('english')) statsDelta.booklets_en = quantityToRestock;
+        else if (lang.includes('spanish')) statsDelta.booklets_es = quantityToRestock;
+      }
 
       transaction.update(eventRef, {
         materialsDistributed: currentEventMaterials - quantityToRestock,
         categoryStats: {
           bibles: Math.max(0, (currentStats.bibles || 0) - statsDelta.bibles),
+          bibles_en: Math.max(0, (currentStats.bibles_en || 0) - statsDelta.bibles_en),
+          bibles_es: Math.max(0, (currentStats.bibles_es || 0) - statsDelta.bibles_es),
           tracts: Math.max(0, (currentStats.tracts || 0) - statsDelta.tracts),
+          tracts_en: Math.max(0, (currentStats.tracts_en || 0) - statsDelta.tracts_en),
+          tracts_es: Math.max(0, (currentStats.tracts_es || 0) - statsDelta.tracts_es),
           booklets: Math.max(0, (currentStats.booklets || 0) - statsDelta.booklets),
+          booklets_en: Math.max(0, (currentStats.booklets_en || 0) - statsDelta.booklets_en),
+          booklets_es: Math.max(0, (currentStats.booklets_es || 0) - statsDelta.booklets_es),
           total: Math.max(0, (currentStats.total || 0) - quantityToRestock)
         }
       });
@@ -535,7 +578,7 @@ export async function syncUserProfile(user: any) {
       email: user.email,
       displayName: user.displayName,
       photoURL: user.photoURL,
-      lastLogin: new Date().toISOString()
+      lastLogin: serverTimestamp()
     };
     
     if (!userDoc.exists()) {
@@ -587,7 +630,7 @@ export async function authorizeEmail(email: string) {
   try {
     const { setDoc } = await import('firebase/firestore');
     await setDoc(doc(db, 'authorized_emails', normalizedEmail), { 
-      addedAt: new Date().toISOString(),
+      addedAt: serverTimestamp(),
       addedBy: auth.currentUser?.email 
     });
     await createAuditLog('EMAIL_AUTHORIZED', normalizedEmail, 'auth', `Authorized email: ${normalizedEmail}`);
@@ -613,7 +656,7 @@ export async function removeAuthorizedEmail(email: string) {
 export async function importEventWithMaterials(eventData: any, materials: { sku: string, quantity: number, title?: string }[]) {
   const eventsPath = 'events';
   try {
-    const { getDocs, where, query, collection } = await import('firebase/firestore');
+    const { serverTimestamp, getDocs, where, query, collection } = await import('firebase/firestore');
     
     // 1. Pre-fetch all relevant inventory items to avoid queries inside transaction
     const skus = materials.map(m => m.sku).filter(Boolean);
@@ -634,8 +677,14 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
       
       const stats = {
         bibles: 0,
+        bibles_en: 0,
+        bibles_es: 0,
         tracts: 0,
+        tracts_en: 0,
+        tracts_es: 0,
         booklets: 0,
+        booklets_en: 0,
+        booklets_es: 0,
         total: totalQuantity
       };
 
@@ -646,14 +695,32 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
 
         // High-level stat calculation
         if (sku === 'BIBLES') stats.bibles += material.quantity;
+        else if (sku === 'BIBLES_EN') { stats.bibles += material.quantity; stats.bibles_en += material.quantity; }
+        else if (sku === 'BIBLES_ES') { stats.bibles += material.quantity; stats.bibles_es += material.quantity; }
         else if (sku === 'TRACTS') stats.tracts += material.quantity;
+        else if (sku === 'TRACTS_EN') { stats.tracts += material.quantity; stats.tracts_en += material.quantity; }
+        else if (sku === 'TRACTS_ES') { stats.tracts += material.quantity; stats.tracts_es += material.quantity; }
         else if (sku === 'BOOKLETS') stats.booklets += material.quantity;
+        else if (sku === 'BOOKLETS_EN') { stats.booklets += material.quantity; stats.booklets_en += material.quantity; }
+        else if (sku === 'BOOKLETS_ES') { stats.booklets += material.quantity; stats.booklets_es += material.quantity; }
         else if (itemInfo) {
-          // If it's a specific item, check its category
+          // If it's a specific item, check its category and language
           const cat = (itemInfo.category || '').toLowerCase();
-          if (cat.includes('bible')) stats.bibles += material.quantity;
-          else if (cat.includes('tract')) stats.tracts += material.quantity;
-          else if (cat.includes('booklet')) stats.booklets += material.quantity;
+          const lang = (itemInfo.language || '').toLowerCase();
+          
+          if (cat.includes('bible')) {
+            stats.bibles += material.quantity;
+            if (lang.includes('english')) stats.bibles_en += material.quantity;
+            else if (lang.includes('spanish')) stats.bibles_es += material.quantity;
+          } else if (cat.includes('tract')) {
+            stats.tracts += material.quantity;
+            if (lang.includes('english')) stats.tracts_en += material.quantity;
+            else if (lang.includes('spanish')) stats.tracts_es += material.quantity;
+          } else if (cat.includes('booklet')) {
+            stats.booklets += material.quantity;
+            if (lang.includes('english')) stats.booklets_en += material.quantity;
+            else if (lang.includes('spanish')) stats.booklets_es += material.quantity;
+          }
         }
 
         if (itemInfo) {
@@ -663,7 +730,7 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
           
           transaction.update(itemRef, {
             stockLevel: Math.max(0, currentStock - material.quantity),
-            updatedAt: new Date().toISOString()
+            updatedAt: serverTimestamp()
           });
 
           // Add to event materials
@@ -673,7 +740,7 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
             sku: material.sku,
             title: material.title || itemInfo.title,
             quantity: material.quantity,
-            assignedAt: new Date().toISOString()
+            assignedAt: serverTimestamp()
           });
         } else {
           const materialRef = doc(collection(db, `events/${eventRef.id}/materials`));
@@ -681,7 +748,7 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
             sku: material.sku,
             title: material.title || 'Unknown Item',
             quantity: material.quantity,
-            assignedAt: new Date().toISOString(),
+            assignedAt: serverTimestamp(),
             unlinked: true
           });
         }
@@ -694,7 +761,7 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
         status: eventData.status,
         materialsDistributed: totalQuantity,
         categoryStats: stats,
-        createdAt: new Date().toISOString()
+        createdAt: serverTimestamp()
       });
 
       await createAuditLog('EVENT_CREATED', eventRef.id, 'event', `Imported event via AI: ${eventData.name}`, { materialCount: materials.length });
@@ -711,17 +778,17 @@ export async function seedData() {
   const settingsPath = 'settings/system';
 
   const items = [
-    { sku: 'B-EN-001', title: 'NKJV Holy Bible', subtitle: 'Pew Edition - Hardcover', category: 'Bibles', language: 'English', stockLevel: 450, unitPrice: 12.50, status: 'Healthy', updatedAt: new Date().toISOString() },
-    { sku: 'B-ES-001', title: 'Santa Biblia RV1960', subtitle: 'Edición de Estudio', category: 'Bibles', language: 'Spanish', stockLevel: 320, unitPrice: 15.50, status: 'Healthy', updatedAt: new Date().toISOString() },
-    { sku: 'T-EN-001', title: 'Steps to Christ', subtitle: 'Pocket Tract', category: 'Tracts', language: 'English', stockLevel: 2500, unitPrice: 0.15, status: 'Healthy', updatedAt: new Date().toISOString() },
-    { sku: 'T-ES-001', title: 'El Camino a Cristo', subtitle: 'Tratado de Bolsillo', category: 'Tracts', language: 'Spanish', stockLevel: 1800, unitPrice: 0.15, status: 'Healthy', updatedAt: new Date().toISOString() },
-    { sku: 'BK-EN-001', title: 'Understanding Prophecy', subtitle: 'Introductory Booklet', category: 'Booklets', language: 'English', stockLevel: 120, unitPrice: 2.50, status: 'Low', updatedAt: new Date().toISOString() },
-    { sku: 'BK-ES-001', title: 'Entendiendo la Profecía', subtitle: 'Folleto Introductorio', category: 'Booklets', language: 'Spanish', stockLevel: 85, unitPrice: 2.50, status: 'Low', updatedAt: new Date().toISOString() },
+    { sku: 'B-EN-001', title: 'NKJV Holy Bible', subtitle: 'Pew Edition - Hardcover', category: 'Bibles', language: 'English', stockLevel: 450, unitPrice: 12.50, status: 'Healthy', updatedAt: serverTimestamp() },
+    { sku: 'B-ES-001', title: 'Santa Biblia RV1960', subtitle: 'Edición de Estudio', category: 'Bibles', language: 'Spanish', stockLevel: 320, unitPrice: 15.50, status: 'Healthy', updatedAt: serverTimestamp() },
+    { sku: 'T-EN-001', title: 'Steps to Christ', subtitle: 'Pocket Tract', category: 'Tracts', language: 'English', stockLevel: 2500, unitPrice: 0.15, status: 'Healthy', updatedAt: serverTimestamp() },
+    { sku: 'T-ES-001', title: 'El Camino a Cristo', subtitle: 'Tratado de Bolsillo', category: 'Tracts', language: 'Spanish', stockLevel: 1800, unitPrice: 0.15, status: 'Healthy', updatedAt: serverTimestamp() },
+    { sku: 'BK-EN-001', title: 'Understanding Prophecy', subtitle: 'Introductory Booklet', category: 'Booklets', language: 'English', stockLevel: 120, unitPrice: 2.50, status: 'Low', updatedAt: serverTimestamp() },
+    { sku: 'BK-ES-001', title: 'Entendiendo la Profecía', subtitle: 'Folleto Introductorio', category: 'Booklets', language: 'Spanish', stockLevel: 85, unitPrice: 2.50, status: 'Low', updatedAt: serverTimestamp() },
   ];
 
   const events = [
-    { name: 'Regional Outreach - North Sector', date: Timestamp.fromDate(new Date('2024-10-12')), location: 'Grand Plaza Convention Center', materialsDistributed: 1250, status: 'Scheduled', createdAt: new Date().toISOString() },
-    { name: 'Weekly Bible Study Series', date: Timestamp.fromDate(new Date('2024-10-14')), location: 'Community Center West', materialsDistributed: 420, status: 'Stock Alert', createdAt: new Date().toISOString() },
+    { name: 'Regional Outreach - North Sector', date: Timestamp.fromDate(new Date('2024-10-12')), location: 'Grand Plaza Convention Center', materialsDistributed: 1250, status: 'Scheduled', createdAt: serverTimestamp() },
+    { name: 'Weekly Bible Study Series', date: Timestamp.fromDate(new Date('2024-10-14')), location: 'Community Center West', materialsDistributed: 420, status: 'Stock Alert', createdAt: serverTimestamp() },
   ];
 
   for (const item of items) {

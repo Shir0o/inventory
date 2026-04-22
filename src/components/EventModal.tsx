@@ -199,14 +199,35 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
                         <div className="text-center">
                           <p className="font-headline font-bold text-lg text-primary">{event.categoryStats.bibles || 0}</p>
                           <p className="text-[9px] font-mono text-on-surface-variant uppercase tracking-tighter">Bibles</p>
+                          {(event.categoryStats.bibles_en > 0 || event.categoryStats.bibles_es > 0) && (
+                            <div className="flex justify-center gap-1 mt-1 text-[8px] font-bold text-slate-400 uppercase">
+                              <span>EN:{event.categoryStats.bibles_en || 0}</span>
+                              <span className="opacity-30">•</span>
+                              <span>ES:{event.categoryStats.bibles_es || 0}</span>
+                            </div>
+                          )}
                         </div>
                         <div className="text-center border-l border-r border-outline-variant">
                           <p className="font-headline font-bold text-lg text-primary">{event.categoryStats.tracts || 0}</p>
                           <p className="text-[9px] font-mono text-on-surface-variant uppercase tracking-tighter">Tracts</p>
+                          {(event.categoryStats.tracts_en > 0 || event.categoryStats.tracts_es > 0) && (
+                            <div className="flex justify-center gap-1 mt-1 text-[8px] font-bold text-slate-400 uppercase">
+                              <span>EN:{event.categoryStats.tracts_en || 0}</span>
+                              <span className="opacity-30">•</span>
+                              <span>ES:{event.categoryStats.tracts_es || 0}</span>
+                            </div>
+                          )}
                         </div>
                         <div className="text-center">
                           <p className="font-headline font-bold text-lg text-primary">{event.categoryStats.booklets || 0}</p>
                           <p className="text-[9px] font-mono text-on-surface-variant uppercase tracking-tighter">Booklets</p>
+                          {(event.categoryStats.booklets_en > 0 || event.categoryStats.booklets_es > 0) && (
+                            <div className="flex justify-center gap-1 mt-1 text-[8px] font-bold text-slate-400 uppercase">
+                              <span>EN:{event.categoryStats.booklets_en || 0}</span>
+                              <span className="opacity-30">•</span>
+                              <span>ES:{event.categoryStats.booklets_es || 0}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

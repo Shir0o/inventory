@@ -1169,7 +1169,7 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
   );
 };
 
-const EventsView = ({ events, onAdd, onEdit }: { events: any[], onAdd: () => void, onEdit: (event: any) => void }) => {
+const EventsView = ({ events, onAdd, onEdit, onBulkImport }: { events: any[], onAdd: () => void, onEdit: (event: any) => void, onBulkImport: () => void }) => {
   const totalDistributed = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
 
   return (
@@ -1180,6 +1180,13 @@ const EventsView = ({ events, onAdd, onEdit }: { events: any[], onAdd: () => voi
           <h1 className="font-headline font-extrabold text-2xl sm:text-[32px] text-primary tracking-tight leading-none mt-1 uppercase">Events Manager</h1>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <button 
+            onClick={onBulkImport}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 border border-outline-variant bg-surface text-[12px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
+          >
+            <Upload className="w-4 h-4" />
+            <span className="sm:inline">Bulk</span>
+          </button>
           <button 
             onClick={() => exportToCSV(events, 'lit_ledger_events')}
             className="flex-1 sm:flex-none px-4 py-2 border border-outline-variant text-primary font-headline font-bold text-[11px] uppercase tracking-wider rounded-sharp hover:bg-surface-container transition-colors"
@@ -1294,15 +1301,35 @@ const EventsView = ({ events, onAdd, onEdit }: { events: any[], onAdd: () => voi
                     <div className="flex flex-col items-end">
                       <span className="font-mono font-bold text-primary text-[13px]">{row.materialsDistributed?.toLocaleString()} items</span>
                       {row.categoryStats && (
-                        <div className="flex gap-2 mt-1">
-                          {row.categoryStats.bibles > 0 && (
-                            <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-secondary/10 px-1 rounded-sharp">B:{row.categoryStats.bibles}</span>
+                        <div className="flex flex-wrap justify-end gap-x-2 gap-y-1 mt-1 max-w-[150px]">
+                          {row.categoryStats.bibles_en > 0 && (
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-secondary/10 px-1 rounded-sharp">B-EN: {row.categoryStats.bibles_en}</span>
                           )}
-                          {row.categoryStats.tracts > 0 && (
-                            <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-primary/10 px-1 rounded-sharp">T:{row.categoryStats.tracts}</span>
+                          {row.categoryStats.bibles_es > 0 && (
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-secondary/10 px-1 rounded-sharp">B-ES: {row.categoryStats.bibles_es}</span>
                           )}
-                          {row.categoryStats.booklets > 0 && (
-                            <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-tertiary/10 px-1 rounded-sharp">BK:{row.categoryStats.booklets}</span>
+                          {(row.categoryStats.bibles > 0 && !(row.categoryStats.bibles_en > 0 || row.categoryStats.bibles_es > 0)) && (
+                            <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-secondary/10 px-1 rounded-sharp">B: {row.categoryStats.bibles}</span>
+                          )}
+                          
+                          {row.categoryStats.tracts_en > 0 && (
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-primary/10 px-1 rounded-sharp">T-EN: {row.categoryStats.tracts_en}</span>
+                          )}
+                          {row.categoryStats.tracts_es > 0 && (
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-primary/10 px-1 rounded-sharp">T-ES: {row.categoryStats.tracts_es}</span>
+                          )}
+                          {(row.categoryStats.tracts > 0 && !(row.categoryStats.tracts_en > 0 || row.categoryStats.tracts_es > 0)) && (
+                            <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-primary/10 px-1 rounded-sharp">T: {row.categoryStats.tracts}</span>
+                          )}
+
+                          {row.categoryStats.booklets_en > 0 && (
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-tertiary/10 px-1 rounded-sharp">BK-EN: {row.categoryStats.booklets_en}</span>
+                          )}
+                          {row.categoryStats.booklets_es > 0 && (
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-tertiary/10 px-1 rounded-sharp">BK-ES: {row.categoryStats.booklets_es}</span>
+                          )}
+                          {(row.categoryStats.booklets > 0 && !(row.categoryStats.booklets_en > 0 || row.categoryStats.booklets_es > 0)) && (
+                            <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-tertiary/10 px-1 rounded-sharp">BK: {row.categoryStats.booklets}</span>
                           )}
                         </div>
                       )}
@@ -1806,7 +1833,7 @@ export default function App() {
               />
             )}
               {activeTab === 'reports' && <ReportsView inventory={inventory} events={events} auditLogs={auditLogs} settings={settings} />}
-              {activeTab === 'events' && <EventsView events={events} onAdd={handleAddEvent} onEdit={handleEditEvent} />}
+              {activeTab === 'events' && <EventsView events={events} onAdd={handleAddEvent} onEdit={handleEditEvent} onBulkImport={() => setIsBulkImportOpen(true)} />}
               {activeTab === 'users' && <UsersView users={users} />}
               {activeTab === 'logs' && <LogsView logs={auditLogs} />}
               {activeTab === 'ai_insights' && <AIInsightsView inventory={inventory} events={events} auditLogs={auditLogs} />}

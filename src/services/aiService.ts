@@ -109,12 +109,16 @@ export async function parseEventData(rawData: string): Promise<ParsedEvent[]> {
       - materials: array of objects
         - sku: string (Rules: 
             1. If a specific item SKU is mentioned (e.g. "TR-001-001"), use it. 
-            2. If a generic category total is mentioned (e.g. "500 Tracts"), use uppercase 'BIBLES', 'TRACTS', or 'BOOKLETS'.
+            2. If a generic category total is mentioned, use uppercase categorical SKUs with language suffixes if specified:
+               - 'BIBLES', 'BIBLES_EN', 'BIBLES_ES'
+               - 'TRACTS', 'TRACTS_EN', 'TRACTS_ES'
+               - 'BOOKLETS', 'BOOKLETS_EN', 'BOOKLETS_ES'
+               - Examples: "50 Spanish Bibles" -> 'BIBLES_ES', "100 Tracts" -> 'TRACTS', "20 English Booklets" -> 'BOOKLETS_EN'.
             3. If it's just a raw number with no category, use 'GENERAL'.)
         - quantity: number
-        - title: string (descriptive title e.g. "Total Bibles", "Steps to Christ - English")
+        - title: string (descriptive title e.g. "Total Spanish Bibles", "Steps to Christ - English")
       
-      CRITICAL: Keep 'BIBLES', 'TRACTS', 'BOOKLETS' as the SKUs for bulk counts. They are used for decoupled stats reporting.
+      CRITICAL: Use the language-specific SKUs ('_EN', '_ES') whenever language is mentioned in bulk counts.
       
       Data to parse:
       ${rawData}
