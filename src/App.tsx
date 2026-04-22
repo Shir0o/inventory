@@ -1291,7 +1291,22 @@ const EventsView = ({ events, onAdd, onEdit }: { events: any[], onAdd: () => voi
                   </td>
                   <td className="px-6 py-4 text-[13px] text-on-surface">{row.location}</td>
                   <td className="px-6 py-4 text-right">
-                    <span className="font-mono font-bold text-primary text-[13px]">{row.materialsDistributed?.toLocaleString()} items</span>
+                    <div className="flex flex-col items-end">
+                      <span className="font-mono font-bold text-primary text-[13px]">{row.materialsDistributed?.toLocaleString()} items</span>
+                      {row.categoryStats && (
+                        <div className="flex gap-2 mt-1">
+                          {row.categoryStats.bibles > 0 && (
+                            <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-secondary/10 px-1 rounded-sharp">B:{row.categoryStats.bibles}</span>
+                          )}
+                          {row.categoryStats.tracts > 0 && (
+                            <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-primary/10 px-1 rounded-sharp">T:{row.categoryStats.tracts}</span>
+                          )}
+                          {row.categoryStats.booklets > 0 && (
+                            <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-tertiary/10 px-1 rounded-sharp">BK:{row.categoryStats.booklets}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span className={cn(

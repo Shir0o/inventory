@@ -24,6 +24,12 @@ export interface ParsedEvent {
   location: string;
   status: 'Scheduled' | 'Stock Alert' | 'Completed';
   materials: ParsedEventMaterial[];
+  stats?: {
+    bibles: number;
+    tracts: number;
+    booklets: number;
+    total: number;
+  };
 }
 
 export async function parseInventoryData(rawData: string, categories: string[] = ['Bibles', 'Tracts', 'Booklets']): Promise<ParsedInventoryItem[]> {
@@ -101,9 +107,14 @@ export async function parseEventData(rawData: string): Promise<ParsedEvent[]> {
       - location: string
       - status: string (Scheduled, Stock Alert, or Completed)
       - materials: array of objects
-        - sku: string (SKU of the material. If only a total count is provided without specific item names, use 'GENERAL' as the SKU)
-        - quantity: number (count distributed)
-        - title: string (optional, title of material if mentioned. If sku is 'GENERAL', use 'Miscellaneous Distribution' or a context-aware description)
+        - sku: string (Rules: 
+            1. If a specific item SKU is mentioned (e.g. "TR-001-001"), use it. 
+            2. If a generic category total is mentioned (e.g. "500 Tracts"), use uppercase 'BIBLES', 'TRACTS', or 'BOOKLETS'.
+            3. If it's just a raw number with no category, use 'GENERAL'.)
+        - quantity: number
+        - title: string (descriptive title e.g. "Total Bibles", "Steps to Christ - English")
+      
+      CRITICAL: Keep 'BIBLES', 'TRACTS', 'BOOKLETS' as the SKUs for bulk counts. They are used for decoupled stats reporting.
       
       Data to parse:
       ${rawData}

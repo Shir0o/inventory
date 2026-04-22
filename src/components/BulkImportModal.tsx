@@ -66,6 +66,20 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
         setExistingSkus(skuSet);
       } else {
         items = await parseEventData(content);
+        
+        // Validate all SKUs found in event materials
+        const skuSet = new Set<string>();
+        const bulkSkus = ['GENERAL', 'BIBLES', 'TRACTS', 'BOOKLETS'];
+        for (const item of items) {
+          for (const m of item.materials) {
+            if (bulkSkus.includes(m.sku)) continue;
+            const existing = await getInventoryItemBySku(m.sku);
+            if (existing) {
+              skuSet.add(m.sku);
+            }
+          }
+        }
+        setExistingSkus(skuSet);
       }
       setParsedItems(items);
       setStep('review');
@@ -129,7 +143,7 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
     newItems[index] = updatedItem;
     setParsedItems(newItems);
 
-    if ((field === 'sku' || field === 'language') && importType === 'inventory') {
+    if (importType === 'inventory' && (field === 'sku' || field === 'language')) {
       const skuToCheck = updatedItem.sku;
       const existing = await getInventoryItemBySku(skuToCheck);
       setExistingSkus(prev => {
@@ -138,6 +152,21 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
         else next.delete(skuToCheck);
         return next;
       });
+    }
+
+    // For events, if materials change, validate the new SKUs
+    if (importType === 'events' && field === 'materials') {
+      const bulkSkus = ['GENERAL', 'BIBLES', 'TRACTS', 'BOOKLETS'];
+      for (const m of updatedItem.materials) {
+        if (bulkSkus.includes(m.sku)) continue;
+        const existing = await getInventoryItemBySku(m.sku);
+        setExistingSkus(prev => {
+          const next = new Set(prev);
+          if (existing) next.add(m.sku);
+          else next.delete(m.sku);
+          return next;
+        });
+      }
     }
   };
 
@@ -179,14 +208,35 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
   const parseMaterials = (str: string) => {
     const parts = str.split(',').map(p => p.trim()).filter(Boolean);
     return parts.map(p => {
+      // 1. Precise Match (SKU:QTY)
       if (p.includes(':')) {
         const [sku, qty] = p.split(':');
-        return { sku: sku.trim().toUpperCase(), quantity: parseInt(qty) || 0 };
+        const s = sku.trim().toUpperCase();
+        const q = parseInt(qty) || 0;
+        
+        // Map common names to categorical SKUs
+        if (s.includes('BIBLE')) return { sku: 'BIBLES', quantity: q, title: 'Total Bibles' };
+        if (s.includes('TRACT')) return { sku: 'TRACTS', quantity: q, title: 'Total Tracts' };
+        if (s.includes('BOOKLET')) return { sku: 'BOOKLETS', quantity: q, title: 'Total Booklets' };
+        
+        return { sku: s, quantity: q };
       }
-      // If it's just a number, treat as GENERAL distribution
+      
+      // 2. Natural Language Fallback (e.g., "50 Bibles")
+      const lower = p.toLowerCase();
+      const qtyMatch = p.match(/\d+/);
+      const qty = qtyMatch ? parseInt(qtyMatch[0]) : 1;
+
+      if (lower.includes('bible')) return { sku: 'BIBLES', quantity: qty, title: 'Total Bibles' };
+      if (lower.includes('tract')) return { sku: 'TRACTS', quantity: qty, title: 'Total Tracts' };
+      if (lower.includes('booklet')) return { sku: 'BOOKLETS', quantity: qty, title: 'Total Booklets' };
+
+      // 3. Simple Number (Total Items)
       if (!isNaN(parseInt(p))) {
-        return { sku: 'GENERAL', quantity: parseInt(p) || 0, title: 'Miscellaneous Distribution' };
+        const val = parseInt(p);
+        return { sku: 'GENERAL', quantity: val, title: 'Miscellaneous Distribution' };
       }
+      
       return { sku: p.toUpperCase(), quantity: 1 };
     });
   };
@@ -524,13 +574,25 @@ const BulkImportModal = ({ isOpen, onClose }: BulkImportModalProps) => {
                                     />
                                   </td>
                                   <td className="px-4 py-3">
-                                    <input 
-                                      type="text"
-                                      defaultValue={stringifyMaterials(item.materials)}
-                                      onBlur={(e) => updateParsedItem(i, 'materials', parseMaterials(e.target.value))}
-                                      className="w-full bg-transparent font-mono text-[10px] text-on-surface-variant border-b border-transparent focus:border-primary outline-none focus:bg-surface px-1 py-0.5 rounded"
-                                      placeholder="SKU:QTY or Total"
-                                    />
+                                    <div className="flex flex-col gap-1">
+                                      <input 
+                                        type="text"
+                                        defaultValue={stringifyMaterials(item.materials)}
+                                        onBlur={(e) => updateParsedItem(i, 'materials', parseMaterials(e.target.value))}
+                                        className={cn(
+                                          "w-full bg-transparent font-mono text-[10px] border-b outline-none focus:bg-surface px-1 py-0.5 rounded",
+                                          item.materials.some((m: any) => !['GENERAL', 'BIBLES', 'TRACTS', 'BOOKLETS'].includes(m.sku) && !existingSkus.has(m.sku)) 
+                                            ? "border-tertiary text-tertiary" 
+                                            : "text-on-surface-variant border-transparent focus:border-primary"
+                                        )}
+                                        placeholder="SKU:QTY or Total"
+                                      />
+                                      {item.materials.some((m: any) => !['GENERAL', 'BIBLES', 'TRACTS', 'BOOKLETS'].includes(m.sku) && !existingSkus.has(m.sku)) && (
+                                        <span className="text-[7px] text-tertiary font-bold uppercase tracking-wider">
+                                          Unknown SKUs: {item.materials.filter((m: any) => !['GENERAL', 'BIBLES', 'TRACTS', 'BOOKLETS'].includes(m.sku) && !existingSkus.has(m.sku)).map((m: any) => m.sku).join(', ')}
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="px-4 py-3">
                                     <select 

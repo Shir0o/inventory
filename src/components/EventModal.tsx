@@ -192,6 +192,26 @@ const EventModal = ({ isOpen, onClose, event }: EventModalProps) => {
                     </div>
                   </div>
 
+                  {event?.categoryStats && (
+                    <div className="p-4 bg-surface-container-low border border-outline-variant rounded-sharp space-y-3">
+                      <h4 className="font-headline font-bold text-[10px] text-primary uppercase tracking-widest border-b border-outline-variant pb-2">Coverage Overview</h4>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center">
+                          <p className="font-headline font-bold text-lg text-primary">{event.categoryStats.bibles || 0}</p>
+                          <p className="text-[9px] font-mono text-on-surface-variant uppercase tracking-tighter">Bibles</p>
+                        </div>
+                        <div className="text-center border-l border-r border-outline-variant">
+                          <p className="font-headline font-bold text-lg text-primary">{event.categoryStats.tracts || 0}</p>
+                          <p className="text-[9px] font-mono text-on-surface-variant uppercase tracking-tighter">Tracts</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="font-headline font-bold text-lg text-primary">{event.categoryStats.booklets || 0}</p>
+                          <p className="text-[9px] font-mono text-on-surface-variant uppercase tracking-tighter">Booklets</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Location / Venue</label>
                     <input 

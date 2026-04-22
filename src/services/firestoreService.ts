@@ -292,6 +292,11 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
       }
 
       let totalNewMaterials = 0;
+      const statsDelta = {
+        bibles: 0,
+        tracts: 0,
+        booklets: 0
+      };
 
       for (const item of items) {
         const itemRef = doc(db, 'inventory', item.itemId);
@@ -301,7 +306,8 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
           throw new Error(`Item ${item.title} does not exist!`);
         }
 
-        const currentStock = itemDoc.data().stockLevel || 0;
+        const data = itemDoc.data();
+        const currentStock = data.stockLevel || 0;
         if (currentStock < item.quantity) {
           throw new Error(`Insufficient stock for ${item.title}. Available: ${currentStock}`);
         }
@@ -313,6 +319,12 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
           stockLevel: newStock,
           updatedAt: new Date().toISOString()
         });
+
+        // Add to stats delta
+        const cat = (data.category || '').toLowerCase();
+        if (cat.includes('bible')) statsDelta.bibles += item.quantity;
+        else if (cat.includes('tract')) statsDelta.tracts += item.quantity;
+        else if (cat.includes('booklet')) statsDelta.booklets += item.quantity;
 
         // Add to event materials
         const materialRef = doc(collection(db, `events/${eventId}/materials`));
@@ -327,10 +339,19 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
         totalNewMaterials += item.quantity;
       }
 
-      // Update event total
-      const currentEventMaterials = eventDoc.data().materialsDistributed || 0;
+      // Update event total and stats
+      const eventData = eventDoc.data();
+      const currentEventMaterials = eventData.materialsDistributed || 0;
+      const currentStats = eventData.categoryStats || { bibles: 0, tracts: 0, booklets: 0, total: 0 };
+
       transaction.update(eventRef, {
-        materialsDistributed: currentEventMaterials + totalNewMaterials
+        materialsDistributed: currentEventMaterials + totalNewMaterials,
+        categoryStats: {
+          bibles: (currentStats.bibles || 0) + statsDelta.bibles,
+          tracts: (currentStats.tracts || 0) + statsDelta.tracts,
+          booklets: (currentStats.booklets || 0) + statsDelta.booklets,
+          total: (currentStats.total || 0) + totalNewMaterials
+        }
       });
     });
 
@@ -419,9 +440,25 @@ export async function restockItem(eventId: string, materialId: string, itemId: s
         });
       }
 
-      // 3. Update Event Total
+      // 3. Update Event Total and Stats
+      const eventData = eventDoc.data();
+      const currentStats = eventData.categoryStats || { bibles: 0, tracts: 0, booklets: 0, total: 0 };
+      const itemData = itemDoc.data();
+      const cat = (itemData.category || '').toLowerCase();
+      
+      const statsDelta = { bibles: 0, tracts: 0, booklets: 0 };
+      if (cat.includes('bible')) statsDelta.bibles = quantityToRestock;
+      else if (cat.includes('tract')) statsDelta.tracts = quantityToRestock;
+      else if (cat.includes('booklet')) statsDelta.booklets = quantityToRestock;
+
       transaction.update(eventRef, {
-        materialsDistributed: currentEventMaterials - quantityToRestock
+        materialsDistributed: currentEventMaterials - quantityToRestock,
+        categoryStats: {
+          bibles: Math.max(0, (currentStats.bibles || 0) - statsDelta.bibles),
+          tracts: Math.max(0, (currentStats.tracts || 0) - statsDelta.tracts),
+          booklets: Math.max(0, (currentStats.booklets || 0) - statsDelta.booklets),
+          total: Math.max(0, (currentStats.total || 0) - quantityToRestock)
+        }
       });
     });
 
@@ -594,23 +631,32 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
       const eventRef = doc(collection(db, eventsPath));
       const totalQuantity = materials.reduce((sum, m) => sum + m.quantity, 0);
       
-      transaction.set(eventRef, {
-        name: eventData.name,
-        date: Timestamp.fromDate(new Date(eventData.date)),
-        location: eventData.location,
-        status: eventData.status,
-        materialsDistributed: totalQuantity,
-        createdAt: new Date().toISOString()
-      });
+      const stats = {
+        bibles: 0,
+        tracts: 0,
+        booklets: 0,
+        total: totalQuantity
+      };
 
-      // 3. Process each material
+      // 3. Process each material and calculate stats
       for (const material of materials) {
         const itemInfo = inventoryMap.get(material.sku);
-        
+        const sku = material.sku.toUpperCase();
+
+        // High-level stat calculation
+        if (sku === 'BIBLES') stats.bibles += material.quantity;
+        else if (sku === 'TRACTS') stats.tracts += material.quantity;
+        else if (sku === 'BOOKLETS') stats.booklets += material.quantity;
+        else if (itemInfo) {
+          // If it's a specific item, check its category
+          const cat = (itemInfo.category || '').toLowerCase();
+          if (cat.includes('bible')) stats.bibles += material.quantity;
+          else if (cat.includes('tract')) stats.tracts += material.quantity;
+          else if (cat.includes('booklet')) stats.booklets += material.quantity;
+        }
+
         if (itemInfo) {
           const itemRef = doc(db, 'inventory', itemInfo.id);
-
-          // Update inventory stock (we should ideally transaction.get here to be safe)
           const itemDocForLock = await transaction.get(itemRef);
           const currentStock = itemDocForLock.data()?.stockLevel || 0;
           
@@ -639,6 +685,16 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
           });
         }
       }
+
+      transaction.set(eventRef, {
+        name: eventData.name,
+        date: Timestamp.fromDate(new Date(eventData.date)),
+        location: eventData.location,
+        status: eventData.status,
+        materialsDistributed: totalQuantity,
+        categoryStats: stats,
+        createdAt: new Date().toISOString()
+      });
 
       await createAuditLog('EVENT_CREATED', eventRef.id, 'event', `Imported event via AI: ${eventData.name}`, { materialCount: materials.length });
       return eventRef;
