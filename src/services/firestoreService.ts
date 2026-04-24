@@ -459,7 +459,7 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
   }
 }
 
-export async function updateEventMaterialQuantity(eventId: string, materialId: string, newQuantity: number) {
+export async function updateEventMaterialQuantity(eventId: string, materialId: string, newQuantity: number, thresholds?: { warning: number, critical: number }) {
   const path = `events/${eventId}/materials/${materialId}`;
   try {
     await runTransaction(db, async (transaction) => {
@@ -492,8 +492,19 @@ export async function updateEventMaterialQuantity(eventId: string, materialId: s
             throw new Error(`Insufficient stock for adjustment. Available: ${currentStock}, Needed: ${quantityDiff}`);
           }
           
+          const newStockLevel = currentStock - quantityDiff;
+
+          // Determine system status
+          let status = 'Healthy';
+          const warningLimit = thresholds?.warning || 250;
+          const criticalLimit = thresholds?.critical || 75;
+          
+          if (newStockLevel <= criticalLimit) status = 'Out';
+          else if (newStockLevel <= warningLimit) status = 'Low';
+
           transaction.update(itemRef, {
-            stockLevel: currentStock - quantityDiff,
+            stockLevel: newStockLevel,
+            status,
             updatedAt: serverTimestamp()
           });
 
@@ -542,7 +553,7 @@ export async function updateEventMaterialQuantity(eventId: string, materialId: s
   }
 }
 
-export async function removeEventMaterial(eventId: string, materialId: string) {
+export async function removeEventMaterial(eventId: string, materialId: string, thresholds?: { warning: number, critical: number }) {
   const path = `events/${eventId}/materials/${materialId}`;
   try {
     await runTransaction(db, async (transaction) => {
@@ -567,10 +578,20 @@ export async function removeEventMaterial(eventId: string, materialId: string) {
         if (itemDoc.exists()) {
           const inventoryData = itemDoc.data();
           const currentStock = inventoryData.stockLevel || 0;
+          const newStockLevel = currentStock + quantityToRemove;
+
+          // Determine system status
+          let status = 'Healthy';
+          const warningLimit = thresholds?.warning || 250;
+          const criticalLimit = thresholds?.critical || 75;
           
+          if (newStockLevel <= criticalLimit) status = 'Out';
+          else if (newStockLevel <= warningLimit) status = 'Low';
+
           // Return items to inventory
           transaction.update(itemRef, {
-            stockLevel: currentStock + quantityToRemove,
+            stockLevel: newStockLevel,
+            status,
             updatedAt: serverTimestamp()
           });
 

@@ -102,7 +102,11 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
     if (!event?.id) return;
     setLoading(true);
     try {
-      await updateEventMaterialQuantity(event.id, materialId, editQuantity);
+      const thresholds = {
+        warning: settings?.warningThreshold || 250,
+        critical: settings?.criticalThreshold || 75
+      };
+      await updateEventMaterialQuantity(event.id, materialId, editQuantity, thresholds);
       setEditingMaterialId(null);
     } catch (error) {
       console.error("Failed to update material quantity", error);
@@ -115,7 +119,11 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
     if (!event?.id || !confirm("Remove this item from distribution? This will return stock to inventory.")) return;
     setLoading(true);
     try {
-      await removeEventMaterial(event.id, materialId);
+      const thresholds = {
+        warning: settings?.warningThreshold || 250,
+        critical: settings?.criticalThreshold || 75
+      };
+      await removeEventMaterial(event.id, materialId, thresholds);
     } catch (error) {
       console.error("Failed to remove material", error);
     } finally {
