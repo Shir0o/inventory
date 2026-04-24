@@ -17,6 +17,7 @@ interface EventModalProps {
 const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, inventory = [] }: EventModalProps) => {
   const [activeTab, setActiveTab] = useState<'details' | 'materials'>('details');
   const [materials, setMaterials] = useState<any[]>([]);
+  const [optimisticMaterials, setOptimisticMaterials] = useState<any[]>([]);
   const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
   const [editQuantity, setEditQuantity] = useState<number>(0);
   const [isAddingMaterial, setIsAddingMaterial] = useState(false);
@@ -47,7 +48,10 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
       });
 
       // Subscribe to materials
-      const unsub = subscribeToEventMaterials(event.id, setMaterials);
+      const unsub = subscribeToEventMaterials(event.id, (data) => {
+        setMaterials(data);
+        setOptimisticMaterials(data);
+      });
       return () => unsub();
     } else {
       setFormData({
@@ -58,6 +62,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
         status: 'Scheduled'
       });
       setMaterials([]);
+      setOptimisticMaterials([]);
       setActiveTab('details');
       setEditingMaterialId(null);
       setIsAddingMaterial(false);
@@ -67,57 +72,87 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
 
   const handleAddMaterial = async (item: any) => {
     if (!event?.id) return;
-    setLoading(true);
+    
+    // Default to adding 10 units or remaining stock if less
+    const qtyToAdd = Math.min(10, item.stockLevel || 0);
+    
+    if (qtyToAdd <= 0) {
+      alert("This item is out of stock.");
+      return;
+    }
+
+    // Optimistic Update
+    const tempId = `temp-${Date.now()}`;
+    const newItem = {
+      id: tempId,
+      itemId: item.id,
+      sku: item.sku,
+      title: item.title,
+      quantity: qtyToAdd,
+      isOptimistic: true
+    };
+    
+    setOptimisticMaterials(prev => [...prev, newItem]);
+    setIsAddingMaterial(false);
+    setSearchQuery('');
+
     try {
       const thresholds = {
         warning: settings?.warningThreshold || 250,
         critical: settings?.criticalThreshold || 75
       };
       
-      // Default to adding 10 units or remaining stock if less
-      const qtyToAdd = Math.min(10, item.stockLevel || 0);
-      
-      if (qtyToAdd <= 0) {
-        alert("This item is out of stock.");
-        return;
-      }
-
       await distributeItems(event.id, [{
         itemId: item.id,
         quantity: qtyToAdd,
         title: item.title,
         sku: item.sku
       }], thresholds);
-      
-      setIsAddingMaterial(false);
-      setSearchQuery('');
     } catch (error) {
       console.error("Failed to add material", error);
-    } finally {
-      setLoading(false);
+      // Rollback
+      setOptimisticMaterials(prev => prev.filter(m => m.id !== tempId));
+      alert("Failed to add resource. Please check stock availability.");
     }
   };
 
   const handleUpdateMaterial = async (materialId: string) => {
     if (!event?.id) return;
-    setLoading(true);
+    
+    const originalMaterial = optimisticMaterials.find(m => m.id === materialId);
+    if (!originalMaterial) return;
+
+    // Optimistic Update
+    setOptimisticMaterials(prev => prev.map(m => 
+      m.id === materialId ? { ...m, quantity: editQuantity, isOptimistic: true } : m
+    ));
+    setEditingMaterialId(null);
+
     try {
       const thresholds = {
         warning: settings?.warningThreshold || 250,
         critical: settings?.criticalThreshold || 75
       };
       await updateEventMaterialQuantity(event.id, materialId, editQuantity, thresholds);
-      setEditingMaterialId(null);
     } catch (error) {
       console.error("Failed to update material quantity", error);
-    } finally {
-      setLoading(false);
+      // Rollback
+      setOptimisticMaterials(prev => prev.map(m => 
+        m.id === materialId ? originalMaterial : m
+      ));
+      alert("Failed to update quantity. Insufficient stock or connection error.");
     }
   };
 
   const handleRemoveMaterial = async (materialId: string) => {
     if (!event?.id || !confirm("Remove this item from distribution? This will return stock to inventory.")) return;
-    setLoading(true);
+    
+    const originalMaterial = optimisticMaterials.find(m => m.id === materialId);
+    if (!originalMaterial) return;
+
+    // Optimistic Update
+    setOptimisticMaterials(prev => prev.filter(m => m.id !== materialId));
+
     try {
       const thresholds = {
         warning: settings?.warningThreshold || 250,
@@ -126,8 +161,9 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
       await removeEventMaterial(event.id, materialId, thresholds);
     } catch (error) {
       console.error("Failed to remove material", error);
-    } finally {
-      setLoading(false);
+      // Rollback
+      setOptimisticMaterials(prev => [...prev, originalMaterial]);
+      alert("Failed to remove item. Please try again.");
     }
   };
 
@@ -393,7 +429,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                 (i.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                  i.sku?.toLowerCase().includes(searchQuery.toLowerCase())) &&
                                 i.stockLevel > 0 &&
-                                !materials.find(m => m.sku === i.sku)
+                                !optimisticMaterials.find(m => m.sku === i.sku)
                               )
                               .map(i => (
                                 <button
@@ -423,7 +459,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                     </div>
                   )}
 
-                  {materials.length === 0 && !isAddingMaterial ? (
+                  {optimisticMaterials.length === 0 && !isAddingMaterial ? (
                     <div className="h-full py-12 flex flex-col items-center justify-center text-center space-y-4">
                       <Package className="w-10 sm:w-12 h-10 sm:h-12 text-outline-variant" />
                       <div>
@@ -432,14 +468,20 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                       </div>
                     </div>
                   ) : (
-                    materials.map((m) => (
-                      <div key={m.id} className="p-3 sm:p-4 bg-surface rounded-sharp border border-outline-variant flex flex-col sm:flex-row justify-between sm:items-center gap-3 group hover:border-primary transition-colors">
+                    optimisticMaterials.map((m) => (
+                      <div key={m.id} className={cn(
+                        "p-3 sm:p-4 bg-surface rounded-sharp border border-outline-variant flex flex-col sm:flex-row justify-between sm:items-center gap-3 group transition-colors",
+                        m.isOptimistic ? "opacity-60 border-dashed border-primary animate-pulse" : "hover:border-primary"
+                      )}>
                         <div className="flex items-center gap-3 sm:gap-4">
                           <div className="w-8 h-8 sm:w-10 sm:h-10 bg-surface-container shrink-0 rounded-sharp flex items-center justify-center border border-outline-variant">
-                            <Package className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                            <Package className={cn("w-4 h-4 sm:w-5 sm:h-5", m.isOptimistic ? "text-slate-400" : "text-primary")} />
                           </div>
                           <div>
-                            <p className="font-headline font-bold text-primary text-[13px] sm:text-[14px] line-clamp-1">{m.title}</p>
+                            <p className="font-headline font-bold text-primary text-[13px] sm:text-[14px] line-clamp-1">
+                              {m.title}
+                              {m.isOptimistic && <span className="ml-2 text-[9px] text-primary italic font-normal">(Syncing...)</span>}
+                            </p>
                             <p className="font-mono text-[9px] sm:text-[10px] text-on-surface-variant uppercase tracking-wider">{m.sku}</p>
                           </div>
                         </div>
