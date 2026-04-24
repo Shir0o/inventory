@@ -55,6 +55,7 @@
         "itemId": { "type": "string" },
         "sku": { "type": "string" },
         "title": { "type": "string" },
+        "language": { "type": "string" },
         "quantity": { "type": "number" },
         "assignedAt": { "type": "string", "format": "date-time" }
       },

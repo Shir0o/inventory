@@ -334,7 +334,7 @@ export async function deleteEvent(id: string) {
   }
 }
 
-export async function distributeItems(eventId: string, items: { itemId: string, quantity: number, title: string, sku: string }[], thresholds?: { warning: number, critical: number }) {
+export async function distributeItems(eventId: string, items: { itemId: string, quantity: number, title: string, sku: string, language?: string }[], thresholds?: { warning: number, critical: number }) {
   const path = `events/${eventId}/distributions`;
   try {
     await runTransaction(db, async (transaction) => {
@@ -391,7 +391,7 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
 
         // Add to stats delta
         const cat = (data.category || '').toLowerCase();
-        const lang = (data.language || '').toLowerCase();
+        const lang = (data.language || item.language || '').toLowerCase();
         
         if (cat.includes('bible')) {
           statsDelta.bibles += item.quantity;
@@ -413,6 +413,7 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
           itemId: item.itemId,
           sku: item.sku,
           title: item.title,
+          language: item.language || data.language || '',
           quantity: item.quantity,
           assignedAt: serverTimestamp()
         });

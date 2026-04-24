@@ -91,6 +91,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
       itemId: item.id,
       sku: item.sku,
       title: item.title,
+      language: item.language,
       quantity: qtyToAdd,
       isOptimistic: true
     };
@@ -109,7 +110,8 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
         itemId: item.id,
         quantity: qtyToAdd,
         title: item.title,
-        sku: item.sku
+        sku: item.sku,
+        language: item.language
       }], thresholds);
     } catch (error) {
       console.error("Failed to add material", error);
@@ -456,7 +458,14 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                   className="w-full text-left p-2 hover:bg-primary/5 rounded-sharp flex justify-between items-center group transition-colors"
                                 >
                                   <div>
-                                    <p className="text-[11px] font-bold text-primary">{i.title}</p>
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-[11px] font-bold text-primary">{i.title}</p>
+                                      {i.language && (
+                                        <span className="text-[8px] px-1 bg-surface-container-high text-on-surface-variant font-bold rounded uppercase">
+                                          {i.language}
+                                        </span>
+                                      )}
+                                    </div>
                                     <p className="text-[9px] font-mono text-on-surface-variant">{i.sku} • {i.stockLevel} in stock</p>
                                   </div>
                                   <Plus className="w-3.5 h-3.5 text-slate-300 group-hover:text-primary" />
@@ -500,7 +509,17 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                               {m.title}
                               {m.isOptimistic && <span className="ml-2 text-[9px] text-primary italic font-normal">(Syncing...)</span>}
                             </p>
-                            <p className="font-mono text-[9px] sm:text-[10px] text-on-surface-variant uppercase tracking-wider">{m.sku}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-mono text-[9px] sm:text-[10px] text-on-surface-variant uppercase tracking-wider">{m.sku}</p>
+                              {m.language && (
+                                <>
+                                  <span className="text-[8px] text-slate-300">•</span>
+                                  <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-surface-container px-1 rounded">
+                                    {m.language}
+                                  </span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">
