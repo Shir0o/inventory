@@ -192,7 +192,7 @@ export async function getInventoryItemBySku(sku: string) {
   return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
 }
 
-export async function addInventoryItem(item: any) {
+export async function addInventoryItem(item: any, thresholds?: { warning: number, critical: number }) {
   const path = 'inventory';
   try {
     // Check for SKU uniqueness
@@ -201,8 +201,20 @@ export async function addInventoryItem(item: any) {
       throw new Error(`SKU "${item.sku}" already exists in the inventory.`);
     }
 
+    // Determine system status
+    let status = 'Healthy';
+    if (thresholds) {
+      if (item.stockLevel <= thresholds.critical) status = 'Out';
+      else if (item.stockLevel <= thresholds.warning) status = 'Low';
+    } else {
+      // Fallback defaults if no thresholds provided
+      if (item.stockLevel <= 75) status = 'Out';
+      else if (item.stockLevel <= 250) status = 'Low';
+    }
+
     const docRef = await addDoc(collection(db, path), {
       ...item,
+      status,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -216,19 +228,26 @@ export async function addInventoryItem(item: any) {
 export async function updateInventoryItem(id: string, item: any, thresholds?: { warning: number, critical: number }) {
   const path = `inventory/${id}`;
   try {
+    // Determine system status
+    let status = 'Healthy';
+    const warningLimit = thresholds?.warning || 250;
+    const criticalLimit = thresholds?.critical || 75;
+    
+    if (item.stockLevel <= criticalLimit) status = 'Out';
+    else if (item.stockLevel <= warningLimit) status = 'Low';
+
     const docRef = doc(db, 'inventory', id);
     await updateDoc(docRef, {
       ...item,
+      status,
       updatedAt: serverTimestamp()
     });
     
-    // Check thresholds if provided
-    if (thresholds) {
-      if (item.stockLevel <= thresholds.critical) {
-        await createNotification('CRITICAL_STOCK', 'Critical Stock Level', `${item.title} is at critical level (${item.stockLevel} units).`, { itemId: id, sku: item.sku });
-      } else if (item.stockLevel <= thresholds.warning) {
-        await createNotification('LOW_STOCK', 'Low Stock Warning', `${item.title} is running low (${item.stockLevel} units).`, { itemId: id, sku: item.sku });
-      }
+    // Check thresholds if provided for notifications
+    if (item.stockLevel <= criticalLimit) {
+      await createNotification('CRITICAL_STOCK', 'Critical Stock Level', `${item.title} is at critical level (${item.stockLevel} units).`, { itemId: id, sku: item.sku });
+    } else if (item.stockLevel <= warningLimit) {
+      await createNotification('LOW_STOCK', 'Low Stock Warning', `${item.title} is running low (${item.stockLevel} units).`, { itemId: id, sku: item.sku });
     }
 
     await createAuditLog('STOCK_UPDATE', id, 'inventory', `Updated item: ${item.title}`, { item });
@@ -342,9 +361,18 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
 
         const newStock = currentStock - item.quantity;
 
+        // Determine system status
+        let status = 'Healthy';
+        const warningLimit = thresholds?.warning || 250;
+        const criticalLimit = thresholds?.critical || 75;
+        
+        if (newStock <= criticalLimit) status = 'Out';
+        else if (newStock <= warningLimit) status = 'Low';
+
         // Update inventory
         transaction.update(itemRef, {
           stockLevel: newStock,
+          status,
           updatedAt: serverTimestamp()
         });
 

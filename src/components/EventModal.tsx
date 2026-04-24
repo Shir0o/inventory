@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, Calendar as CalendarIcon, Package, Edit2, Check, RotateCcw } from 'lucide-react';
+import { X, Save, Trash2, Calendar as CalendarIcon, Package, Edit2, Check, RotateCcw, Plus, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { addEvent, updateEvent, deleteEvent, subscribeToEventMaterials, updateEventMaterialQuantity, removeEventMaterial } from '../services/firestoreService';
+import { addEvent, updateEvent, deleteEvent, subscribeToEventMaterials, updateEventMaterialQuantity, removeEventMaterial, distributeItems } from '../services/firestoreService';
 import { Timestamp } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 
@@ -11,13 +11,16 @@ interface EventModalProps {
   event?: any;
   settings?: any;
   isAdmin?: boolean;
+  inventory?: any[];
 }
 
-const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false }: EventModalProps) => {
+const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, inventory = [] }: EventModalProps) => {
   const [activeTab, setActiveTab] = useState<'details' | 'materials'>('details');
   const [materials, setMaterials] = useState<any[]>([]);
   const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
   const [editQuantity, setEditQuantity] = useState<number>(0);
+  const [isAddingMaterial, setIsAddingMaterial] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     date: '',
@@ -57,8 +60,43 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false }: Event
       setMaterials([]);
       setActiveTab('details');
       setEditingMaterialId(null);
+      setIsAddingMaterial(false);
+      setSearchQuery('');
     }
   }, [event, isOpen]);
+
+  const handleAddMaterial = async (item: any) => {
+    if (!event?.id) return;
+    setLoading(true);
+    try {
+      const thresholds = {
+        warning: settings?.warningThreshold || 250,
+        critical: settings?.criticalThreshold || 75
+      };
+      
+      // Default to adding 10 units or remaining stock if less
+      const qtyToAdd = Math.min(10, item.stockLevel || 0);
+      
+      if (qtyToAdd <= 0) {
+        alert("This item is out of stock.");
+        return;
+      }
+
+      await distributeItems(event.id, [{
+        itemId: item.id,
+        quantity: qtyToAdd,
+        title: item.title,
+        sku: item.sku
+      }], thresholds);
+      
+      setIsAddingMaterial(false);
+      setSearchQuery('');
+    } catch (error) {
+      console.error("Failed to add material", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleUpdateMaterial = async (materialId: string) => {
     if (!event?.id) return;
@@ -320,7 +358,64 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false }: Event
             ) : (
               <div className="p-4 sm:p-8 flex-1 flex flex-col min-h-0">
                 <div className="flex-1 overflow-y-auto space-y-4 pr-1 sm:pr-2 custom-scrollbar">
-                  {materials.length === 0 ? (
+                  {isAdmin && (
+                    <div className="mb-4">
+                      {isAddingMaterial ? (
+                        <div className="space-y-3 p-4 bg-surface-container rounded-sharp border border-primary/20">
+                          <div className="flex justify-between items-center mb-2">
+                             <h4 className="text-[10px] font-headline font-bold text-primary uppercase tracking-widest">Select Resource to Add</h4>
+                             <button onClick={() => setIsAddingMaterial(false)} className="text-on-surface-variant hover:text-tertiary">
+                                <RotateCcw className="w-3.5 h-3.5" />
+                             </button>
+                          </div>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input 
+                              autoFocus
+                              type="text"
+                              value={searchQuery}
+                              onChange={e => setSearchQuery(e.target.value)}
+                              placeholder="Search inventory..."
+                              className="w-full pl-10 pr-4 py-2 bg-white border border-outline-variant rounded-sharp text-xs focus:border-primary focus:ring-0 transition-all"
+                            />
+                          </div>
+                          <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
+                            {inventory
+                              .filter(i => 
+                                (i.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                 i.sku?.toLowerCase().includes(searchQuery.toLowerCase())) &&
+                                i.stockLevel > 0 &&
+                                !materials.find(m => m.sku === i.sku)
+                              )
+                              .map(i => (
+                                <button
+                                  key={i.id}
+                                  onClick={() => handleAddMaterial(i)}
+                                  className="w-full text-left p-2 hover:bg-primary/5 rounded-sharp flex justify-between items-center group transition-colors"
+                                >
+                                  <div>
+                                    <p className="text-[11px] font-bold text-primary">{i.title}</p>
+                                    <p className="text-[9px] font-mono text-on-surface-variant">{i.sku} • {i.stockLevel} in stock</p>
+                                  </div>
+                                  <Plus className="w-3.5 h-3.5 text-slate-300 group-hover:text-primary" />
+                                </button>
+                              ))
+                            }
+                          </div>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => setIsAddingMaterial(true)}
+                          className="w-full py-3 border-2 border-dashed border-outline-variant hover:border-primary hover:bg-primary/5 text-on-surface-variant hover:text-primary transition-all rounded-sharp flex items-center justify-center gap-2 font-headline font-bold text-[10px] uppercase tracking-widest"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Resource to Distribution
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {materials.length === 0 && !isAddingMaterial ? (
                     <div className="h-full py-12 flex flex-col items-center justify-center text-center space-y-4">
                       <Package className="w-10 sm:w-12 h-10 sm:h-12 text-outline-variant" />
                       <div>

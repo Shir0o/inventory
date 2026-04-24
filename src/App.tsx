@@ -445,29 +445,24 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
                   <tr>
                     <th className="px-4 sm:px-6 py-3 font-headline text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">SKU</th>
                     <th className="px-4 sm:px-6 py-3 font-headline text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Resource Name</th>
-                    <th className="px-4 sm:px-6 py-3 font-headline text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Level</th>
-                    <th className="px-4 sm:px-6 py-3 font-headline text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-right">Action</th>
+                    <th className="px-4 sm:px-6 py-3 font-headline text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-right">Level</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant">
                   {displayedItems.map((item, index) => (
-                    <tr key={item.id || `low-stock-${item.sku}-${index}`} className="hover:bg-surface-container transition-colors">
-                      <td className="px-4 sm:px-6 py-4 font-mono text-[10px] sm:text-xs font-bold">{item.sku}</td>
+                    <tr 
+                      key={item.id || `low-stock-${item.sku}-${index}`} 
+                      onClick={() => onEdit(item)}
+                      className="hover:bg-surface-container transition-colors cursor-pointer group"
+                    >
+                      <td className="px-4 sm:px-6 py-4 font-mono text-[10px] sm:text-xs font-bold group-hover:text-primary transition-colors">{item.sku}</td>
                       <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm font-medium">{item.title}</td>
-                      <td className="px-4 sm:px-6 py-4 font-mono text-[10px] sm:text-xs text-tertiary font-bold">{item.stockLevel}</td>
-                      <td className="px-4 sm:px-6 py-4 text-right">
-                        <button 
-                          onClick={() => onEdit(item)}
-                          className="bg-primary text-white px-2 py-1 sm:px-3 sm:py-1 text-[10px] sm:text-[11px] font-bold rounded-sharp hover:bg-primary-container transition-all"
-                        >
-                          EDIT
-                        </button>
-                      </td>
+                      <td className="px-4 sm:px-6 py-4 font-mono text-[10px] sm:text-xs text-tertiary font-bold text-right">{item.stockLevel}</td>
                     </tr>
                   ))}
                   {lowStockItems.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-4 sm:px-6 py-8 text-center text-on-surface-variant text-[10px] sm:text-xs font-mono uppercase tracking-widest">Clear status</td>
+                      <td colSpan={3} className="px-4 sm:px-6 py-8 text-center text-on-surface-variant text-[10px] sm:text-xs font-mono uppercase tracking-widest">Clear status</td>
                     </tr>
                   )}
                 </tbody>
@@ -733,13 +728,17 @@ const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, 
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Language</th>
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest text-right">Stock Level</th>
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Status</th>
-                <th className="px-6 py-4"></th>
+                <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
               {filteredInventory.map((row, index) => (
-                <tr key={row.id || `inventory-row-${row.sku}-${index}`} className="hover:bg-surface-container transition-colors">
-                  <td className="px-6 py-4 font-mono text-[12px] text-primary">{row.sku}</td>
+                <tr 
+                  key={row.id || `inventory-row-${row.sku}-${index}`} 
+                  onClick={() => onEdit(row)}
+                  className="hover:bg-surface-container transition-colors cursor-pointer group"
+                >
+                  <td className="px-6 py-4 font-mono text-[12px] text-primary group-hover:text-secondary transition-colors">{row.sku}</td>
                   <td className="px-6 py-4">
                     <div className="font-bold text-[13px] text-primary">{row.title}</div>
                     <div className="text-[11px] text-on-surface-variant">{row.subtitle}</div>
@@ -752,7 +751,7 @@ const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, 
                       <div className={cn(
                         "w-2 h-2 rounded-full", 
                         row.status === 'Healthy' ? "bg-secondary" : 
-                        row.status === 'Low' ? "bg-tertiary" : "bg-slate-300"
+                        row.status === 'Low' ? "bg-amber-400" : "bg-tertiary"
                       )} />
                       <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface">{row.status}</span>
                     </div>
@@ -760,18 +759,14 @@ const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, 
                    <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-1">
                       <button 
-                        onClick={() => onShowHistory(row)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onShowHistory(row);
+                        }}
                         title="View Stock History"
                         className="text-slate-400 hover:text-secondary transition-colors p-2 hover:bg-surface-container rounded-sharp"
                       >
                         <History className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => onEdit(row)}
-                        title="Edit Item"
-                        className="text-slate-400 hover:text-primary transition-colors p-2 hover:bg-surface-container rounded-sharp"
-                      >
-                        <Settings className="w-4 h-4" />
                       </button>
                     </div>
                   </td>
@@ -2075,6 +2070,7 @@ export default function App() {
             event={selectedEvent} 
             settings={settings}
             isAdmin={isAdmin}
+            inventory={inventory}
           />
 
           <DistributionModal 

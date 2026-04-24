@@ -19,8 +19,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
     subtitle: '',
     category: 'Bibles',
     language: 'English',
-    stockLevel: 0,
-    status: 'Healthy'
+    stockLevel: 0
   });
   const [loading, setLoading] = useState(false);
   const [skuError, setSkuError] = useState<string | null>(null);
@@ -33,8 +32,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
         subtitle: item.subtitle || '',
         category: item.category || 'Bibles',
         language: item.language || 'English',
-        stockLevel: item.stockLevel || 0,
-        status: item.status || 'Healthy'
+        stockLevel: item.stockLevel || 0
       });
       setSkuError(null);
     } else {
@@ -44,8 +42,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
         subtitle: '',
         category: 'Bibles',
         language: 'English',
-        stockLevel: 0,
-        status: 'Healthy'
+        stockLevel: 0
       });
       setSkuError(null);
     }
@@ -64,7 +61,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
       if (item?.id) {
         await updateInventoryItem(item.id, formData, thresholds);
       } else {
-        await addInventoryItem(formData);
+        await addInventoryItem(formData, thresholds);
       }
       onClose();
     } catch (error: any) {
@@ -219,25 +216,6 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
                     onChange={e => setFormData({...formData, stockLevel: parseInt(e.target.value) || 0})}
                     className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-mono text-sm focus:ring-0 focus:border-primary transition-all"
                   />
-                </div>
-                <div className="sm:col-span-2 space-y-2">
-                  <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">System Status</label>
-                  <div className="flex gap-2 sm:gap-4">
-                    {['Healthy', 'Low', 'Out'].map(s => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => setFormData({...formData, status: s})}
-                        className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider border-2 rounded-sharp transition-all ${
-                          formData.status === s 
-                            ? 'bg-primary text-white border-primary' 
-                            : 'border-outline-variant text-on-surface-variant hover:border-primary/50'
-                        }`}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </div>
 
