@@ -356,8 +356,10 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: { searchQu
 
 // --- Page Views ---
 
-const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isAdmin, settings, onViewAllAlerts }: { inventory: any[], events: any[], onEdit: (item: any) => void, auditLogs: any[], setActiveTab: (t: Tab) => void, isAdmin: boolean, settings: any, onViewAllAlerts: () => void }) => {
+const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isAdmin, settings }: { inventory: any[], events: any[], onEdit: (item: any) => void, auditLogs: any[], setActiveTab: (t: Tab) => void, isAdmin: boolean, settings: any }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
   const lowStockItems = inventory.filter(item => item.status === 'Low' || item.status === 'Out');
+  const displayedItems = isExpanded ? lowStockItems : lowStockItems.slice(0, 3);
   const totalUnits = inventory.reduce((acc, item) => acc + (item.stockLevel || 0), 0);
   const distributedMTD = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
 
@@ -448,7 +450,7 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant">
-                  {lowStockItems.slice(0, 3).map((item, index) => (
+                  {displayedItems.map((item, index) => (
                     <tr key={item.id || `low-stock-${item.sku}-${index}`} className="hover:bg-surface-container transition-colors">
                       <td className="px-4 sm:px-6 py-4 font-mono text-[10px] sm:text-xs font-bold">{item.sku}</td>
                       <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm font-medium">{item.title}</td>
@@ -471,13 +473,13 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
                 </tbody>
               </table>
             </div>
-            {lowStockItems.length > 0 && (
+            {lowStockItems.length > 3 && (
               <div className="px-6 py-3 bg-surface-container text-center">
                 <button 
-                  onClick={onViewAllAlerts}
+                  onClick={() => setIsExpanded(!isExpanded)}
                   className="text-xs font-bold text-primary hover:underline uppercase tracking-widest"
                 >
-                  View All Alerts
+                  {isExpanded ? 'Show Less' : `View All Alerts (${lowStockItems.length})`}
                 </button>
               </div>
             )}
@@ -551,21 +553,14 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
   );
 };
 
-const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, globalSearch, isAdmin, initialStatus = 'All' }: { inventory: any[], onAdd: () => void, onEdit: (item: any) => void, onShowHistory: (item: any) => void, onBulkImport: () => void, globalSearch: string, isAdmin: boolean, initialStatus?: string }) => {
-  const [showFilters, setShowFilters] = useState(initialStatus !== 'All');
+const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, globalSearch, isAdmin }: { inventory: any[], onAdd: () => void, onEdit: (item: any) => void, onShowHistory: (item: any) => void, onBulkImport: () => void, globalSearch: string, isAdmin: boolean }) => {
+  const [showFilters, setShowFilters] = useState(false);
   const [localSearch, setLocalSearch] = useState('');
   const [filters, setFilters] = useState({
     category: 'All',
     language: 'All',
-    status: initialStatus
+    status: 'All'
   });
-
-  useEffect(() => {
-    if (initialStatus !== 'All') {
-      setFilters(f => ({ ...f, status: initialStatus }));
-      setShowFilters(true);
-    }
-  }, [initialStatus]);
 
   const categories = ['All', ...new Set(inventory.map(item => item.category).filter(Boolean))];
   const languages = ['All', ...new Set(inventory.map(item => item.language).filter(Boolean))];
@@ -1942,7 +1937,6 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any>(null);
-  const [inventoryInitialStatus, setInventoryInitialStatus] = useState<string>('All');
 
   const isAdmin = currentUserProfile?.role === 'admin';
 
@@ -1969,11 +1963,6 @@ export default function App() {
   const handleShowHistory = (item: any) => {
     setSelectedHistoryItem(item);
     setIsHistoryOpen(true);
-  };
-
-  const handleViewAllAlerts = () => {
-    setInventoryInitialStatus('Alerts');
-    setActiveTab('inventory');
   };
 
   const handleScanSuccess = (decodedText: string) => {
@@ -2010,10 +1999,7 @@ export default function App() {
     <div className="min-h-screen bg-background">
       <Sidebar 
         activeTab={activeTab} 
-        setActiveTab={(tab) => {
-          setInventoryInitialStatus('All');
-          setActiveTab(tab);
-        }} 
+        setActiveTab={setActiveTab} 
         onDistribute={() => setIsDistributionOpen(true)} 
         isAdmin={isAdmin} 
         isOpen={isSidebarOpen} 
@@ -2040,7 +2026,6 @@ export default function App() {
                   setActiveTab={setActiveTab} 
                   isAdmin={isAdmin} 
                   settings={settings} 
-                  onViewAllAlerts={handleViewAllAlerts}
                 />
               )}
             {activeTab === 'inventory' && (
@@ -2055,7 +2040,6 @@ export default function App() {
                 }}
                 globalSearch={globalSearch} 
                 isAdmin={isAdmin}
-                initialStatus={inventoryInitialStatus}
               />
             )}
               {activeTab === 'reports' && <ReportsView inventory={inventory} events={events} auditLogs={auditLogs} settings={settings} />}
