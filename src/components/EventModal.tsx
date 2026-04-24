@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, Calendar as CalendarIcon, Package } from 'lucide-react';
+import { X, Save, Trash2, Calendar as CalendarIcon, Package, Edit2, Check, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { addEvent, updateEvent, deleteEvent, subscribeToEventMaterials } from '../services/firestoreService';
+import { addEvent, updateEvent, deleteEvent, subscribeToEventMaterials, updateEventMaterialQuantity, removeEventMaterial } from '../services/firestoreService';
 import { Timestamp } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 
@@ -16,6 +16,8 @@ interface EventModalProps {
 const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false }: EventModalProps) => {
   const [activeTab, setActiveTab] = useState<'details' | 'materials'>('details');
   const [materials, setMaterials] = useState<any[]>([]);
+  const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
+  const [editQuantity, setEditQuantity] = useState<number>(0);
   const [formData, setFormData] = useState({
     name: '',
     date: '',
@@ -54,8 +56,34 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false }: Event
       });
       setMaterials([]);
       setActiveTab('details');
+      setEditingMaterialId(null);
     }
   }, [event, isOpen]);
+
+  const handleUpdateMaterial = async (materialId: string) => {
+    if (!event?.id) return;
+    setLoading(true);
+    try {
+      await updateEventMaterialQuantity(event.id, materialId, editQuantity);
+      setEditingMaterialId(null);
+    } catch (error) {
+      console.error("Failed to update material quantity", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveMaterial = async (materialId: string) => {
+    if (!event?.id || !confirm("Remove this item from distribution? This will return stock to inventory.")) return;
+    setLoading(true);
+    try {
+      await removeEventMaterial(event.id, materialId);
+    } catch (error) {
+      console.error("Failed to remove material", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -302,7 +330,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false }: Event
                     </div>
                   ) : (
                     materials.map((m) => (
-                      <div key={m.id} className="p-3 sm:p-4 bg-surface-container rounded-sharp border border-outline-variant flex flex-col sm:flex-row justify-between sm:items-center gap-3 group hover:border-primary transition-colors bg-surface">
+                      <div key={m.id} className="p-3 sm:p-4 bg-surface rounded-sharp border border-outline-variant flex flex-col sm:flex-row justify-between sm:items-center gap-3 group hover:border-primary transition-colors">
                         <div className="flex items-center gap-3 sm:gap-4">
                           <div className="w-8 h-8 sm:w-10 sm:h-10 bg-surface-container shrink-0 rounded-sharp flex items-center justify-center border border-outline-variant">
                             <Package className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
@@ -312,11 +340,58 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false }: Event
                             <p className="font-mono text-[9px] sm:text-[10px] text-on-surface-variant uppercase tracking-wider">{m.sku}</p>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between sm:justify-end gap-6 sm:gap-8">
-                          <div className="text-left sm:text-right">
-                            <p className="font-mono font-bold text-base sm:text-lg text-primary">{m.quantity}</p>
-                            <p className="text-[8px] sm:text-[9px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Distributed</p>
-                          </div>
+                        <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">
+                          {editingMaterialId === m.id ? (
+                            <div className="flex items-center gap-2">
+                              <input 
+                                type="number"
+                                value={editQuantity}
+                                onChange={e => setEditQuantity(parseInt(e.target.value) || 0)}
+                                className="w-16 sm:w-20 bg-surface-container-low border-0 border-b border-primary px-2 py-1 font-mono text-sm focus:ring-0"
+                                autoFocus
+                              />
+                              <button 
+                                onClick={() => handleUpdateMaterial(m.id)}
+                                disabled={loading}
+                                className="p-1.5 bg-primary text-white rounded-sharp hover:bg-primary-container transition-colors disabled:opacity-50"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={() => setEditingMaterialId(null)}
+                                className="p-1.5 text-on-surface-variant hover:bg-surface-container rounded-sharp transition-colors"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-left sm:text-right">
+                              <p className="font-mono font-bold text-base sm:text-lg text-primary">{m.quantity}</p>
+                              <p className="text-[8px] sm:text-[9px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Distributed</p>
+                            </div>
+                          )}
+
+                          {isAdmin && !editingMaterialId && (
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                onClick={() => {
+                                  setEditingMaterialId(m.id);
+                                  setEditQuantity(m.quantity);
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-primary hover:bg-surface-container rounded-sharp transition-all"
+                                title="Edit Quantity"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button 
+                                onClick={() => handleRemoveMaterial(m.id)}
+                                className="p-1.5 text-slate-400 hover:text-tertiary hover:bg-surface-container rounded-sharp transition-all"
+                                title="Remove Item"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))

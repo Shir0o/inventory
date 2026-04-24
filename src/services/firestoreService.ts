@@ -424,6 +424,166 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
   }
 }
 
+export async function updateEventMaterialQuantity(eventId: string, materialId: string, newQuantity: number) {
+  const path = `events/${eventId}/materials/${materialId}`;
+  try {
+    await runTransaction(db, async (transaction) => {
+      const eventRef = doc(db, 'events', eventId);
+      const materialRef = doc(db, `events/${eventId}/materials`, materialId);
+      
+      const eventDoc = await transaction.get(eventRef);
+      const materialDoc = await transaction.get(materialRef);
+      
+      if (!eventDoc.exists() || !materialDoc.exists()) {
+        throw new Error("Event or Material does not exist!");
+      }
+
+      const materialData = materialDoc.data();
+      const oldQuantity = materialData.quantity || 0;
+      const quantityDiff = newQuantity - oldQuantity;
+
+      if (quantityDiff === 0) return;
+
+      const itemId = materialData.itemId;
+      if (itemId) {
+        const itemRef = doc(db, 'inventory', itemId);
+        const itemDoc = await transaction.get(itemRef);
+        
+        if (itemDoc.exists()) {
+          const inventoryData = itemDoc.data();
+          const currentStock = inventoryData.stockLevel || 0;
+          
+          if (currentStock < quantityDiff) {
+            throw new Error(`Insufficient stock for adjustment. Available: ${currentStock}, Needed: ${quantityDiff}`);
+          }
+          
+          transaction.update(itemRef, {
+            stockLevel: currentStock - quantityDiff,
+            updatedAt: serverTimestamp()
+          });
+
+          // Update stats
+          const eventData = eventDoc.data();
+          const currentStats = eventData.categoryStats || {};
+          const cat = (inventoryData.category || '').toLowerCase();
+          const lang = (inventoryData.language || '').toLowerCase();
+
+          const statsUpdate: any = {
+            materialsDistributed: (eventData.materialsDistributed || 0) + quantityDiff,
+            'categoryStats.total': (currentStats.total || 0) + quantityDiff
+          };
+
+          if (cat.includes('bible')) {
+            statsUpdate['categoryStats.bibles'] = (currentStats.bibles || 0) + quantityDiff;
+            if (lang.includes('english')) statsUpdate['categoryStats.bibles_en'] = (currentStats.bibles_en || 0) + quantityDiff;
+            else if (lang.includes('spanish')) statsUpdate['categoryStats.bibles_es'] = (currentStats.bibles_es || 0) + quantityDiff;
+          } else if (cat.includes('tract')) {
+            statsUpdate['categoryStats.tracts'] = (currentStats.tracts || 0) + quantityDiff;
+            if (lang.includes('english')) statsUpdate['categoryStats.tracts_en'] = (currentStats.tracts_en || 0) + quantityDiff;
+            else if (lang.includes('spanish')) statsUpdate['categoryStats.tracts_es'] = (currentStats.tracts_es || 0) + quantityDiff;
+          } else if (cat.includes('booklet')) {
+            statsUpdate['categoryStats.booklets'] = (currentStats.booklets || 0) + quantityDiff;
+            if (lang.includes('english')) statsUpdate['categoryStats.booklets_en'] = (currentStats.booklets_en || 0) + quantityDiff;
+            else if (lang.includes('spanish')) statsUpdate['categoryStats.booklets_es'] = (currentStats.booklets_es || 0) + quantityDiff;
+          }
+
+          transaction.update(eventRef, statsUpdate);
+        }
+      } else {
+        // Unlinked item - just update event total
+        const eventData = eventDoc.data();
+        transaction.update(eventRef, {
+          materialsDistributed: (eventData.materialsDistributed || 0) + quantityDiff,
+          'categoryStats.total': (eventData.categoryStats?.total || 0) + quantityDiff
+        });
+      }
+
+      transaction.update(materialRef, { quantity: newQuantity });
+    });
+    
+    await createAuditLog('EVENT_UPDATED', eventId, 'event', `Adjusted quantity of material in event ${eventId}`);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function removeEventMaterial(eventId: string, materialId: string) {
+  const path = `events/${eventId}/materials/${materialId}`;
+  try {
+    await runTransaction(db, async (transaction) => {
+      const eventRef = doc(db, 'events', eventId);
+      const materialRef = doc(db, `events/${eventId}/materials`, materialId);
+      
+      const eventDoc = await transaction.get(eventRef);
+      const materialDoc = await transaction.get(materialRef);
+      
+      if (!eventDoc.exists() || !materialDoc.exists()) {
+        throw new Error("Event or Material does not exist!");
+      }
+
+      const materialData = materialDoc.data();
+      const quantityToRemove = materialData.quantity || 0;
+
+      const itemId = materialData.itemId;
+      if (itemId) {
+        const itemRef = doc(db, 'inventory', itemId);
+        const itemDoc = await transaction.get(itemRef);
+        
+        if (itemDoc.exists()) {
+          const inventoryData = itemDoc.data();
+          const currentStock = inventoryData.stockLevel || 0;
+          
+          // Return items to inventory
+          transaction.update(itemRef, {
+            stockLevel: currentStock + quantityToRemove,
+            updatedAt: serverTimestamp()
+          });
+
+          // Update stats
+          const eventData = eventDoc.data();
+          const currentStats = eventData.categoryStats || {};
+          const cat = (inventoryData.category || '').toLowerCase();
+          const lang = (inventoryData.language || '').toLowerCase();
+
+          const statsUpdate: any = {
+            materialsDistributed: (eventData.materialsDistributed || 0) - quantityToRemove,
+            'categoryStats.total': (currentStats.total || 0) - quantityToRemove
+          };
+
+          if (cat.includes('bible')) {
+            statsUpdate['categoryStats.bibles'] = (currentStats.bibles || 0) - quantityToRemove;
+            if (lang.includes('english')) statsUpdate['categoryStats.bibles_en'] = (currentStats.bibles_en || 0) - quantityToRemove;
+            else if (lang.includes('spanish')) statsUpdate['categoryStats.bibles_es'] = (currentStats.bibles_es || 0) - quantityToRemove;
+          } else if (cat.includes('tract')) {
+            statsUpdate['categoryStats.tracts'] = (currentStats.tracts || 0) - quantityToRemove;
+            if (lang.includes('english')) statsUpdate['categoryStats.tracts_en'] = (currentStats.tracts_en || 0) - quantityToRemove;
+            else if (lang.includes('spanish')) statsUpdate['categoryStats.tracts_es'] = (currentStats.tracts_es || 0) - quantityToRemove;
+          } else if (cat.includes('booklet')) {
+            statsUpdate['categoryStats.booklets'] = (currentStats.booklets || 0) - quantityToRemove;
+            if (lang.includes('english')) statsUpdate['categoryStats.booklets_en'] = (currentStats.booklets_en || 0) - quantityToRemove;
+            else if (lang.includes('spanish')) statsUpdate['categoryStats.booklets_es'] = (currentStats.booklets_es || 0) - quantityToRemove;
+          }
+
+          transaction.update(eventRef, statsUpdate);
+        }
+      } else {
+        // Unlinked item - just update event total
+        const eventData = eventDoc.data();
+        transaction.update(eventRef, {
+          materialsDistributed: (eventData.materialsDistributed || 0) - quantityToRemove,
+          'categoryStats.total': (eventData.categoryStats?.total || 0) - quantityToRemove
+        });
+      }
+
+      transaction.delete(materialRef);
+    });
+    
+    await createAuditLog('EVENT_UPDATED', eventId, 'event', `Removed material from event ${eventId}`);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
 export function subscribeToEvents(callback: (events: any[]) => void) {
   const path = 'events';
   const q = query(collection(db, path), orderBy('date', 'desc'));
