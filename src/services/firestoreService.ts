@@ -11,6 +11,7 @@ import {
   FirestoreError,
   runTransaction,
   limit,
+  getDoc,
   where,
   getDocs,
   serverTimestamp
@@ -87,17 +88,22 @@ export type AuditAction =
 export async function createAuditLog(action: AuditAction, targetId: string, targetType: string, details: string, metadata?: any) {
   const path = 'audit_logs';
   try {
-    return await addDoc(collection(db, path), {
+    const logData: any = {
       action,
       targetId,
       targetType,
       details,
-      metadata,
       userId: auth.currentUser?.uid,
       userName: auth.currentUser?.displayName || 'Unknown User',
       userEmail: auth.currentUser?.email,
       timestamp: serverTimestamp()
-    });
+    };
+
+    if (metadata !== undefined) {
+      logData.metadata = metadata;
+    }
+
+    return await addDoc(collection(db, path), logData);
   } catch (error) {
     console.error("Failed to create audit log", error);
     // We don't throw here to avoid blocking the main operation if logging fails
@@ -439,10 +445,9 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
     // After transaction, check thresholds and notify
     if (thresholds) {
       for (const item of items) {
-        const { getDoc } = await import('firebase/firestore');
         const itemDoc = await getDoc(doc(db, 'inventory', item.itemId));
         if (itemDoc.exists()) {
-          const stock = itemDoc.data().stockLevel;
+          const stock = itemDoc.data()?.stockLevel;
           if (stock <= thresholds.critical) {
             await createNotification('CRITICAL_STOCK', 'Critical Stock Level', `${item.title} is at critical level (${stock} units).`, { itemId: item.itemId, sku: item.sku });
           } else if (stock <= thresholds.warning) {

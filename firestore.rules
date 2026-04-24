@@ -116,7 +116,10 @@ service cloud.firestore {
 
       match /materials/{materialId} {
         allow read: if isMember();
-        allow write: if isAdmin() && isValidId(materialId) && isServerTimestamp(incoming().assignedAt);
+        allow create: if (isAdmin() || isMember()) && isValidId(materialId) && isServerTimestamp(incoming().assignedAt);
+        allow update: if (isAdmin() || isMember()) && 
+                      incoming().diff(existing()).affectedKeys().hasOnly(['quantity']);
+        allow delete: if isAdmin() || isMember();
       }
     }
 
