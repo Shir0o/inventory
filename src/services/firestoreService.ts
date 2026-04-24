@@ -883,12 +883,12 @@ export async function seedData() {
   const settingsPath = 'settings/system';
 
   const items = [
-    { sku: 'B-EN-001', title: 'NKJV Holy Bible', subtitle: 'Pew Edition - Hardcover', category: 'Bibles', language: 'English', stockLevel: 450, unitPrice: 12.50, status: 'Healthy', updatedAt: serverTimestamp() },
-    { sku: 'B-ES-001', title: 'Santa Biblia RV1960', subtitle: 'Edición de Estudio', category: 'Bibles', language: 'Spanish', stockLevel: 320, unitPrice: 15.50, status: 'Healthy', updatedAt: serverTimestamp() },
-    { sku: 'T-EN-001', title: 'Steps to Christ', subtitle: 'Pocket Tract', category: 'Tracts', language: 'English', stockLevel: 2500, unitPrice: 0.15, status: 'Healthy', updatedAt: serverTimestamp() },
-    { sku: 'T-ES-001', title: 'El Camino a Cristo', subtitle: 'Tratado de Bolsillo', category: 'Tracts', language: 'Spanish', stockLevel: 1800, unitPrice: 0.15, status: 'Healthy', updatedAt: serverTimestamp() },
-    { sku: 'BK-EN-001', title: 'Understanding Prophecy', subtitle: 'Introductory Booklet', category: 'Booklets', language: 'English', stockLevel: 120, unitPrice: 2.50, status: 'Low', updatedAt: serverTimestamp() },
-    { sku: 'BK-ES-001', title: 'Entendiendo la Profecía', subtitle: 'Folleto Introductorio', category: 'Booklets', language: 'Spanish', stockLevel: 85, unitPrice: 2.50, status: 'Low', updatedAt: serverTimestamp() },
+    { sku: 'B-EN-001', title: 'NKJV Holy Bible', subtitle: 'Pew Edition - Hardcover', category: 'Bibles', language: 'English', stockLevel: 450, status: 'Healthy', updatedAt: serverTimestamp() },
+    { sku: 'B-ES-001', title: 'Santa Biblia RV1960', subtitle: 'Edición de Estudio', category: 'Bibles', language: 'Spanish', stockLevel: 320, status: 'Healthy', updatedAt: serverTimestamp() },
+    { sku: 'T-EN-001', title: 'Steps to Christ', subtitle: 'Pocket Tract', category: 'Tracts', language: 'English', stockLevel: 2500, status: 'Healthy', updatedAt: serverTimestamp() },
+    { sku: 'T-ES-001', title: 'El Camino a Cristo', subtitle: 'Tratado de Bolsillo', category: 'Tracts', language: 'Spanish', stockLevel: 1800, status: 'Healthy', updatedAt: serverTimestamp() },
+    { sku: 'BK-EN-001', title: 'Understanding Prophecy', subtitle: 'Introductory Booklet', category: 'Booklets', language: 'English', stockLevel: 120, status: 'Low', updatedAt: serverTimestamp() },
+    { sku: 'BK-ES-001', title: 'Entendiendo la Profecía', subtitle: 'Folleto Introductorio', category: 'Booklets', language: 'Spanish', stockLevel: 85, status: 'Low', updatedAt: serverTimestamp() },
   ];
 
   const events = [

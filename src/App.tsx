@@ -731,7 +731,6 @@ const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, 
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Title</th>
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Category</th>
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Language</th>
-                <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest text-right">Unit Price</th>
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest text-right">Stock Level</th>
                 <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Status</th>
                 <th className="px-6 py-4"></th>
@@ -747,7 +746,6 @@ const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, 
                   </td>
                   <td className="px-6 py-4 text-[12px] text-on-surface">{row.category}</td>
                   <td className="px-6 py-4 text-[12px] text-on-surface">{row.language}</td>
-                  <td className="px-6 py-4 font-mono text-[13px] text-right">${row.unitPrice?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}</td>
                   <td className="px-6 py-4 font-mono text-[13px] text-right">{row.stockLevel?.toLocaleString()}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">

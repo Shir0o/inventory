@@ -38,7 +38,6 @@ export const generateMonthlyReport = (
 
   const totalItems = inventory.length;
   const totalStock = inventory.reduce((acc, item) => acc + (item.stockLevel || 0), 0);
-  const totalValue = inventory.reduce((acc, item) => acc + ((item.stockLevel || 0) * (item.unitPrice || 0)), 0);
   const totalDistributions = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
   const lowStockItems = inventory.filter(item => item.status === 'Low' || item.status === 'Out').length;
 
@@ -46,9 +45,8 @@ export const generateMonthlyReport = (
   doc.setFont('helvetica', 'normal');
   doc.text(`Total Unique Items: ${totalItems}`, 20, 65);
   doc.text(`Total Units in Stock: ${totalStock.toLocaleString()}`, 20, 72);
-  doc.text(`Total Inventory Value: $${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 20, 79);
-  doc.text(`Total Materials Distributed (Lifetime): ${totalDistributions.toLocaleString()}`, 20, 86);
-  doc.text(`Critical/Low Stock Items: ${lowStockItems}`, 20, 93);
+  doc.text(`Total Materials Distributed (Lifetime): ${totalDistributions.toLocaleString()}`, 20, 79);
+  doc.text(`Critical/Low Stock Items: ${lowStockItems}`, 20, 86);
 
   // --- Distributions Table ---
   doc.setFontSize(14);

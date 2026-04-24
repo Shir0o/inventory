@@ -19,7 +19,6 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
     subtitle: '',
     category: 'Bibles',
     language: 'English',
-    unitPrice: 0,
     stockLevel: 0,
     status: 'Healthy'
   });
@@ -34,7 +33,6 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
         subtitle: item.subtitle || '',
         category: item.category || 'Bibles',
         language: item.language || 'English',
-        unitPrice: item.unitPrice || 0,
         stockLevel: item.stockLevel || 0,
         status: item.status || 'Healthy'
       });
@@ -46,7 +44,6 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
         subtitle: '',
         category: 'Bibles',
         language: 'English',
-        unitPrice: 0,
         stockLevel: 0,
         status: 'Healthy'
       });
@@ -212,17 +209,6 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
                     <option>English</option>
                     <option>Spanish</option>
                   </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Unit Price ($)</label>
-                  <input 
-                    required
-                    type="number" 
-                    step="0.01"
-                    value={formData.unitPrice}
-                    onChange={e => setFormData({...formData, unitPrice: parseFloat(e.target.value) || 0})}
-                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-mono text-sm focus:ring-0 focus:border-primary transition-all"
-                  />
                 </div>
                 <div className="space-y-2">
                   <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Stock Level</label>
