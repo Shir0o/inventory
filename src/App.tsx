@@ -288,7 +288,7 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: { searchQu
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute right-0 mt-2 w-[calc(100vw-32px)] sm:w-80 bg-background ledger-card shadow-2xl z-50 overflow-hidden"
+                  className="fixed inset-x-4 top-[70px] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 bg-background ledger-card shadow-2xl z-50 overflow-hidden"
                 >
                   <div className="px-4 py-3 border-b border-outline-variant bg-surface-container flex justify-between items-center">
                     <span className="font-headline font-bold text-[11px] uppercase tracking-widest text-primary">Notifications</span>
