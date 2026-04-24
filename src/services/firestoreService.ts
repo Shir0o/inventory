@@ -960,8 +960,8 @@ export async function seedData() {
   ];
 
   const events = [
-    { name: 'Regional Outreach - North Sector', date: Timestamp.fromDate(new Date('2024-10-12')), location: 'Grand Plaza Convention Center', materialsDistributed: 1250, status: 'Scheduled', createdAt: serverTimestamp() },
-    { name: 'Weekly Bible Study Series', date: Timestamp.fromDate(new Date('2024-10-14')), location: 'Community Center West', materialsDistributed: 420, status: 'Stock Alert', createdAt: serverTimestamp() },
+    { name: 'Regional Outreach - North Sector', date: Timestamp.fromDate(new Date('2024-10-12')), location: 'Grand Plaza Convention Center', region: 'North', materialsDistributed: 1250, status: 'Scheduled', createdAt: serverTimestamp() },
+    { name: 'Weekly Bible Study Series', date: Timestamp.fromDate(new Date('2024-10-14')), location: 'Community Center West', region: 'Central', materialsDistributed: 420, status: 'Stock Alert', createdAt: serverTimestamp() },
   ];
 
   for (const item of items) {

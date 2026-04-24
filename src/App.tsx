@@ -70,6 +70,7 @@ import AIInsightsView from './components/AIInsightsView';
 import StockHistoryModal from './components/StockHistoryModal';
 import { generateMonthlyReport } from './lib/pdfGenerator';
 import { exportToCSV } from './lib/csvExport';
+import { Timestamp } from 'firebase/firestore';
 
 // --- Utils ---
 const formatDate = (date: any, timezone: string = 'UTC') => {
@@ -1502,6 +1503,25 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
 
 const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: { events: any[], onAdd: () => void, onEdit: (event: any) => void, onBulkImport: () => void, settings: any, isAdmin: boolean }) => {
   const totalDistributed = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
+  
+  const nextEvent = events
+    .filter(e => {
+      const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+      return d >= new Date();
+    })
+    .sort((a, b) => {
+      const da = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+      const db = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+      return da.getTime() - db.getTime();
+    })[0];
+
+  const regionalDistributions = events.reduce((acc: any, event) => {
+    const region = event.region || 'Central';
+    acc[region] = (acc[region] || 0) + (event.materialsDistributed || 0);
+    return acc;
+  }, {});
+
+  const regions = ['North', 'South', 'East', 'West', 'Central'];
 
   return (
     <div className="space-y-8">
@@ -1552,36 +1572,85 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: 
           </div>
         </div>
 
-        <div className="col-span-12 md:col-span-4 ledger-card p-6 h-40 flex flex-col justify-between">
+        <div className="col-span-12 md:col-span-8 ledger-card p-6 h-auto min-h-40 flex flex-col sm:flex-row justify-between gap-6 sm:gap-8">
           <div className="indicator-primary" />
-          <div>
-            <span className="font-headline text-[11px] uppercase tracking-[1px] text-on-surface-variant font-bold">Items Distributed (LIFETIME)</span>
-            <div className="flex items-baseline gap-2 mt-2">
-              <span className="font-mono text-[40px] text-primary font-bold leading-none">{totalDistributed.toLocaleString()}</span>
+          <div className="flex flex-col justify-between">
+            <div>
+              <span className="font-headline text-[11px] uppercase tracking-[1px] text-on-surface-variant font-bold">Items Distributed (LIFETIME)</span>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="font-mono text-[40px] text-primary font-bold leading-none">{totalDistributed.toLocaleString()}</span>
+              </div>
+              <p className="mt-2 text-[12px] text-slate-500 font-medium">Distribution tracking across all regions</p>
             </div>
-            <p className="mt-2 text-[12px] text-slate-500 font-medium">Distribution tracking across all regions</p>
+          </div>
+          
+          <div className="flex-1 flex flex-col justify-end">
+            <div className="space-y-2">
+              <span className="font-headline text-[10px] uppercase tracking-[2px] text-on-surface-variant font-bold mb-2 block">Regional Coverage</span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 pr-4">
+                {regions.map(region => (
+                  <div key={region} className="group">
+                    <div className="text-[14px] font-mono font-bold text-primary">{(regionalDistributions[region] || 0).toLocaleString()}</div>
+                    <div className="text-[9px] font-headline font-bold text-slate-400 uppercase tracking-tighter group-hover:text-secondary transition-colors">{region}</div>
+                    <div className="mt-1.5 h-[3px] bg-slate-100 relative rounded-full overflow-hidden">
+                      <div 
+                        className="absolute inset-y-0 left-0 bg-secondary transition-all duration-1000" 
+                        style={{ width: `${totalDistributed > 0 ? ((regionalDistributions[region] || 0) / totalDistributed * 100) : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="col-span-12 md:col-span-4 bg-primary text-white p-6 rounded-sharp relative overflow-hidden">
-          <div className="relative z-10">
-            <span className="font-headline text-[11px] uppercase tracking-[1px] text-secondary font-bold">Next Regional Sync</span>
-            <h3 className="font-headline font-bold text-[18px] mt-2">Western Conference Hall</h3>
-            <p className="font-mono text-[13px] mt-1 text-slate-300">OCT 14, 2024 • 09:00 AM</p>
-            <div className="mt-4 flex -space-x-2">
-              {[1, 2, 3].map(i => (
-                <img 
-                  key={i}
-                  src={`https://picsum.photos/seed/user${i}/100/100`} 
-                  alt="User" 
-                  className="w-8 h-8 rounded-full border-2 border-primary"
-                  referrerPolicy="no-referrer"
-                />
-              ))}
-              <div className="w-8 h-8 rounded-full border-2 border-primary bg-primary-container flex items-center justify-center text-[10px] font-bold">+4</div>
-            </div>
+        <div className="col-span-12 md:col-span-4 bg-primary text-white p-6 rounded-sharp relative overflow-hidden group">
+          <div className="relative z-10 h-full flex flex-col justify-between">
+            {nextEvent ? (
+              <div onClick={() => onEdit(nextEvent)} className="cursor-pointer">
+                <span className="font-headline text-[11px] uppercase tracking-[1px] text-secondary font-bold">Next Scheduled Event</span>
+                <h3 className="font-headline font-bold text-[18px] mt-2 line-clamp-1">{nextEvent.name}</h3>
+                <p className="font-mono text-[13px] mt-1 text-slate-300">
+                  {formatDateTime(nextEvent.date, settings?.timezone)}
+                </p>
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="flex -space-x-2">
+                    {[1, 2].map(i => (
+                      <img 
+                        key={i}
+                        src={`https://picsum.photos/seed/event-${nextEvent.id}-${i}/100/100`} 
+                        alt="User" 
+                        className="w-7 h-7 rounded-full border-2 border-primary"
+                        referrerPolicy="no-referrer"
+                      />
+                    ))}
+                    <div className="w-7 h-7 rounded-full border-2 border-primary bg-primary-container flex items-center justify-center text-[8px] font-bold">+2</div>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-secondary uppercase tracking-widest">
+                    {nextEvent.region} <ArrowRight className="w-3 h-3" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col h-full justify-between py-2">
+                <div>
+                  <span className="font-headline text-[11px] uppercase tracking-[1px] text-slate-400 font-bold">Next Regional Sync</span>
+                  <p className="font-headline font-bold text-[15px] mt-2 text-slate-300">NO UPCOMING EVENTS SCHEDULED</p>
+                </div>
+                {isAdmin && (
+                  <button 
+                    onClick={onAdd}
+                    className="w-full bg-secondary text-primary font-headline font-bold text-[11px] py-2 rounded-sharp flex items-center justify-center gap-2 hover:bg-white transition-colors uppercase tracking-widest mt-4"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Next Event
+                  </button>
+                )}
+              </div>
+            )}
           </div>
-          <RefreshCw className="absolute right-[-20px] bottom-[-20px] w-32 h-32 text-white opacity-10" />
+          <RefreshCw className="absolute right-[-20px] bottom-[-20px] w-32 h-32 text-white opacity-5 group-hover:rotate-45 transition-transform duration-700" />
         </div>
       </div>
 
@@ -1604,6 +1673,7 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: 
                 <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Event Name</th>
                 <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Date</th>
                 <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Location</th>
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Region</th>
                 <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold text-right">Materials</th>
                 <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold text-center">Status</th>
               </tr>
@@ -1632,6 +1702,18 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: 
                     {formatDate(row.date, settings?.timezone)}
                   </td>
                   <td className="px-6 py-4 text-[13px] text-on-surface">{row.location}</td>
+                  <td className="px-6 py-4">
+                    <span className={cn(
+                      "px-2 py-0.5 rounded-sharp text-[10px] font-bold uppercase tracking-tighter border",
+                      row.region === 'North' ? "bg-blue-50 text-blue-600 border-blue-200" :
+                      row.region === 'South' ? "bg-orange-50 text-orange-600 border-orange-200" :
+                      row.region === 'East' ? "bg-green-50 text-green-600 border-green-200" :
+                      row.region === 'West' ? "bg-purple-50 text-purple-600 border-purple-200" :
+                      "bg-slate-50 text-slate-600 border-slate-200"
+                    )}>
+                      {row.region || 'Central'}
+                    </span>
+                  </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex flex-col items-end">
                       <span className="font-mono font-bold text-primary text-[13px]">{row.materialsDistributed?.toLocaleString()} items</span>

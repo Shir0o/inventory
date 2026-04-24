@@ -25,6 +25,7 @@
         "name": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
         "location": { "type": "string" },
+        "region": { "type": "string", "enum": ["North", "South", "East", "West", "Central"] },
         "materialsDistributed": { "type": "number", "description": "Total count of materials distributed" },
         "status": { "type": "string", "enum": ["Scheduled", "Stock Alert", "Drafting", "Completed"] },
         "categoryStats": {

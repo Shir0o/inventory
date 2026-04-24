@@ -26,6 +26,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
     name: '',
     date: '',
     location: '',
+    region: 'Central',
     materialsDistributed: 0,
     status: 'Scheduled'
   });
@@ -43,6 +44,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
         name: event.name || '',
         date: dateStr,
         location: event.location || '',
+        region: event.region || 'Central',
         materialsDistributed: event.materialsDistributed || 0,
         status: event.status || 'Scheduled'
       });
@@ -58,6 +60,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
         name: '',
         date: new Date().toLocaleDateString('en-CA'), // Formats as YYYY-MM-DD
         location: '',
+        region: 'Central',
         materialsDistributed: 0,
         status: 'Scheduled'
       });
@@ -333,16 +336,31 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                     </div>
                   )}
 
-                  <div className="space-y-2">
-                    <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Location / Venue</label>
-                    <input 
-                      required
-                      type="text" 
-                      value={formData.location}
-                      onChange={e => setFormData({...formData, location: e.target.value})}
-                      className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-sans text-sm focus:ring-0 focus:border-primary transition-all"
-                      placeholder="e.g. Central Park Pavilion"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                    <div className="space-y-2">
+                      <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Location / Venue</label>
+                      <input 
+                        required
+                        type="text" 
+                        value={formData.location}
+                        onChange={e => setFormData({...formData, location: e.target.value})}
+                        className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-sans text-sm focus:ring-0 focus:border-primary transition-all"
+                        placeholder="e.g. Central Park Pavilion"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Region</label>
+                      <select 
+                        required
+                        value={formData.region}
+                        onChange={e => setFormData({...formData, region: e.target.value})}
+                        className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-headline font-bold text-[11px] uppercase tracking-wider focus:ring-0 focus:border-primary transition-all appearance-none"
+                      >
+                        {['North', 'South', 'East', 'West', 'Central'].map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
