@@ -966,6 +966,136 @@ const UsersView = ({ users }: { users: any[] }) => {
   );
 };
 
+const LogMetadata = ({ log }: { log: any }) => {
+  if (!log.metadata) return null;
+
+  const renderValue = (val: any) => {
+    if (val === null || val === undefined) return 'N/A';
+    if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
+    if (val instanceof Timestamp) return formatDate(val);
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+  };
+
+  const renderChanges = (changes: any) => {
+    return Object.entries(changes).map(([key, val]: [string, any]) => (
+      <div key={key} className="flex items-center gap-2 text-[10px]">
+        <span className="font-bold text-on-surface-variant uppercase w-20 truncate">{key}:</span>
+        <span className="font-mono bg-surface-container px-1 py-0.5 rounded">{renderValue(val)}</span>
+      </div>
+    ));
+  };
+
+  switch (log.action) {
+    case 'STOCK_UPDATE':
+      if (log.metadata.item) {
+        const delta = (log.metadata.newStock ?? log.metadata.item.stockLevel) - (log.metadata.previousStock ?? 0);
+        return (
+          <div className="mt-2 p-3 bg-surface-container-low rounded-sharp border border-outline-variant">
+            <p className="text-[10px] font-bold text-primary uppercase mb-2 tracking-widest">Inventory Adjustment</p>
+            <div className="flex items-center gap-6">
+              <div className="flex flex-col">
+                <span className="text-[9px] text-on-surface-variant uppercase font-bold">Previous</span>
+                <span className="font-mono text-[14px]">{log.metadata.previousStock ?? 'N/A'}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[9px] text-on-surface-variant uppercase font-bold">Change</span>
+                <span className={cn(
+                  "font-mono text-[14px] font-bold",
+                  delta > 0 ? "text-secondary" : delta < 0 ? "text-tertiary" : "text-slate-400"
+                )}>
+                  {delta > 0 ? `+${delta}` : delta}
+                </span>
+              </div>
+              <div className="flex flex-col items-end ml-auto">
+                <span className="text-[9px] text-on-surface-variant uppercase font-bold">New Balance</span>
+                <span className="font-mono text-[14px] font-bold text-primary">{log.metadata.newStock ?? log.metadata.item.stockLevel}</span>
+              </div>
+            </div>
+          </div>
+        );
+      }
+      break;
+
+    case 'DISTRIBUTION':
+      if (log.metadata.items && Array.isArray(log.metadata.items)) {
+        return (
+          <div className="mt-2 p-3 bg-surface-container-low rounded-sharp border border-outline-variant space-y-3">
+            <div className="flex justify-between items-center border-b border-outline-variant pb-2">
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Distributed Resources</p>
+              <span className="font-mono text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">{log.metadata.items.length} items</span>
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              {log.metadata.items.map((item: any, idx: number) => (
+                <div key={idx} className="flex justify-between items-center text-[11px] font-mono hover:bg-black/5 p-1 rounded transition-colors group">
+                  <div className="flex flex-col">
+                    <span className="font-bold text-on-surface truncate max-w-[150px]">{item.title}</span>
+                    <span className="text-[9px] text-slate-400">{item.sku}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <ArrowRight className="w-3 h-3 text-tertiary opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <span className="text-tertiary font-bold">-{item.quantity}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
+      break;
+
+    case 'ROLE_UPDATE':
+      return (
+        <div className="mt-2 p-3 bg-surface-container-low rounded-sharp border border-outline-variant">
+          <p className="text-[10px] font-bold text-primary uppercase mb-2 tracking-widest">Permission Change</p>
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col">
+              <span className="text-[9px] text-on-surface-variant uppercase font-bold">From</span>
+              <span className="font-mono text-[12px] bg-slate-100 px-2 py-0.5 rounded uppercase">{log.metadata?.previousRole || 'Guest'}</span>
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-300" />
+            <div className="flex flex-col">
+              <span className="text-[9px] text-on-surface-variant uppercase font-bold">To</span>
+              <span className="font-mono text-[12px] bg-secondary/10 text-secondary border border-secondary/20 px-2 py-0.5 rounded uppercase font-bold">{log.metadata?.newRole || 'User'}</span>
+            </div>
+          </div>
+        </div>
+      );
+
+    case 'EMAIL_AUTHORIZED':
+    case 'EMAIL_DEAUTHORIZED':
+      return (
+        <div className="mt-2 p-3 bg-surface-container-low rounded-sharp border border-outline-variant">
+           <div className="flex items-center gap-2 text-[11px]">
+            <span className="text-on-surface-variant uppercase font-bold text-[9px]">Target Account:</span>
+            <span className="font-mono text-primary font-bold">{log.targetId}</span>
+          </div>
+        </div>
+      );
+
+    case 'EVENT_CREATED':
+    case 'EVENT_UPDATED':
+      if (log.metadata.materialCount) {
+        return (
+          <div className="mt-2 p-2 bg-surface-container-low rounded-sharp border border-outline-variant">
+            <p className="text-[10px] text-primary font-bold uppercase">Includes {log.metadata.materialCount} resources</p>
+          </div>
+        );
+      }
+      break;
+  }
+
+  // Fallback for unknown metadata formats
+  return (
+    <div className="mt-2 hidden group-hover:block">
+      <div className="text-[9px] font-mono bg-surface-container-low p-2 rounded-sharp border border-outline-variant overflow-x-auto max-w-xs">
+        <p className="text-[8px] uppercase tracking-widest text-slate-400 mb-1">Extended Metadata</p>
+        <pre>{JSON.stringify(log.metadata, null, 2)}</pre>
+      </div>
+    </div>
+  );
+};
+
 const LogsView = ({ logs, settings }: { logs: any[], settings: any }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
@@ -1087,13 +1217,7 @@ const LogsView = ({ logs, settings }: { logs: any[], settings: any }) => {
                       <p className="text-[13px] text-on-surface leading-relaxed max-w-md">
                         {log.details}
                       </p>
-                      {log.metadata && (
-                        <div className="mt-2 hidden group-hover:block">
-                          <pre className="text-[9px] font-mono bg-surface-container-low p-2 rounded-sharp border border-outline-variant overflow-x-auto max-w-xs">
-                            {JSON.stringify(log.metadata, null, 2)}
-                          </pre>
-                        </div>
-                      )}
+                      <LogMetadata log={log} />
                     </td>
                   </tr>
                 ))

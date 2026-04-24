@@ -236,8 +236,11 @@ export async function updateInventoryItem(id: string, item: any, thresholds?: { 
     if (item.stockLevel <= criticalLimit) status = 'Out';
     else if (item.stockLevel <= warningLimit) status = 'Low';
 
-    const docRef = doc(db, 'inventory', id);
-    await updateDoc(docRef, {
+    const itemRef = doc(db, 'inventory', id);
+    const itemSnap = await getDoc(itemRef);
+    const currentStock = itemSnap.exists() ? itemSnap.data().stockLevel : 0;
+
+    await updateDoc(itemRef, {
       ...item,
       status,
       updatedAt: serverTimestamp()
@@ -250,7 +253,11 @@ export async function updateInventoryItem(id: string, item: any, thresholds?: { 
       await createNotification('LOW_STOCK', 'Low Stock Warning', `${item.title} is running low (${item.stockLevel} units).`, { itemId: id, sku: item.sku });
     }
 
-    await createAuditLog('STOCK_UPDATE', id, 'inventory', `Updated item: ${item.title}`, { item });
+    await createAuditLog('STOCK_UPDATE', id, 'inventory', `Updated item: ${item.title}`, { 
+      item,
+      previousStock: currentStock,
+      newStock: item.stockLevel
+    });
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -682,8 +689,15 @@ export function subscribeToUserProfile(userId: string, callback: (profile: any) 
 export async function updateUserRole(userId: string, role: 'admin' | 'user' | 'guest') {
   const path = `users/${userId}`;
   try {
-    await updateDoc(doc(db, 'users', userId), { role });
-    await createAuditLog('ROLE_UPDATE', userId, 'user', `Updated user role to ${role}`);
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    const previousRole = userDoc.exists() ? userDoc.data().role : 'unknown';
+
+    await updateDoc(userRef, { role });
+    await createAuditLog('ROLE_UPDATE', userId, 'user', `Updated user role to ${role}`, {
+      previousRole,
+      newRole: role
+    });
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
