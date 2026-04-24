@@ -70,7 +70,10 @@
         "taxId": { "type": "string" },
         "address": { "type": "string" },
         "timezone": { "type": "string" },
-        "updateFrequency": { "type": "string" }
+        "updateFrequency": { "type": "string" },
+        "warningThreshold": { "type": "number" },
+        "criticalThreshold": { "type": "number" },
+        "categories": { "type": "array", "items": { "type": "string" } }
       }
     },
     "User": {

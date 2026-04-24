@@ -12,6 +12,7 @@ import {
   runTransaction,
   limit,
   getDoc,
+  setDoc,
   where,
   getDocs,
   serverTimestamp
@@ -684,7 +685,7 @@ export function subscribeToSettings(callback: (settings: any) => void) {
 export async function updateSettings(settings: any) {
   const path = 'settings/system';
   try {
-    await updateDoc(doc(db, path), settings);
+    await setDoc(doc(db, 'settings', 'system'), settings, { merge: true });
     await createAuditLog('SETTINGS_UPDATE', 'system', 'settings', 'Updated system settings');
     return;
   } catch (error) {

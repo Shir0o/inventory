@@ -754,7 +754,9 @@ const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, 
                         row.status === 'Healthy' ? "bg-secondary" : 
                         row.status === 'Low' ? "bg-amber-400" : "bg-tertiary"
                       )} />
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface">{row.status}</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface">
+                        {row.status === 'Out' ? 'Out of Stock' : row.status}
+                      </span>
                     </div>
                   </td>
                    <td className="px-6 py-4 text-right">
@@ -1779,6 +1781,8 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: 
 const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }) => {
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
+    orgName: '',
+    taxId: '',
     timezone: 'UTC',
     updateFrequency: '',
     warningThreshold: 250,
@@ -1801,6 +1805,8 @@ const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }
   useEffect(() => {
     if (settings) {
       setFormData({
+        orgName: settings.orgName || '',
+        taxId: settings.taxId || '',
         timezone: settings.timezone || 'UTC',
         updateFrequency: settings.updateFrequency || 'Real-time (Atomic)',
         warningThreshold: settings.warningThreshold || 250,
@@ -1846,8 +1852,38 @@ const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }
         </div>
       </div>
 
-    <div className="grid grid-cols-12 gap-8">
-      <section className="col-span-12 lg:col-span-4 ledger-card p-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <section className="col-span-1 md:col-span-2 lg:col-span-1 ledger-card p-8 flex flex-col">
+        <div className="indicator-primary" />
+        <div className="flex items-center gap-3 mb-8">
+          <Building2 className="w-5 h-5 text-primary" />
+          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px]">Organization</h2>
+        </div>
+        <div className="space-y-6 flex-1">
+          <div className="space-y-2">
+            <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Org Name</label>
+            <input 
+              type="text" 
+              disabled={!isAdmin}
+              value={formData.orgName || ''}
+              onChange={e => setFormData({...formData, orgName: e.target.value})}
+              className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all disabled:opacity-70"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Tax ID / Registration</label>
+            <input 
+              type="text" 
+              disabled={!isAdmin}
+              value={formData.taxId || ''}
+              onChange={e => setFormData({...formData, taxId: e.target.value})}
+              className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all disabled:opacity-70"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="col-span-1 md:col-span-1 lg:col-span-1 ledger-card p-8">
         <div className="indicator-tertiary" />
         <div className="flex items-center gap-3 mb-8">
           <Database className="w-5 h-5 text-primary" />
@@ -1875,7 +1911,7 @@ const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }
               <div className="mt-4 flex gap-2">
                 <input 
                   type="text" 
-                  placeholder="New classification..."
+                  placeholder="New type..."
                   className="flex-1 border-0 border-b-2 border-surface-container bg-surface-container-low px-3 py-2 font-headline font-medium text-[12px] focus:ring-0 focus:border-primary transition-all"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -1906,16 +1942,16 @@ const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }
         </div>
       </section>
 
-      <section className="col-span-12 lg:col-span-4 ledger-card p-8">
+      <section className="col-span-1 md:col-span-1 lg:col-span-1 ledger-card p-8">
         <div className="indicator-secondary" />
         <div className="flex items-center gap-3 mb-8">
           <RefreshCw className="w-5 h-5 text-secondary" />
-          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px]">Regional Sync</h2>
+          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px]">System Sync</h2>
         </div>
           <div className="space-y-6">
             <div className="flex items-center justify-between p-4 bg-surface-container border border-outline-variant rounded-sharp">
               <div>
-                <div className="font-headline font-bold text-[12px] text-primary">Timezone Alignment</div>
+                <div className="font-headline font-bold text-[12px] text-primary">Timezone</div>
                 <select 
                   disabled={!isAdmin}
                   value={formData.timezone}
@@ -1927,7 +1963,7 @@ const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }
                   ))}
                 </select>
               </div>
-              <div className="h-2 w-2 bg-secondary rounded-full animate-pulse" />
+              <Clock3 className="w-5 h-5 text-secondary opacity-50" />
             </div>
             <div className="space-y-4">
               <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Update Frequency</label>
@@ -1940,20 +1976,19 @@ const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }
                 <option>Real-time (Atomic)</option>
                 <option>Every 15 Minutes</option>
                 <option>Hourly Batch</option>
-                <option>Daily Reconciliation</option>
+                <option>Daily Records</option>
               </select>
             </div>
           <div className="pt-4 border-t border-outline-variant">
             <div className="flex justify-between items-center mb-2">
-              <span className="font-headline font-bold text-[11px] uppercase tracking-widest text-on-surface-variant">Last Sync Status</span>
-              <span className="font-mono text-[11px] text-secondary font-bold">SUCCESSFUL</span>
+              <span className="font-headline font-bold text-[11px] uppercase tracking-widest text-on-surface-variant">Database Link</span>
+              <span className="font-mono text-[11px] text-secondary font-bold">STABLE</span>
             </div>
-            <div className="font-mono text-[10px] text-slate-400">UUID: 8829-XJ-0012-PZ</div>
           </div>
         </div>
       </section>
 
-      <section className="col-span-12 ledger-card p-8">
+      <section className="col-span-1 md:col-span-2 lg:col-span-3 ledger-card p-8">
         <div className="indicator-tertiary" />
         <div className="flex items-center justify-between mb-10">
           <div className="flex items-center gap-3">
@@ -1966,7 +2001,7 @@ const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }
             <div className="space-y-8">
               <div className="space-y-4">
                 <div className="flex justify-between items-end">
-                  <label className="font-headline font-bold text-[12px] text-primary uppercase">Warning Level (Amber)</label>
+                  <label className="font-headline font-bold text-[12px] text-primary uppercase">Low Stock Threshold (Amber)</label>
                   <div className="flex items-center gap-2">
                     <input 
                       type="number"
@@ -1979,15 +2014,15 @@ const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }
                 </div>
                 <div className="relative py-4">
                   <div className="h-1 w-full bg-surface-container rounded-full" />
-                  <div className="absolute top-1/2 -translate-y-1/2 left-0 h-1 bg-primary" style={{ width: `${Math.min(100, (formData.warningThreshold / 500) * 100)}%` }} />
+                  <div className="absolute top-1/2 -translate-y-1/2 left-0 h-1 bg-primary" style={{ width: `${Math.min(100, (formData.warningThreshold / 1000) * 100)}%` }} />
                 </div>
-                <p className="text-[11px] text-on-surface-variant leading-relaxed">Triggers a yellow visual indicator on dashboard widgets and sends a non-urgent notification to logistics leads.</p>
+                <p className="text-[11px] text-on-surface-variant leading-relaxed">Status becomes "Low" when stock falls below this number. Healthy stock is anything above this.</p>
               </div>
             </div>
             <div className="space-y-8">
               <div className="space-y-4">
                 <div className="flex justify-between items-end">
-                  <label className="font-headline font-bold text-[12px] text-tertiary uppercase">Critical Threshold (Red)</label>
+                  <label className="font-headline font-bold text-[12px] text-tertiary uppercase">Out-of-Stock Threshold (Red)</label>
                   <div className="flex items-center gap-2">
                     <input 
                       type="number"
@@ -2000,9 +2035,9 @@ const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }
                 </div>
                 <div className="relative py-4">
                   <div className="h-1 w-full bg-surface-container rounded-full" />
-                  <div className="absolute top-1/2 -translate-y-1/2 left-0 h-1 bg-tertiary" style={{ width: `${Math.min(100, (formData.criticalThreshold / 500) * 100)}%` }} />
+                  <div className="absolute top-1/2 -translate-y-1/2 left-0 h-1 bg-tertiary" style={{ width: `${Math.min(100, (formData.criticalThreshold / 1000) * 100)}%` }} />
                 </div>
-                <p className="text-[11px] text-on-surface-variant leading-relaxed">Forces immediate replenishment orders. Prevents distribution of items if stock falls below this floor without supervisor override.</p>
+                <p className="text-[11px] text-on-surface-variant leading-relaxed">Status becomes "Out" when stock falls below this floor. Set to 0 for literal out-of-stock.</p>
               </div>
             </div>
         </div>
