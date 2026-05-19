@@ -387,7 +387,7 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="ledger-card p-6 h-40 flex flex-col justify-between">
           <div className="indicator-primary" />
           <div className="flex justify-between items-start">
@@ -686,8 +686,8 @@ const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, 
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-12 md:col-span-3 ledger-card p-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="ledger-card p-5">
           <div className="indicator-secondary" />
           <p className="text-[11px] font-headline font-bold text-on-surface-variant uppercase tracking-wider">Filtered Units</p>
           <p className="text-3xl font-mono font-bold text-primary mt-1">{totalUnits.toLocaleString()}</p>
@@ -696,7 +696,7 @@ const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, 
             <span>MATCHED TOTAL</span>
           </div>
         </div>
-        <div className="col-span-12 md:col-span-3 ledger-card p-5">
+        <div className="ledger-card p-5">
           <div className="indicator-tertiary" />
           <p className="text-[11px] font-headline font-bold text-on-surface-variant uppercase tracking-wider">Low Stock (Filtered)</p>
           <p className="text-3xl font-mono font-bold text-primary mt-1">{lowStockCount}</p>
@@ -705,7 +705,7 @@ const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, 
             <span>Requires Attention</span>
           </div>
         </div>
-        <div className="col-span-12 md:col-span-6 bg-primary p-5 rounded-sharp relative overflow-hidden">
+        <div className="col-span-1 sm:col-span-2 lg:col-span-2 bg-primary p-5 rounded-sharp relative overflow-hidden">
           <div className="relative z-10">
             <p className="text-[11px] font-headline font-bold text-slate-400 uppercase tracking-wider">Active Distributions</p>
             <p className="text-3xl font-mono font-bold text-white mt-1">942 <span className="text-sm font-normal text-slate-400">vols</span></p>
@@ -1297,16 +1297,16 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
 
           if (category.includes('bible')) {
             monthlyMap[monthLabel].bibles += qty;
-            if (language.includes('spanish')) monthlyMap[monthLabel].bibles_es += qty;
-            else if (language.includes('english')) monthlyMap[monthLabel].bibles_en += qty;
+            if (language.includes('spanish') || language === 'es') monthlyMap[monthLabel].bibles_es += qty;
+            else if (language.includes('english') || language === 'en') monthlyMap[monthLabel].bibles_en += qty;
           } else if (category.includes('tract')) {
             monthlyMap[monthLabel].tracts += qty;
-            if (language.includes('spanish')) monthlyMap[monthLabel].tracts_es += qty;
-            else if (language.includes('english')) monthlyMap[monthLabel].tracts_en += qty;
+            if (language.includes('spanish') || language === 'es') monthlyMap[monthLabel].tracts_es += qty;
+            else if (language.includes('english') || language === 'en') monthlyMap[monthLabel].tracts_en += qty;
           } else if (category.includes('booklet')) {
             monthlyMap[monthLabel].booklets += qty;
-            if (language.includes('spanish')) monthlyMap[monthLabel].booklets_es += qty;
-            else if (language.includes('english')) monthlyMap[monthLabel].booklets_en += qty;
+            if (language.includes('spanish') || language === 'es') monthlyMap[monthLabel].booklets_es += qty;
+            else if (language.includes('english') || language === 'en') monthlyMap[monthLabel].booklets_en += qty;
           } else {
             // Default fallback
             monthlyMap[monthLabel].tracts += qty;
@@ -1367,7 +1367,7 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           { label: 'Total Distributions', val: totalDistributions.toLocaleString(), trend: 'LIFETIME VOLUME', color: 'indicator-secondary', trendColor: 'text-secondary', icon: TrendingUp },
           { label: 'Active Events', val: events.length.toString().padStart(2, '0'), trend: 'Stabilized distribution flow', color: 'indicator-tertiary', trendColor: 'text-on-surface-variant', icon: null },
@@ -1517,14 +1517,6 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: 
       return da.getTime() - db.getTime();
     })[0];
 
-  const regionalDistributions = events.reduce((acc: any, event) => {
-    const region = event.region || 'Central';
-    acc[region] = (acc[region] || 0) + (event.materialsDistributed || 0);
-    return acc;
-  }, {});
-
-  const regions = ['North', 'South', 'East', 'West', 'Central'];
-
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
@@ -1559,8 +1551,8 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: 
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 md:col-span-4 ledger-card p-6 h-40 flex flex-col justify-between">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="ledger-card p-6 h-auto min-h-40 flex flex-col justify-between">
           <div className="indicator-secondary" />
           <div>
             <span className="font-headline text-[11px] uppercase tracking-[1px] text-on-surface-variant font-bold">Total Active Events</span>
@@ -1574,40 +1566,7 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: 
           </div>
         </div>
 
-        <div className="col-span-12 md:col-span-8 ledger-card p-6 h-auto min-h-40 flex flex-col sm:flex-row justify-between gap-6 sm:gap-8">
-          <div className="indicator-primary" />
-          <div className="flex flex-col justify-between">
-            <div>
-              <span className="font-headline text-[11px] uppercase tracking-[1px] text-on-surface-variant font-bold">Items Distributed (LIFETIME)</span>
-              <div className="flex items-baseline gap-2 mt-2">
-                <span className="font-mono text-[40px] text-primary font-bold leading-none">{totalDistributed.toLocaleString()}</span>
-              </div>
-              <p className="mt-2 text-[12px] text-slate-500 font-medium">Distribution tracking across all regions</p>
-            </div>
-          </div>
-          
-          <div className="flex-1 flex flex-col justify-end">
-            <div className="space-y-2">
-              <span className="font-headline text-[10px] uppercase tracking-[2px] text-on-surface-variant font-bold mb-2 block">Regional Coverage</span>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 pr-4">
-                {regions.map(region => (
-                  <div key={region} className="group">
-                    <div className="text-[14px] font-mono font-bold text-primary">{(regionalDistributions[region] || 0).toLocaleString()}</div>
-                    <div className="text-[9px] font-headline font-bold text-slate-400 uppercase tracking-tighter group-hover:text-secondary transition-colors">{region}</div>
-                    <div className="mt-1.5 h-[3px] bg-slate-100 relative rounded-full overflow-hidden">
-                      <div 
-                        className="absolute inset-y-0 left-0 bg-secondary transition-all duration-1000" 
-                        style={{ width: `${totalDistributed > 0 ? ((regionalDistributions[region] || 0) / totalDistributed * 100) : 0}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-span-12 md:col-span-4 bg-primary text-white p-6 rounded-sharp relative overflow-hidden group">
+        <div className="bg-primary text-white p-6 rounded-sharp relative overflow-hidden group h-auto">
           <div className="relative z-10 h-full flex flex-col justify-between">
             {nextEvent ? (
               <div onClick={() => onEdit(nextEvent)} className="cursor-pointer">
@@ -1628,9 +1587,6 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: 
                       />
                     ))}
                     <div className="w-7 h-7 rounded-full border-2 border-primary bg-primary-container flex items-center justify-center text-[8px] font-bold">+2</div>
-                  </div>
-                  <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-secondary uppercase tracking-widest">
-                    {nextEvent.region} <ArrowRight className="w-3 h-3" />
                   </div>
                 </div>
               </div>
@@ -1654,6 +1610,19 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: 
           </div>
           <RefreshCw className="absolute right-[-20px] bottom-[-20px] w-32 h-32 text-white opacity-5 group-hover:rotate-45 transition-transform duration-700" />
         </div>
+
+        <div className="ledger-card p-6 h-auto min-h-40 flex flex-col md:col-span-2 lg:col-span-3">
+          <div className="indicator-primary" />
+          <div className="flex flex-col justify-between h-full">
+            <div>
+              <span className="font-headline text-[11px] uppercase tracking-[1px] text-on-surface-variant font-bold">Items Distributed (LIFETIME)</span>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="font-mono text-[40px] text-primary font-bold leading-none">{totalDistributed.toLocaleString()}</span>
+              </div>
+              <p className="mt-2 text-[12px] text-slate-500 font-medium">System distribution tracking</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="ledger-card">
@@ -1675,7 +1644,6 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: 
                 <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Event Name</th>
                 <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Date</th>
                 <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Location</th>
-                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Region</th>
                 <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold text-right">Materials</th>
                 <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold text-center">Status</th>
               </tr>
@@ -1704,48 +1672,36 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: 
                     {formatDate(row.date, settings?.timezone)}
                   </td>
                   <td className="px-6 py-4 text-[13px] text-on-surface">{row.location}</td>
-                  <td className="px-6 py-4">
-                    <span className={cn(
-                      "px-2 py-0.5 rounded-sharp text-[10px] font-bold uppercase tracking-tighter border",
-                      row.region === 'North' ? "bg-blue-50 text-blue-600 border-blue-200" :
-                      row.region === 'South' ? "bg-orange-50 text-orange-600 border-orange-200" :
-                      row.region === 'East' ? "bg-green-50 text-green-600 border-green-200" :
-                      row.region === 'West' ? "bg-purple-50 text-purple-600 border-purple-200" :
-                      "bg-slate-50 text-slate-600 border-slate-200"
-                    )}>
-                      {row.region || 'Central'}
-                    </span>
-                  </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex flex-col items-end">
                       <span className="font-mono font-bold text-primary text-[13px]">{row.materialsDistributed?.toLocaleString()} items</span>
                       {row.categoryStats && (
                         <div className="flex flex-wrap justify-end gap-x-2 gap-y-1 mt-1 max-w-[150px]">
                           {row.categoryStats.bibles_en > 0 && (
-                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-secondary/10 px-1 rounded-sharp">B-EN: {row.categoryStats.bibles_en}</span>
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-secondary/10 px-1 rounded-sharp">B-English: {row.categoryStats.bibles_en}</span>
                           )}
                           {row.categoryStats.bibles_es > 0 && (
-                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-secondary/10 px-1 rounded-sharp">B-ES: {row.categoryStats.bibles_es}</span>
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-secondary/10 px-1 rounded-sharp">B-Spanish: {row.categoryStats.bibles_es}</span>
                           )}
                           {(row.categoryStats.bibles > 0 && !(row.categoryStats.bibles_en > 0 || row.categoryStats.bibles_es > 0)) && (
                             <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-secondary/10 px-1 rounded-sharp">B: {row.categoryStats.bibles}</span>
                           )}
                           
                           {row.categoryStats.tracts_en > 0 && (
-                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-primary/10 px-1 rounded-sharp">T-EN: {row.categoryStats.tracts_en}</span>
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-primary/10 px-1 rounded-sharp">T-English: {row.categoryStats.tracts_en}</span>
                           )}
                           {row.categoryStats.tracts_es > 0 && (
-                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-primary/10 px-1 rounded-sharp">T-ES: {row.categoryStats.tracts_es}</span>
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-primary/10 px-1 rounded-sharp">T-Spanish: {row.categoryStats.tracts_es}</span>
                           )}
                           {(row.categoryStats.tracts > 0 && !(row.categoryStats.tracts_en > 0 || row.categoryStats.tracts_es > 0)) && (
                             <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-primary/10 px-1 rounded-sharp">T: {row.categoryStats.tracts}</span>
                           )}
 
                           {row.categoryStats.booklets_en > 0 && (
-                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-tertiary/10 px-1 rounded-sharp">BK-EN: {row.categoryStats.booklets_en}</span>
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-tertiary/10 px-1 rounded-sharp">BK-English: {row.categoryStats.booklets_en}</span>
                           )}
                           {row.categoryStats.booklets_es > 0 && (
-                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-tertiary/10 px-1 rounded-sharp">BK-ES: {row.categoryStats.booklets_es}</span>
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-tertiary/10 px-1 rounded-sharp">BK-Spanish: {row.categoryStats.booklets_es}</span>
                           )}
                           {(row.categoryStats.booklets > 0 && !(row.categoryStats.booklets_en > 0 || row.categoryStats.booklets_es > 0)) && (
                             <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-tertiary/10 px-1 rounded-sharp">BK: {row.categoryStats.booklets}</span>
@@ -2241,8 +2197,8 @@ export default function App() {
       />
       <Topbar searchQuery={globalSearch} setSearchQuery={setGlobalSearch} onScan={() => setIsScannerOpen(true)} onMenuClick={() => setIsSidebarOpen(true)} />
       
-      <main className="lg:ml-64 pt-20 lg:pt-24 pb-12 px-4 lg:px-12">
-        <div className="max-w-7xl mx-auto">
+      <main className="lg:ml-64 pt-20 lg:pt-24 pb-12 px-4 sm:px-6 lg:px-8 xl:px-12 w-full transition-all duration-300">
+        <div className="max-w-7xl mx-auto w-full">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}

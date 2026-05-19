@@ -396,16 +396,16 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
         
         if (cat.includes('bible')) {
           statsDelta.bibles += item.quantity;
-          if (lang.includes('english')) statsDelta.bibles_en += item.quantity;
-          else if (lang.includes('spanish')) statsDelta.bibles_es += item.quantity;
+          if (lang.includes('english') || lang === 'en') statsDelta.bibles_en += item.quantity;
+          else if (lang.includes('spanish') || lang === 'es') statsDelta.bibles_es += item.quantity;
         } else if (cat.includes('tract')) {
           statsDelta.tracts += item.quantity;
-          if (lang.includes('english')) statsDelta.tracts_en += item.quantity;
-          else if (lang.includes('spanish')) statsDelta.tracts_es += item.quantity;
+          if (lang.includes('english') || lang === 'en') statsDelta.tracts_en += item.quantity;
+          else if (lang.includes('spanish') || lang === 'es') statsDelta.tracts_es += item.quantity;
         } else if (cat.includes('booklet')) {
           statsDelta.booklets += item.quantity;
-          if (lang.includes('english')) statsDelta.booklets_en += item.quantity;
-          else if (lang.includes('spanish')) statsDelta.booklets_es += item.quantity;
+          if (lang.includes('english') || lang === 'en') statsDelta.booklets_en += item.quantity;
+          else if (lang.includes('spanish') || lang === 'es') statsDelta.booklets_es += item.quantity;
         }
 
         // Add to event materials
@@ -528,16 +528,16 @@ export async function updateEventMaterialQuantity(eventId: string, materialId: s
 
           if (cat.includes('bible')) {
             statsUpdate['categoryStats.bibles'] = (currentStats.bibles || 0) + quantityDiff;
-            if (lang.includes('english')) statsUpdate['categoryStats.bibles_en'] = (currentStats.bibles_en || 0) + quantityDiff;
-            else if (lang.includes('spanish')) statsUpdate['categoryStats.bibles_es'] = (currentStats.bibles_es || 0) + quantityDiff;
+            if (lang.includes('english') || lang === 'en') statsUpdate['categoryStats.bibles_en'] = (currentStats.bibles_en || 0) + quantityDiff;
+            else if (lang.includes('spanish') || lang === 'es') statsUpdate['categoryStats.bibles_es'] = (currentStats.bibles_es || 0) + quantityDiff;
           } else if (cat.includes('tract')) {
             statsUpdate['categoryStats.tracts'] = (currentStats.tracts || 0) + quantityDiff;
-            if (lang.includes('english')) statsUpdate['categoryStats.tracts_en'] = (currentStats.tracts_en || 0) + quantityDiff;
-            else if (lang.includes('spanish')) statsUpdate['categoryStats.tracts_es'] = (currentStats.tracts_es || 0) + quantityDiff;
+            if (lang.includes('english') || lang === 'en') statsUpdate['categoryStats.tracts_en'] = (currentStats.tracts_en || 0) + quantityDiff;
+            else if (lang.includes('spanish') || lang === 'es') statsUpdate['categoryStats.tracts_es'] = (currentStats.tracts_es || 0) + quantityDiff;
           } else if (cat.includes('booklet')) {
             statsUpdate['categoryStats.booklets'] = (currentStats.booklets || 0) + quantityDiff;
-            if (lang.includes('english')) statsUpdate['categoryStats.booklets_en'] = (currentStats.booklets_en || 0) + quantityDiff;
-            else if (lang.includes('spanish')) statsUpdate['categoryStats.booklets_es'] = (currentStats.booklets_es || 0) + quantityDiff;
+            if (lang.includes('english') || lang === 'en') statsUpdate['categoryStats.booklets_en'] = (currentStats.booklets_en || 0) + quantityDiff;
+            else if (lang.includes('spanish') || lang === 'es') statsUpdate['categoryStats.booklets_es'] = (currentStats.booklets_es || 0) + quantityDiff;
           }
 
           transaction.update(eventRef, statsUpdate);
@@ -615,16 +615,16 @@ export async function removeEventMaterial(eventId: string, materialId: string, t
 
           if (cat.includes('bible')) {
             statsUpdate['categoryStats.bibles'] = (currentStats.bibles || 0) - quantityToRemove;
-            if (lang.includes('english')) statsUpdate['categoryStats.bibles_en'] = (currentStats.bibles_en || 0) - quantityToRemove;
-            else if (lang.includes('spanish')) statsUpdate['categoryStats.bibles_es'] = (currentStats.bibles_es || 0) - quantityToRemove;
+            if (lang.includes('english') || lang === 'en') statsUpdate['categoryStats.bibles_en'] = (currentStats.bibles_en || 0) - quantityToRemove;
+            else if (lang.includes('spanish') || lang === 'es') statsUpdate['categoryStats.bibles_es'] = (currentStats.bibles_es || 0) - quantityToRemove;
           } else if (cat.includes('tract')) {
             statsUpdate['categoryStats.tracts'] = (currentStats.tracts || 0) - quantityToRemove;
-            if (lang.includes('english')) statsUpdate['categoryStats.tracts_en'] = (currentStats.tracts_en || 0) - quantityToRemove;
-            else if (lang.includes('spanish')) statsUpdate['categoryStats.tracts_es'] = (currentStats.tracts_es || 0) - quantityToRemove;
+            if (lang.includes('english') || lang === 'en') statsUpdate['categoryStats.tracts_en'] = (currentStats.tracts_en || 0) - quantityToRemove;
+            else if (lang.includes('spanish') || lang === 'es') statsUpdate['categoryStats.tracts_es'] = (currentStats.tracts_es || 0) - quantityToRemove;
           } else if (cat.includes('booklet')) {
             statsUpdate['categoryStats.booklets'] = (currentStats.booklets || 0) - quantityToRemove;
-            if (lang.includes('english')) statsUpdate['categoryStats.booklets_en'] = (currentStats.booklets_en || 0) - quantityToRemove;
-            else if (lang.includes('spanish')) statsUpdate['categoryStats.booklets_es'] = (currentStats.booklets_es || 0) - quantityToRemove;
+            if (lang.includes('english') || lang === 'en') statsUpdate['categoryStats.booklets_en'] = (currentStats.booklets_en || 0) - quantityToRemove;
+            else if (lang.includes('spanish') || lang === 'es') statsUpdate['categoryStats.booklets_es'] = (currentStats.booklets_es || 0) - quantityToRemove;
           }
 
           transaction.update(eventRef, statsUpdate);
@@ -877,16 +877,16 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
           
           if (cat.includes('bible')) {
             stats.bibles += material.quantity;
-            if (lang.includes('english')) stats.bibles_en += material.quantity;
-            else if (lang.includes('spanish')) stats.bibles_es += material.quantity;
+            if (lang.includes('english') || lang === 'en') stats.bibles_en += material.quantity;
+            else if (lang.includes('spanish') || lang === 'es') stats.bibles_es += material.quantity;
           } else if (cat.includes('tract')) {
             stats.tracts += material.quantity;
-            if (lang.includes('english')) stats.tracts_en += material.quantity;
-            else if (lang.includes('spanish')) stats.tracts_es += material.quantity;
+            if (lang.includes('english') || lang === 'en') stats.tracts_en += material.quantity;
+            else if (lang.includes('spanish') || lang === 'es') stats.tracts_es += material.quantity;
           } else if (cat.includes('booklet')) {
             stats.booklets += material.quantity;
-            if (lang.includes('english')) stats.booklets_en += material.quantity;
-            else if (lang.includes('spanish')) stats.booklets_es += material.quantity;
+            if (lang.includes('english') || lang === 'en') stats.booklets_en += material.quantity;
+            else if (lang.includes('spanish') || lang === 'es') stats.booklets_es += material.quantity;
           }
         }
 
@@ -962,8 +962,8 @@ export async function seedData() {
   ];
 
   const events = [
-    { name: 'Regional Outreach - North Sector', date: Timestamp.fromDate(new Date('2024-10-12')), location: 'Grand Plaza Convention Center', region: 'North', materialsDistributed: 1250, status: 'Scheduled', createdAt: serverTimestamp() },
-    { name: 'Weekly Bible Study Series', date: Timestamp.fromDate(new Date('2024-10-14')), location: 'Community Center West', region: 'Central', materialsDistributed: 420, status: 'Stock Alert', createdAt: serverTimestamp() },
+    { name: 'Regional Outreach - North Sector', date: Timestamp.fromDate(new Date('2024-10-12')), location: 'Grand Plaza Convention Center', materialsDistributed: 1250, status: 'Scheduled', createdAt: serverTimestamp() },
+    { name: 'Weekly Bible Study Series', date: Timestamp.fromDate(new Date('2024-10-14')), location: 'Community Center West', materialsDistributed: 420, status: 'Stock Alert', createdAt: serverTimestamp() },
   ];
 
   for (const item of items) {
