@@ -2197,7 +2197,7 @@ export default function App() {
       />
       <Topbar searchQuery={globalSearch} setSearchQuery={setGlobalSearch} onScan={() => setIsScannerOpen(true)} onMenuClick={() => setIsSidebarOpen(true)} />
       
-      <main className="lg:ml-64 pt-20 lg:pt-24 pb-12 px-4 sm:px-6 lg:px-8 xl:px-12 w-full transition-all duration-300">
+      <main className="lg:ml-64 pt-20 lg:pt-24 pb-12 px-4 sm:px-6 lg:px-8 xl:px-12 w-auto transition-all duration-300">
         <div className="max-w-7xl mx-auto w-full">
           <AnimatePresence mode="wait">
             <motion.div
