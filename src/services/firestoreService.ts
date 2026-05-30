@@ -346,6 +346,18 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
         throw new Error("Event does not exist!");
       }
 
+      // 1. ALL READS FIRST
+      const itemDocs = [];
+      for (const item of items) {
+        const itemRef = doc(db, 'inventory', item.itemId);
+        const itemDoc = await transaction.get(itemRef);
+        if (!itemDoc.exists()) {
+          throw new Error(`Item ${item.title} does not exist!`);
+        }
+        itemDocs.push({ item, doc: itemDoc });
+      }
+
+      // 2. NOW ALL THE WRITES
       let totalNewMaterials = 0;
       const statsDelta = {
         bibles: 0,
@@ -359,14 +371,8 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
         booklets_es: 0
       };
 
-      for (const item of items) {
+      for (const { item, doc: itemDoc } of itemDocs) {
         const itemRef = doc(db, 'inventory', item.itemId);
-        const itemDoc = await transaction.get(itemRef);
-        
-        if (!itemDoc.exists()) {
-          throw new Error(`Item ${item.title} does not exist!`);
-        }
-
         const data = itemDoc.data();
         const currentStock = data.stockLevel || 0;
         if (currentStock < item.quantity) {
@@ -855,7 +861,18 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
         total: totalQuantity
       };
 
-      // 3. Process each material and calculate stats
+      // READ ALL INVENTORY LEVELS FIRST BEFORE ANY WRITES
+      const itemLockDocs = new Map();
+      for (const material of materials) {
+        const itemInfo = inventoryMap.get(material.sku);
+        if (itemInfo) {
+          const itemRef = doc(db, 'inventory', itemInfo.id);
+          const itemDocForLock = await transaction.get(itemRef);
+          itemLockDocs.set(itemInfo.id, itemDocForLock);
+        }
+      }
+
+      // 3. Process each material and calculate stats and generate WRITES
       for (const material of materials) {
         const itemInfo = inventoryMap.get(material.sku);
         const sku = material.sku.toUpperCase();
@@ -892,8 +909,8 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
 
         if (itemInfo) {
           const itemRef = doc(db, 'inventory', itemInfo.id);
-          const itemDocForLock = await transaction.get(itemRef);
-          const currentStock = itemDocForLock.data()?.stockLevel || 0;
+          const itemDocForLock = itemLockDocs.get(itemInfo.id);
+          const currentStock = itemDocForLock?.data()?.stockLevel || 0;
           
           transaction.update(itemRef, {
             stockLevel: Math.max(0, currentStock - material.quantity),
