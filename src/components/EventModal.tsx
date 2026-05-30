@@ -33,10 +33,17 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
   const [loading, setLoading] = useState(false);
   const [selectedAdjustItem, setSelectedAdjustItem] = useState<any | null>(null);
   const [adjustStockValue, setAdjustStockValue] = useState<number>(10);
+  
+  const [showEventDeleteConfirm, setShowEventDeleteConfirm] = useState(false);
+  const [removingMaterialId, setRemovingMaterialId] = useState<string | null>(null);
+  const [modalFeedback, setModalFeedback] = useState<{ type: 'error' | 'success', message: string } | null>(null);
 
   useEffect(() => {
     setSelectedAdjustItem(null);
     setAdjustStockValue(10);
+    setShowEventDeleteConfirm(false);
+    setRemovingMaterialId(null);
+    setModalFeedback(null);
     if (event) {
       let dateStr = '';
       if (event.date) {
@@ -206,13 +213,14 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
   };
 
   const handleRemoveMaterial = async (materialId: string) => {
-    if (!event?.id || !confirm("Remove this item from distribution? This will return stock to inventory.")) return;
+    if (!event?.id) return;
     
     const originalMaterial = optimisticMaterials.find(m => m.id === materialId);
     if (!originalMaterial) return;
 
     // Optimistic Update
     setOptimisticMaterials(prev => prev.filter(m => m.id !== materialId));
+    setModalFeedback(null);
 
     try {
       const thresholds = {
@@ -220,11 +228,18 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
         critical: settings?.criticalThreshold || 75
       };
       await removeEventMaterial(event.id, materialId, thresholds);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to remove material", error);
       // Rollback
       setOptimisticMaterials(prev => [...prev, originalMaterial]);
-      alert("Failed to remove item. Please try again.");
+      let errMsg = "Failed to remove item. Insufficient permissions or connection error.";
+      try {
+        if (error?.message) {
+          const parsed = JSON.parse(error.message);
+          if (parsed.error) errMsg = parsed.error;
+        }
+      } catch (_) {}
+      setModalFeedback({ type: 'error', message: errMsg });
     }
   };
 
@@ -232,22 +247,23 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
     if (e) e.preventDefault();
     
     if (!formData.name.trim()) {
-      alert("Please specify an Event Name / Designation.");
+      setModalFeedback({ type: 'error', message: "Please specify an Event Name / Designation." });
       setActiveTab('details');
       return;
     }
     if (!formData.date) {
-      alert("Please specify an Event Date.");
+      setModalFeedback({ type: 'error', message: "Please specify an Event Date." });
       setActiveTab('details');
       return;
     }
     if (!formData.location.trim()) {
-      alert("Please specify a Location/Venue.");
+      setModalFeedback({ type: 'error', message: "Please specify a Location/Venue." });
       setActiveTab('details');
       return;
     }
 
     setLoading(true);
+    setModalFeedback(null);
     try {
       // Parse YYYY-MM-DD as a local date at noon to prevent day shifting
       const [year, month, day] = formData.date.split('-').map(Number);
@@ -297,22 +313,39 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
         await createEventWithDistributions(submissionData, itemsToDistribute, thresholds);
       }
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save event", error);
-      alert("Failed to save event. Check logs for details.");
+      let errMsg = "Failed to save event. Check your role/permissions or logs.";
+      try {
+        if (error?.message) {
+          const parsed = JSON.parse(error.message);
+          if (parsed.error) errMsg = parsed.error;
+        }
+      } catch (_) {}
+      setModalFeedback({ type: 'error', message: errMsg });
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!event?.id || !confirm("Are you sure you want to delete this event?")) return;
+    if (!event?.id) return;
     setLoading(true);
+    setModalFeedback(null);
     try {
       await deleteEvent(event.id);
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to delete event", error);
+      let errMsg = "Failed to delete event. Check your role/permissions.";
+      try {
+        if (error?.message) {
+          const parsed = JSON.parse(error.message);
+          if (parsed.error) errMsg = parsed.error;
+        }
+      } catch (_) {}
+      setModalFeedback({ type: 'error', message: errMsg });
+      setShowEventDeleteConfirm(false);
     } finally {
       setLoading(false);
     }
@@ -365,6 +398,18 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                 {event ? `Materials (${materials.length})` : `Before Count (${beforeCountMaterials.length})`}
               </button>
             </div>
+
+            {modalFeedback && (
+              <div onClick={() => setModalFeedback(null)} className={cn(
+                "mx-6 sm:mx-8 mt-4 p-3 font-headline font-semibold text-xs rounded-sharp cursor-pointer border flex justify-between items-center transition-all animate-in fade-in slide-in-from-top-2 shrink-0",
+                modalFeedback.type === 'error' 
+                  ? 'bg-tertiary/10 border-tertiary/20 text-tertiary font-bold' 
+                  : 'bg-secondary/10 border-secondary/20 text-primary font-bold'
+              )}>
+                <span className="flex-1">{modalFeedback.message}</span>
+                <span className="text-[9px] font-mono font-bold uppercase tracking-widest opacity-60 ml-2 select-none">Dismiss</span>
+              </div>
+            )}
 
             {activeTab === 'details' ? (
               <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6 overflow-y-auto custom-scrollbar">
@@ -481,15 +526,36 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
 
                 <div className="pt-6 border-t border-outline-variant flex flex-col-reverse sm:flex-row justify-between gap-4 shrink-0">
                   {event && isAdmin && (
-                    <button
-                      type="button"
-                      onClick={handleDelete}
-                      disabled={loading}
-                      className="flex items-center justify-center gap-2 px-6 py-3 border-2 border-tertiary text-tertiary font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-tertiary/5 transition-colors rounded-sharp disabled:opacity-50 w-full sm:w-auto"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Delete
-                    </button>
+                    showEventDeleteConfirm ? (
+                      <div className="flex gap-2 w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={handleDelete}
+                          disabled={loading}
+                          className="flex items-center justify-center gap-2 px-6 py-3 bg-tertiary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-tertiary-container transition-all rounded-sharp shadow-md w-full sm:w-auto animate-in fade-in zoom-in-95 duration-150"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Confirm Delete
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowEventDeleteConfirm(false)}
+                          className="px-4 py-3 border border-outline-variant text-on-surface-variant font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-surface-container transition-colors rounded-sharp w-full sm:w-auto text-center"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowEventDeleteConfirm(true)}
+                        disabled={loading}
+                        className="flex items-center justify-center gap-2 px-6 py-3 border-2 border-tertiary text-tertiary font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-tertiary/5 transition-colors rounded-sharp disabled:opacity-50 w-full sm:w-auto"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete
+                      </button>
+                    )
                   )}
                   <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-4 sm:ml-auto w-full sm:w-auto">
                     <button
@@ -859,24 +925,50 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                             )}
 
                             {isAdmin && !editingMaterialId && (
-                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button 
-                                  onClick={() => {
-                                    setEditingMaterialId(m.id);
-                                    setEditQuantity(m.quantity);
-                                  }}
-                                  className="p-1.5 text-slate-400 hover:text-primary hover:bg-surface-container rounded-sharp transition-all"
-                                  title="Edit Quantity"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button 
-                                  onClick={() => handleRemoveMaterial(m.id)}
-                                  className="p-1.5 text-slate-400 hover:text-tertiary hover:bg-surface-container rounded-sharp transition-all"
-                                  title="Remove Item"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                              <div className={cn("flex gap-1 transition-opacity", removingMaterialId === m.id ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
+                                {removingMaterialId === m.id ? (
+                                  <div className="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-150">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setRemovingMaterialId(null);
+                                        handleRemoveMaterial(m.id);
+                                      }}
+                                      className="px-2 py-1 bg-tertiary text-white font-headline font-bold text-[9px] uppercase tracking-wider rounded-sharp hover:bg-tertiary-container transition-all"
+                                    >
+                                      Remove
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setRemovingMaterialId(null)}
+                                      className="px-2 py-1 bg-surface-container hover:bg-surface-container-high border border-outline-variant font-headline font-bold text-[9px] uppercase tracking-wider rounded-sharp transition-all text-on-surface-variant"
+                                    >
+                                      Keep
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <button 
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingMaterialId(m.id);
+                                        setEditQuantity(m.quantity);
+                                      }}
+                                      className="p-1.5 text-slate-400 hover:text-primary hover:bg-surface-container rounded-sharp transition-all"
+                                      title="Edit Quantity"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button 
+                                      type="button"
+                                      onClick={() => setRemovingMaterialId(m.id)}
+                                      className="p-1.5 text-slate-400 hover:text-tertiary hover:bg-surface-container rounded-sharp transition-all"
+                                      title="Remove Item"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             )}
                           </div>

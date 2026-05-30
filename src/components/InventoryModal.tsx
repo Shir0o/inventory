@@ -23,8 +23,13 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
   });
   const [loading, setLoading] = useState(false);
   const [skuError, setSkuError] = useState<string | null>(null);
+  
+  const [showItemDeleteConfirm, setShowItemDeleteConfirm] = useState(false);
+  const [modalFeedback, setModalFeedback] = useState<{ type: 'error' | 'success', message: string } | null>(null);
 
   useEffect(() => {
+    setShowItemDeleteConfirm(false);
+    setModalFeedback(null);
     if (item) {
       setFormData({
         sku: item.sku || '',
@@ -52,6 +57,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
     e.preventDefault();
     setLoading(true);
     setSkuError(null);
+    setModalFeedback(null);
     try {
       const thresholds = {
         warning: settings?.warningThreshold || 250,
@@ -69,7 +75,14 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
       if (error.message?.includes('already exists')) {
         setSkuError(error.message);
       } else {
-        alert("Failed to save item. Check logs for details.");
+        let errMsg = "Failed to save item. Check your role/permissions or logs.";
+        try {
+          if (error?.message) {
+            const parsed = JSON.parse(error.message);
+            if (parsed.error) errMsg = parsed.error;
+          }
+        } catch (_) {}
+        setModalFeedback({ type: 'error', message: errMsg });
       }
     } finally {
       setLoading(false);
@@ -77,13 +90,23 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
   };
 
   const handleDelete = async () => {
-    if (!item?.id || !confirm("Are you sure you want to delete this item?")) return;
+    if (!item?.id) return;
     setLoading(true);
+    setModalFeedback(null);
     try {
       await deleteInventoryItem(item.id);
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to delete inventory item", error);
+      let errMsg = "Failed to delete item. Check your role/permissions.";
+      try {
+        if (error?.message) {
+          const parsed = JSON.parse(error.message);
+          if (parsed.error) errMsg = parsed.error;
+        }
+      } catch (_) {}
+      setModalFeedback({ type: 'error', message: errMsg });
+      setShowItemDeleteConfirm(false);
     } finally {
       setLoading(false);
     }
@@ -115,6 +138,18 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
                 <X className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
+
+            {modalFeedback && (
+              <div onClick={() => setModalFeedback(null)} className={cn(
+                "mx-6 sm:mx-8 mt-4 p-3 font-headline font-semibold text-xs rounded-sharp cursor-pointer border flex justify-between items-center transition-all animate-in fade-in slide-in-from-top-2 shrink-0",
+                modalFeedback.type === 'error' 
+                  ? 'bg-tertiary/10 border-tertiary/20 text-tertiary font-bold' 
+                  : 'bg-secondary/10 border-secondary/20 text-primary font-bold'
+              )}>
+                <span className="flex-1">{modalFeedback.message}</span>
+                <span className="text-[9px] font-mono font-bold uppercase tracking-widest opacity-60 ml-2 select-none">Dismiss</span>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
@@ -221,15 +256,36 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
 
               <div className="pt-6 border-t border-outline-variant flex flex-col-reverse sm:flex-row justify-between gap-4 shrink-0">
                 {item && isAdmin && (
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={loading}
-                    className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 border-2 border-tertiary text-tertiary font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-tertiary/5 transition-colors rounded-sharp disabled:opacity-50"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Delete
-                  </button>
+                  showItemDeleteConfirm ? (
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={handleDelete}
+                        disabled={loading}
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-tertiary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-tertiary-container transition-all rounded-sharp shadow-md w-full sm:w-auto animate-in fade-in zoom-in-95 duration-150"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Confirm Delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowItemDeleteConfirm(false)}
+                        className="px-4 py-3 border border-outline-variant text-on-surface-variant font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-surface-container transition-colors rounded-sharp w-full sm:w-auto text-center"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowItemDeleteConfirm(true)}
+                      disabled={loading}
+                      className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 border-2 border-tertiary text-tertiary font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-tertiary/5 transition-colors rounded-sharp disabled:opacity-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                  )
                 )}
                 <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-4 sm:ml-auto w-full sm:w-auto">
                   <button
