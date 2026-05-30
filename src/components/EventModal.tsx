@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Trash2, Calendar as CalendarIcon, Package, Edit2, Check, RotateCcw, Plus, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { addEvent, updateEvent, deleteEvent, subscribeToEventMaterials, updateEventMaterialQuantity, removeEventMaterial, distributeItems } from '../services/firestoreService';
+import { addEvent, updateEvent, deleteEvent, subscribeToEventMaterials, updateEventMaterialQuantity, removeEventMaterial, distributeItems, updateInventoryItem } from '../services/firestoreService';
 import { Timestamp } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 
@@ -16,6 +16,7 @@ interface EventModalProps {
 
 const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, inventory = [] }: EventModalProps) => {
   const [activeTab, setActiveTab] = useState<'details' | 'materials'>('details');
+  const [beforeCountMaterials, setBeforeCountMaterials] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
   const [optimisticMaterials, setOptimisticMaterials] = useState<any[]>([]);
   const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
@@ -63,6 +64,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
       });
       setMaterials([]);
       setOptimisticMaterials([]);
+      setBeforeCountMaterials([]);
       setActiveTab('details');
       setEditingMaterialId(null);
       setIsAddingMaterial(false);
@@ -71,7 +73,26 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
   }, [event, isOpen]);
 
   const handleAddMaterial = async (item: any) => {
-    if (!event?.id) return;
+    if (!event?.id) {
+      if (beforeCountMaterials.find(m => m.itemId === item.id)) {
+        alert("This item is already added.");
+        return;
+      }
+      const qtyToAdd = Math.min(10, item.stockLevel || 0);
+      setBeforeCountMaterials(prev => [...prev, {
+        itemId: item.id,
+        sku: item.sku,
+        title: item.title,
+        language: item.language || '',
+        quantity: qtyToAdd,
+        systemStock: item.stockLevel || 0,
+        newStockLevel: item.stockLevel || 0,
+        correctStock: false
+      }]);
+      setIsAddingMaterial(false);
+      setSearchQuery('');
+      return;
+    }
     
     // Default to adding 10 units or remaining stock if less
     const qtyToAdd = Math.min(10, item.stockLevel || 0);
@@ -169,26 +190,81 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    
+    if (!formData.name.trim()) {
+      alert("Please specify an Event Name / Designation.");
+      setActiveTab('details');
+      return;
+    }
+    if (!formData.date) {
+      alert("Please specify an Event Date.");
+      setActiveTab('details');
+      return;
+    }
+    if (!formData.location.trim()) {
+      alert("Please specify a Location/Venue.");
+      setActiveTab('details');
+      return;
+    }
+
     setLoading(true);
     try {
       // Parse YYYY-MM-DD as a local date at noon to prevent day shifting
       const [year, month, day] = formData.date.split('-').map(Number);
       const localDate = new Date(year, month - 1, day, 12, 0, 0);
       
-      const submissionData = {
-        ...formData,
-        date: Timestamp.fromDate(localDate)
+      const thresholds = {
+        warning: settings?.warningThreshold || 250,
+        critical: settings?.criticalThreshold || 75
       };
+
       if (event?.id) {
+        const submissionData = {
+          ...formData,
+          date: Timestamp.fromDate(localDate)
+        };
         await updateEvent(event.id, submissionData);
       } else {
-        await addEvent(submissionData);
+        // 1. Perform stock balance corrections first (if requested)
+        for (const item of beforeCountMaterials) {
+          if (item.correctStock && item.newStockLevel !== undefined) {
+            const originalItem = inventory.find(i => i.id === item.itemId);
+            if (originalItem) {
+              await updateInventoryItem(item.itemId, {
+                ...originalItem,
+                stockLevel: item.newStockLevel
+              }, thresholds);
+            }
+          }
+        }
+
+        // 2. Add the Event with total allocated count
+        const totalAllocated = beforeCountMaterials.reduce((sum, item) => sum + item.quantity, 0);
+        const submissionData = {
+          ...formData,
+          materialsDistributed: totalAllocated,
+          date: Timestamp.fromDate(localDate)
+        };
+        
+        const docRef = await addEvent(submissionData);
+        if (docRef?.id && beforeCountMaterials.length > 0) {
+          // 3. Add event materials and deduct from inventory
+          const itemsToDistribute = beforeCountMaterials.map(m => ({
+            itemId: m.itemId,
+            quantity: m.quantity,
+            title: m.title,
+            sku: m.sku,
+            language: m.language || ''
+          }));
+          await distributeItems(docRef.id, itemsToDistribute, thresholds);
+        }
       }
       onClose();
     } catch (error) {
       console.error("Failed to save event", error);
+      alert("Failed to save event. Check logs for details.");
     } finally {
       setLoading(false);
     }
@@ -234,28 +310,26 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
               </button>
             </div>
 
-            {event && (
-              <div className="flex border-b border-outline-variant bg-surface-container-low shrink-0">
-                <button 
-                  onClick={() => setActiveTab('details')}
-                  className={cn(
-                    "flex-1 py-3 sm:py-4 font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-widest transition-all border-b-2",
-                    activeTab === 'details' ? "border-primary text-primary bg-white" : "border-transparent text-on-surface-variant hover:bg-surface-container"
-                  )}
-                >
-                  Details
-                </button>
-                <button 
-                  onClick={() => setActiveTab('materials')}
-                  className={cn(
-                    "flex-1 py-3 sm:py-4 font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-widest transition-all border-b-2",
-                    activeTab === 'materials' ? "border-primary text-primary bg-white" : "border-transparent text-on-surface-variant hover:bg-surface-container"
-                  )}
-                >
-                  Materials ({materials.length})
-                </button>
-              </div>
-            )}
+            <div className="flex border-b border-outline-variant bg-surface-container-low shrink-0">
+              <button 
+                onClick={() => setActiveTab('details')}
+                className={cn(
+                  "flex-1 py-3 sm:py-4 font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-widest transition-all border-b-2",
+                  activeTab === 'details' ? "border-primary text-primary bg-white" : "border-transparent text-on-surface-variant hover:bg-surface-container"
+                )}
+              >
+                Details
+              </button>
+              <button 
+                onClick={() => setActiveTab('materials')}
+                className={cn(
+                  "flex-1 py-3 sm:py-4 font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-widest transition-all border-b-2",
+                  activeTab === 'materials' ? "border-primary text-primary bg-white" : "border-transparent text-on-surface-variant hover:bg-surface-container"
+                )}
+              >
+                {event ? `Materials (${materials.length})` : `Before Count (${beforeCountMaterials.length})`}
+              </button>
+            </div>
 
             {activeTab === 'details' ? (
               <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6 overflow-y-auto custom-scrollbar">
@@ -433,7 +507,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                 (i.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                  i.sku?.toLowerCase().includes(searchQuery.toLowerCase())) &&
                                 i.stockLevel > 0 &&
-                                !optimisticMaterials.find(m => m.sku === i.sku)
+                                (event ? !optimisticMaterials.find(m => m.sku === i.sku) : !beforeCountMaterials.find(m => m.itemId === i.id))
                               )
                               .map(i => (
                                 <button
@@ -464,115 +538,283 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                           className="w-full py-3 border-2 border-dashed border-outline-variant hover:border-primary hover:bg-primary/5 text-on-surface-variant hover:text-primary transition-all rounded-sharp flex items-center justify-center gap-2 font-headline font-bold text-[10px] uppercase tracking-widest"
                         >
                           <Plus className="w-4 h-4" />
-                          Add Resource to Distribution
+                          {event ? "Add Resource to Distribution" : "Add Resource to Before Count"}
                         </button>
                       )}
                     </div>
                   )}
 
-                  {optimisticMaterials.length === 0 && !isAddingMaterial ? (
-                    <div className="h-full py-12 flex flex-col items-center justify-center text-center space-y-4">
-                      <Package className="w-10 sm:w-12 h-10 sm:h-12 text-outline-variant" />
-                      <div>
-                        <p className="font-headline font-bold text-on-surface-variant uppercase tracking-widest text-[10px] sm:text-[11px]">No distribution data</p>
-                        <p className="text-[11px] sm:text-[12px] text-slate-400 mt-1 max-w-[200px]">Resources must be allocated via the primary distribution interface.</p>
+                  {!event ? (
+                    beforeCountMaterials.length === 0 && !isAddingMaterial ? (
+                      <div className="h-full py-12 flex flex-col items-center justify-center text-center space-y-4">
+                        <Package className="w-10 sm:w-12 h-10 sm:h-12 text-outline-variant" />
+                        <div>
+                          <p className="font-headline font-bold text-on-surface-variant uppercase tracking-widest text-[10px] sm:text-[11px]">Before Count Is Empty</p>
+                          <p className="text-[11px] sm:text-[12px] text-slate-400 mt-1 max-w-[200px]">Add materials and how many you took before creating this event.</p>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    optimisticMaterials.map((m) => (
-                      <div key={m.id} className={cn(
-                        "p-3 sm:p-4 bg-surface rounded-sharp border border-outline-variant flex flex-col sm:flex-row justify-between sm:items-center gap-3 group transition-colors",
-                        m.isOptimistic ? "opacity-60 border-dashed border-primary animate-pulse" : "hover:border-primary"
-                      )}>
-                        <div className="flex items-center gap-3 sm:gap-4">
-                          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-surface-container shrink-0 rounded-sharp flex items-center justify-center border border-outline-variant">
-                            <Package className={cn("w-4 h-4 sm:w-5 sm:h-5", m.isOptimistic ? "text-slate-400" : "text-primary")} />
+                    ) : (
+                      beforeCountMaterials.map((m) => (
+                        <div key={m.itemId} className="p-3 sm:p-4 bg-surface rounded-sharp border border-outline-variant hover:border-primary flex flex-col gap-3 transition-colors">
+                          <div className="flex justify-between items-center gap-3">
+                            <div className="flex items-center gap-3 sm:gap-4">
+                              <div className="w-8 h-8 bg-surface-container shrink-0 rounded-sharp flex items-center justify-center border border-outline-variant">
+                                <Package className="w-4 h-4 sm:w-5 h-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="font-headline font-bold text-primary text-[13px] sm:text-[14px] line-clamp-1">{m.title}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-mono text-[9px] sm:text-[10px] text-on-surface-variant uppercase tracking-wider">{m.sku}</p>
+                                  {m.language && (
+                                    <>
+                                      <span className="text-[8px] text-slate-300">•</span>
+                                      <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-surface-container px-1 rounded">{m.language}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                setBeforeCountMaterials(prev => prev.filter(item => item.itemId !== m.itemId));
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-tertiary hover:bg-surface-container rounded-sharp transition-all"
+                              title="Remove Item"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
-                          <div>
-                            <p className="font-headline font-bold text-primary text-[13px] sm:text-[14px] line-clamp-1">
-                              {m.title}
-                              {m.isOptimistic && <span className="ml-2 text-[9px] text-primary italic font-normal">(Syncing...)</span>}
-                            </p>
-                            <div className="flex items-center gap-2">
-                              <p className="font-mono text-[9px] sm:text-[10px] text-on-surface-variant uppercase tracking-wider">{m.sku}</p>
-                              {m.language && (
-                                <>
-                                  <span className="text-[8px] text-slate-300">•</span>
-                                  <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-surface-container px-1 rounded">
-                                    {m.language}
-                                  </span>
-                                </>
+
+                          <div className="pt-2 border-t border-dashed border-outline-variant flex flex-col gap-3">
+                            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                              <div className="flex items-center gap-2 select-none">
+                                <input 
+                                  type="checkbox"
+                                  id={`correct-${m.itemId}`}
+                                  checked={m.correctStock}
+                                  onChange={e => {
+                                    setBeforeCountMaterials(prev => prev.map(item => 
+                                      item.itemId === m.itemId ? { ...item, correctStock: e.target.checked } : item
+                                    ));
+                                  }}
+                                  className="rounded border-outline-variant text-primary focus:ring-primary w-4 h-4 transition-colors"
+                                />
+                                <label htmlFor={`correct-${m.itemId}`} className="text-[10px] font-headline font-bold text-on-surface-variant uppercase tracking-widest cursor-pointer">
+                                  Correct System Stock level first
+                                </label>
+                              </div>
+
+                              {m.correctStock && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Actual Shelf Total:</span>
+                                  <input 
+                                    type="number"
+                                    min={0}
+                                    value={m.newStockLevel}
+                                    onChange={e => {
+                                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                                      setBeforeCountMaterials(prev => prev.map(item => {
+                                        if (item.itemId === m.itemId) {
+                                          const qty = Math.min(item.quantity, val);
+                                          return { ...item, newStockLevel: val, quantity: qty };
+                                        }
+                                        return item;
+                                      }));
+                                    }}
+                                    className="w-20 bg-surface-container-low border border-outline-variant px-2 py-1 font-mono text-xs text-center focus:ring-1 focus:ring-primary rounded-sharp"
+                                  />
+                                  <span className="text-[9px] font-mono text-slate-400 font-bold">(System: {m.systemStock})</span>
+                                </div>
                               )}
                             </div>
+
+                            <div className="flex items-center justify-between bg-surface-container-low p-2 rounded-sharp border border-outline-variant">
+                              <div className="text-[10px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">
+                                Quantity Taken (Before Count):
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button 
+                                  type="button"
+                                  onClick={() => {
+                                    setBeforeCountMaterials(prev => prev.map(item => {
+                                      if (item.itemId === m.itemId) {
+                                        return { ...item, quantity: Math.max(1, item.quantity - 1) };
+                                      }
+                                      return item;
+                                    }));
+                                  }}
+                                  className="px-2 py-1 text-xs font-bold font-mono bg-surface border border-outline-variant hover:bg-surface-container text-on-surface rounded-sharp transition-colors"
+                                >
+                                  -
+                                </button>
+                                <input 
+                                  type="number"
+                                  min={1}
+                                  max={m.correctStock ? m.newStockLevel : m.systemStock}
+                                  value={m.quantity}
+                                  onChange={e => {
+                                    const val = Math.max(1, parseInt(e.target.value) || 0);
+                                    const limitStock = m.correctStock ? m.newStockLevel : m.systemStock;
+                                    const finalVal = Math.min(val, limitStock);
+                                    setBeforeCountMaterials(prev => prev.map(item => 
+                                      item.itemId === m.itemId ? { ...item, quantity: finalVal } : item
+                                    ));
+                                  }}
+                                  className="w-16 bg-white border border-outline-variant px-1 py-0.5 font-mono text-xs text-center focus:ring-1 focus:ring-primary rounded-sharp"
+                                />
+                                <button 
+                                  type="button"
+                                  onClick={() => {
+                                    setBeforeCountMaterials(prev => prev.map(item => {
+                                      if (item.itemId === m.itemId) {
+                                        const limitStock = item.correctStock ? item.newStockLevel : item.systemStock;
+                                        return { ...item, quantity: Math.min(limitStock, item.quantity + 1) };
+                                      }
+                                      return item;
+                                    }));
+                                  }}
+                                  className="px-2 py-1 text-xs font-bold font-mono bg-surface border border-outline-variant hover:bg-surface-container text-on-surface rounded-sharp transition-colors"
+                                >
+                                  +
+                                </button>
+                                <span className="text-[10px] font-mono text-slate-400 font-bold">
+                                  / {m.correctStock ? m.newStockLevel : m.systemStock} available
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">
-                          {editingMaterialId === m.id ? (
-                            <div className="flex items-center gap-2">
-                              <input 
-                                type="number"
-                                value={editQuantity}
-                                onChange={e => setEditQuantity(parseInt(e.target.value) || 0)}
-                                className="w-16 sm:w-20 bg-surface-container-low border-0 border-b border-primary px-2 py-1 font-mono text-sm focus:ring-0"
-                                autoFocus
-                              />
-                              <button 
-                                onClick={() => handleUpdateMaterial(m.id)}
-                                disabled={loading}
-                                className="p-1.5 bg-primary text-white rounded-sharp hover:bg-primary-container transition-colors disabled:opacity-50"
-                              >
-                                <Check className="w-4 h-4" />
-                              </button>
-                              <button 
-                                onClick={() => setEditingMaterialId(null)}
-                                className="p-1.5 text-on-surface-variant hover:bg-surface-container rounded-sharp transition-colors"
-                              >
-                                <RotateCcw className="w-4 h-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="text-left sm:text-right">
-                              <p className="font-mono font-bold text-base sm:text-lg text-primary">{m.quantity}</p>
-                              <p className="text-[8px] sm:text-[9px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Distributed</p>
-                            </div>
-                          )}
-
-                          {isAdmin && !editingMaterialId && (
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button 
-                                onClick={() => {
-                                  setEditingMaterialId(m.id);
-                                  setEditQuantity(m.quantity);
-                                }}
-                                className="p-1.5 text-slate-400 hover:text-primary hover:bg-surface-container rounded-sharp transition-all"
-                                title="Edit Quantity"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button 
-                                onClick={() => handleRemoveMaterial(m.id)}
-                                className="p-1.5 text-slate-400 hover:text-tertiary hover:bg-surface-container rounded-sharp transition-all"
-                                title="Remove Item"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          )}
+                      ))
+                    )
+                  ) : (
+                    optimisticMaterials.length === 0 && !isAddingMaterial ? (
+                      <div className="h-full py-12 flex flex-col items-center justify-center text-center space-y-4">
+                        <Package className="w-10 sm:w-12 h-10 sm:h-12 text-outline-variant" />
+                        <div>
+                          <p className="font-headline font-bold text-on-surface-variant uppercase tracking-widest text-[10px] sm:text-[11px]">No distribution data</p>
+                          <p className="text-[11px] sm:text-[12px] text-slate-400 mt-1 max-w-[200px]">Resources must be allocated via the primary distribution interface.</p>
                         </div>
                       </div>
-                    ))
+                    ) : (
+                      optimisticMaterials.map((m) => (
+                        <div key={m.id} className={cn(
+                          "p-3 sm:p-4 bg-surface rounded-sharp border border-outline-variant flex flex-col sm:flex-row justify-between sm:items-center gap-3 group transition-colors",
+                          m.isOptimistic ? "opacity-60 border-dashed border-primary animate-pulse" : "hover:border-primary"
+                        )}>
+                          <div className="flex items-center gap-3 sm:gap-4">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-surface-container shrink-0 rounded-sharp flex items-center justify-center border border-outline-variant">
+                              <Package className={cn("w-4 h-4 sm:w-5 h-5", m.isOptimistic ? "text-slate-400" : "text-primary")} />
+                            </div>
+                            <div>
+                              <p className="font-headline font-bold text-primary text-[13px] sm:text-[14px] line-clamp-1">
+                                {m.title}
+                                {m.isOptimistic && <span className="ml-2 text-[9px] text-primary italic font-normal">(Syncing...)</span>}
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-mono text-[9px] sm:text-[10px] text-on-surface-variant uppercase tracking-wider">{m.sku}</p>
+                                {m.language && (
+                                  <>
+                                    <span className="text-[8px] text-slate-300">•</span>
+                                    <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-surface-container px-1 rounded">
+                                      {m.language}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">
+                            {editingMaterialId === m.id ? (
+                              <div className="flex items-center gap-2">
+                                <input 
+                                  type="number"
+                                  value={editQuantity}
+                                  onChange={e => setEditQuantity(parseInt(e.target.value) || 0)}
+                                  className="w-16 sm:w-20 bg-surface-container-low border-0 border-b border-primary px-2 py-1 font-mono text-sm focus:ring-0"
+                                  autoFocus
+                                />
+                                <button 
+                                  onClick={() => handleUpdateMaterial(m.id)}
+                                  disabled={loading}
+                                  className="p-1.5 bg-primary text-white rounded-sharp hover:bg-primary-container transition-colors disabled:opacity-50"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={() => setEditingMaterialId(null)}
+                                  className="p-1.5 text-on-surface-variant hover:bg-surface-container rounded-sharp transition-colors"
+                                >
+                                  <RotateCcw className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="text-left sm:text-right">
+                                <p className="font-mono font-bold text-base sm:text-lg text-primary">{m.quantity}</p>
+                                <p className="text-[8px] sm:text-[9px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Distributed</p>
+                              </div>
+                            )}
+
+                            {isAdmin && !editingMaterialId && (
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button 
+                                  onClick={() => {
+                                    setEditingMaterialId(m.id);
+                                    setEditQuantity(m.quantity);
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-primary hover:bg-surface-container rounded-sharp transition-all"
+                                  title="Edit Quantity"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button 
+                                  onClick={() => handleRemoveMaterial(m.id)}
+                                  className="p-1.5 text-slate-400 hover:text-tertiary hover:bg-surface-container rounded-sharp transition-all"
+                                  title="Remove Item"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )
                   )}
                 </div>
                 <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-outline-variant flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
                   <div className="font-mono text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-wider">
-                    TOTAL ALLOCATION: <span className="text-primary font-bold">{formData.materialsDistributed}</span>
+                    TOTAL ALLOCATION: <span className="text-primary font-bold">
+                      {event ? formData.materialsDistributed : beforeCountMaterials.reduce((sum, item) => sum + item.quantity, 0)}
+                    </span>
                   </div>
-                  <button
-                    onClick={onClose}
-                    className="w-full sm:w-auto px-6 py-2 text-on-surface-variant font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-widest hover:bg-surface-container transition-colors rounded-sharp text-center"
-                  >
-                    Close Ledger
-                  </button>
+                  <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-4 sm:ml-auto w-full sm:w-auto mt-2 sm:mt-0">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('details')}
+                      className="px-6 py-2 text-on-surface-variant font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-widest hover:bg-surface-container transition-colors rounded-sharp text-center"
+                    >
+                      Back to Details
+                    </button>
+                    {!event && (
+                      <button
+                        onClick={() => handleSubmit()}
+                        disabled={loading}
+                        className="flex items-center justify-center gap-2 px-8 py-2.5 bg-primary text-white font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-widest hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+                      >
+                        <Save className="w-4 h-4" />
+                        {loading ? 'Processing...' : 'Schedule Event'}
+                      </button>
+                    )}
+                    {event && (
+                      <button
+                        onClick={onClose}
+                        className="w-full sm:w-auto px-6 py-2 text-on-surface-variant font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-widest hover:bg-surface-container transition-colors rounded-sharp text-center"
+                      >
+                        Close Ledger
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
