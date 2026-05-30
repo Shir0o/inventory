@@ -246,12 +246,46 @@ export async function updateInventoryItem(id: string, item: any, thresholds?: { 
     const itemRef = doc(db, 'inventory', id);
     const itemSnap = await getDoc(itemRef);
     const currentStock = itemSnap.exists() ? itemSnap.data().stockLevel : 0;
+    const existingData = itemSnap.exists() ? itemSnap.data() : {};
 
-    await updateDoc(itemRef, {
-      ...item,
-      status,
-      updatedAt: serverTimestamp()
-    });
+    // Determine if this is a stock-only update (Stock Adjust) or full edit
+    const hasOtherChanges = 
+      (item.title !== undefined && item.title !== existingData.title) ||
+      (item.subtitle !== undefined && item.subtitle !== existingData.subtitle) ||
+      (item.category !== undefined && item.category !== existingData.category) ||
+      (item.language !== undefined && item.language !== existingData.language) ||
+      (item.unitPrice !== undefined && Number(item.unitPrice) !== existingData.unitPrice);
+
+    let updatePayload: any;
+
+    if (!hasOtherChanges) {
+      // Stock Adjust - MUST NOT include fields like title/category to keep diff clean for safety
+      updatePayload = {
+        stockLevel: Number(item.stockLevel),
+        status,
+        updatedAt: serverTimestamp()
+      };
+    } else {
+      // Full Edit - Include allowed fields, but NEVER include unallowed ones (like id, sku, createdAt)
+      updatePayload = {
+        title: item.title || existingData.title || '',
+        category: item.category || existingData.category || 'Bibles',
+        stockLevel: Number(item.stockLevel),
+        status,
+        updatedAt: serverTimestamp()
+      };
+
+      if (item.subtitle !== undefined) updatePayload.subtitle = item.subtitle;
+      else if (existingData.subtitle !== undefined) updatePayload.subtitle = existingData.subtitle;
+
+      if (item.language !== undefined) updatePayload.language = item.language;
+      else if (existingData.language !== undefined) updatePayload.language = existingData.language;
+
+      if (item.unitPrice !== undefined) updatePayload.unitPrice = Number(item.unitPrice);
+      else if (existingData.unitPrice !== undefined) updatePayload.unitPrice = existingData.unitPrice;
+    }
+
+    await updateDoc(itemRef, updatePayload);
     
     // Check thresholds if provided for notifications
     if (item.stockLevel <= criticalLimit) {
@@ -308,6 +342,113 @@ export async function addEvent(event: any) {
     return docRef;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function createEventWithDistributions(
+  eventData: any,
+  items: { itemId: string, quantity: number, title: string, sku: string, language?: string }[],
+  thresholds?: { warning: number, critical: number }
+) {
+  const eventsPath = 'events';
+  try {
+    // Generate an automatic reference ID for the event so we can populate subcollections atomically
+    const docRef = doc(collection(db, eventsPath));
+    const eventId = docRef.id;
+
+    await runTransaction(db, async (transaction) => {
+      // 1. ALL READS FIRST (Required by Firestore transactions)
+      const itemDocs = [];
+      for (const item of items) {
+        const itemRef = doc(db, 'inventory', item.itemId);
+        const itemDoc = await transaction.get(itemRef);
+        if (!itemDoc.exists()) {
+          throw new Error(`Item ${item.title} does not exist!`);
+        }
+        itemDocs.push({ item, doc: itemDoc });
+      }
+
+      // 2. NOW ALL THE WRITES
+      const stats = {
+        bibles: 0,
+        bibles_en: 0,
+        bibles_es: 0,
+        tracts: 0,
+        tracts_en: 0,
+        tracts_es: 0,
+        booklets: 0,
+        booklets_en: 0,
+        booklets_es: 0
+      };
+
+      for (const { item, doc: itemDoc } of itemDocs) {
+        const itemRef = doc(db, 'inventory', item.itemId);
+        const data = itemDoc.data();
+        const currentStock = data.stockLevel || 0;
+        if (currentStock < item.quantity) {
+          throw new Error(`Insufficient stock for ${item.title}. Available: ${currentStock}`);
+        }
+
+        const newStock = currentStock - item.quantity;
+
+        // Determine system status
+        let status = 'Healthy';
+        const warningLimit = thresholds?.warning || 250;
+        const criticalLimit = thresholds?.critical || 75;
+        
+        if (newStock <= criticalLimit) status = 'Out';
+        else if (newStock <= warningLimit) status = 'Low';
+
+        // Update inventory
+        transaction.update(itemRef, {
+          stockLevel: newStock,
+          status,
+          updatedAt: serverTimestamp()
+        });
+
+        // Add to stats
+        const cat = (data.category || '').toLowerCase();
+        const lang = (data.language || item.language || '').toLowerCase();
+        
+        if (cat.includes('bible')) {
+          stats.bibles += item.quantity;
+          if (lang.includes('english') || lang === 'en') stats.bibles_en += item.quantity;
+          else if (lang.includes('spanish') || lang === 'es') stats.bibles_es += item.quantity;
+        } else if (cat.includes('tract')) {
+          stats.tracts += item.quantity;
+          if (lang.includes('english') || lang === 'en') stats.tracts_en += item.quantity;
+          else if (lang.includes('spanish') || lang === 'es') stats.tracts_es += item.quantity;
+        } else if (cat.includes('booklet')) {
+          stats.booklets += item.quantity;
+          if (lang.includes('english') || lang === 'en') stats.booklets_en += item.quantity;
+          else if (lang.includes('spanish') || lang === 'es') stats.booklets_es += item.quantity;
+        }
+
+        // Add to event materials subcollection
+        const materialRef = doc(collection(db, `events/${eventId}/materials`));
+        transaction.set(materialRef, {
+          itemId: item.itemId,
+          sku: item.sku,
+          title: item.title,
+          language: item.language || data.language || '',
+          quantity: item.quantity,
+          assignedAt: serverTimestamp()
+        });
+      }
+
+      // Add the event document
+      transaction.set(docRef, {
+        ...eventData,
+        materialsDistributed: items.reduce((sum, item) => sum + item.quantity, 0),
+        categoryStats: stats,
+        createdAt: serverTimestamp()
+      });
+    });
+
+    await createAuditLog('EVENT_CREATED', eventId, 'event', `Created event: ${eventData.name}`);
+    return docRef;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, eventsPath);
   }
 }
 

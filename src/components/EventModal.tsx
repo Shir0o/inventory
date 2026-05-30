@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Trash2, Calendar as CalendarIcon, Package, Edit2, Check, RotateCcw, Plus, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { addEvent, updateEvent, deleteEvent, subscribeToEventMaterials, updateEventMaterialQuantity, removeEventMaterial, distributeItems, updateInventoryItem } from '../services/firestoreService';
+import { addEvent, updateEvent, deleteEvent, subscribeToEventMaterials, updateEventMaterialQuantity, removeEventMaterial, distributeItems, updateInventoryItem, createEventWithDistributions } from '../services/firestoreService';
 import { Timestamp } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 
@@ -31,8 +31,12 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
     status: 'Scheduled'
   });
   const [loading, setLoading] = useState(false);
+  const [selectedAdjustItem, setSelectedAdjustItem] = useState<any | null>(null);
+  const [adjustStockValue, setAdjustStockValue] = useState<number>(10);
 
   useEffect(() => {
+    setSelectedAdjustItem(null);
+    setAdjustStockValue(10);
     if (event) {
       let dateStr = '';
       if (event.date) {
@@ -72,13 +76,47 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
     }
   }, [event, isOpen]);
 
+  const handleAdjustAndAdd = async (item: any) => {
+    setLoading(true);
+    try {
+      const thresholds = {
+        warning: settings?.warningThreshold || 250,
+        critical: settings?.criticalThreshold || 75
+      };
+
+      // 1. Update system stock to the new actual shelf stock level first
+      await updateInventoryItem(item.id, {
+        ...item,
+        stockLevel: adjustStockValue
+      }, thresholds);
+
+      // 2. Prepare the updated item reference
+      const updatedItem = {
+        ...item,
+        stockLevel: adjustStockValue
+      };
+
+      setSelectedAdjustItem(null);
+      setAdjustStockValue(10);
+
+      // 3. Immediately add it to the event materials
+      await handleAddMaterial(updatedItem);
+    } catch (error) {
+      console.error("Failed to adjust and add stock", error);
+      alert("Failed to adjust inventory stock. Please check your role/permissions.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAddMaterial = async (item: any) => {
     if (!event?.id) {
       if (beforeCountMaterials.find(m => m.itemId === item.id)) {
         alert("This item is already added.");
         return;
       }
-      const qtyToAdd = Math.min(10, item.stockLevel || 0);
+      const isOutOfStock = (item.stockLevel || 0) <= 0;
+      const qtyToAdd = isOutOfStock ? 1 : Math.min(10, item.stockLevel || 0);
       setBeforeCountMaterials(prev => [...prev, {
         itemId: item.id,
         sku: item.sku,
@@ -86,8 +124,8 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
         language: item.language || '',
         quantity: qtyToAdd,
         systemStock: item.stockLevel || 0,
-        newStockLevel: item.stockLevel || 0,
-        correctStock: false
+        newStockLevel: isOutOfStock ? 10 : (item.stockLevel || 0),
+        correctStock: isOutOfStock
       }]);
       setIsAddingMaterial(false);
       setSearchQuery('');
@@ -98,7 +136,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
     const qtyToAdd = Math.min(10, item.stockLevel || 0);
     
     if (qtyToAdd <= 0) {
-      alert("This item is out of stock.");
+      alert("This item is out of stock. Please adjust shelf stock first using the inline tool.");
       return;
     }
 
@@ -240,7 +278,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
           }
         }
 
-        // 2. Add the Event with total allocated count
+        // 2. Add the Event and distribute items inside a single atomic transaction
         const totalAllocated = beforeCountMaterials.reduce((sum, item) => sum + item.quantity, 0);
         const submissionData = {
           ...formData,
@@ -248,18 +286,15 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
           date: Timestamp.fromDate(localDate)
         };
         
-        const docRef = await addEvent(submissionData);
-        if (docRef?.id && beforeCountMaterials.length > 0) {
-          // 3. Add event materials and deduct from inventory
-          const itemsToDistribute = beforeCountMaterials.map(m => ({
-            itemId: m.itemId,
-            quantity: m.quantity,
-            title: m.title,
-            sku: m.sku,
-            language: m.language || ''
-          }));
-          await distributeItems(docRef.id, itemsToDistribute, thresholds);
-        }
+        const itemsToDistribute = beforeCountMaterials.map(m => ({
+          itemId: m.itemId,
+          quantity: m.quantity,
+          title: m.title,
+          sku: m.sku,
+          language: m.language || ''
+        }));
+        
+        await createEventWithDistributions(submissionData, itemsToDistribute, thresholds);
       }
       onClose();
     } catch (error) {
@@ -506,29 +541,97 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                               .filter(i => 
                                 (i.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                  i.sku?.toLowerCase().includes(searchQuery.toLowerCase())) &&
-                                i.stockLevel > 0 &&
                                 (event ? !optimisticMaterials.find(m => m.sku === i.sku) : !beforeCountMaterials.find(m => m.itemId === i.id))
                               )
-                              .map(i => (
-                                <button
-                                  key={i.id}
-                                  onClick={() => handleAddMaterial(i)}
-                                  className="w-full text-left p-2 hover:bg-primary/5 rounded-sharp flex justify-between items-center group transition-colors"
-                                >
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <p className="text-[11px] font-bold text-primary">{i.title}</p>
-                                      {i.language && (
-                                        <span className="text-[8px] px-1 bg-surface-container-high text-on-surface-variant font-bold rounded uppercase">
-                                          {i.language}
-                                        </span>
-                                      )}
+                              .map(i => {
+                                const isOutOfStock = (i.stockLevel || 0) <= 0;
+                                const isAdjusting = selectedAdjustItem?.id === i.id;
+                                return (
+                                  <div
+                                    key={i.id}
+                                    className="w-full text-left p-2 hover:bg-primary/5 rounded-sharp border-b border-outline-variant/10 flex flex-col gap-2 transition-colors"
+                                  >
+                                    <div className="flex justify-between items-center w-full">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (isOutOfStock) {
+                                            setSelectedAdjustItem(isAdjusting ? null : i);
+                                            setAdjustStockValue(10);
+                                          } else {
+                                            handleAddMaterial(i);
+                                          }
+                                        }}
+                                        className="flex-1 text-left"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <p className="text-[11px] font-bold text-primary">{i.title}</p>
+                                          {i.language && (
+                                            <span className="text-[8px] px-1 bg-surface-container-high text-on-surface-variant font-bold rounded uppercase">
+                                              {i.language}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-[9px] font-mono text-on-surface-variant">
+                                          {i.sku} • {isOutOfStock ? (
+                                            <span className="text-tertiary text-tertiary font-bold bg-tertiary/10 px-1 py-0.5 rounded">OUT OF STOCK</span>
+                                          ) : (
+                                            <span>{i.stockLevel} in stock</span>
+                                          )}
+                                        </p>
+                                      </button>
+
+                                      <div className="flex items-center gap-2">
+                                        {isOutOfStock ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setSelectedAdjustItem(isAdjusting ? null : i);
+                                              setAdjustStockValue(10);
+                                            }}
+                                            className="px-2 py-1 bg-tertiary/10 hover:bg-tertiary hover:text-white text-tertiary font-headline font-bold text-[9px] uppercase tracking-wider rounded-sharp transition-all"
+                                          >
+                                            {isAdjusting ? "Cancel" : "Adjust Shelf"}
+                                          </button>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleAddMaterial(i)}
+                                            className="p-1 text-primary hover:bg-primary/10 rounded-sharp"
+                                          >
+                                            <Plus className="w-4 h-4" />
+                                          </button>
+                                        )}
+                                      </div>
                                     </div>
-                                    <p className="text-[9px] font-mono text-on-surface-variant">{i.sku} • {i.stockLevel} in stock</p>
+
+                                    {isAdjusting && (
+                                      <div className="p-2 bg-surface-container-low rounded-sharp border border-tertiary/30 shadow-inner flex flex-wrap items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-[9px] font-headline font-bold text-on-surface-variant uppercase tracking-widest shrink-0">
+                                            Actual Shelf Stock:
+                                          </span>
+                                          <input
+                                            type="number"
+                                            min={1}
+                                            value={adjustStockValue}
+                                            onChange={e => setAdjustStockValue(Math.max(1, parseInt(e.target.value) || 0))}
+                                            className="w-16 bg-white border border-outline-variant px-1.5 py-0.5 font-mono text-xs text-center focus:ring-1 focus:ring-tertiary rounded-sharp"
+                                          />
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAdjustAndAdd(i)}
+                                          disabled={loading}
+                                          className="px-3 py-1 bg-tertiary hover:bg-tertiary-container text-white font-headline font-bold text-[9px] uppercase tracking-widest rounded-sharp transition-all shadow-sm"
+                                        >
+                                          {loading ? "Saving..." : "Verify & Add"}
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
-                                  <Plus className="w-3.5 h-3.5 text-slate-300 group-hover:text-primary" />
-                                </button>
-                              ))
+                                );
+                              })
                             }
                           </div>
                         </div>

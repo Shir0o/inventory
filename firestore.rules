@@ -22,13 +22,16 @@ service cloud.firestore {
     
     function isAdmin() {
       return isVerified() && (
-        getUserData().role == 'admin' || 
-        request.auth.token.email.matches("(?i)YilongWang05@gmail\\.com")
+        request.auth.token.email.matches("(?i)YilongWang05@gmail\\.com") ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'admin')
       );
     }
 
     function isMember() {
-      return isVerified() && getUserData().role in ['admin', 'user'];
+      return isVerified() && (
+        request.auth.token.email.matches("(?i)YilongWang05@gmail\\.com") ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role in ['admin', 'user'])
+      );
     }
 
     function isValidId(id) {
