@@ -66,7 +66,6 @@ import EventModal from './components/EventModal';
 import DistributionModal from './components/DistributionModal';
 import BulkImportModal from './components/BulkImportModal';
 import QRScannerModal from './components/QRScannerModal';
-import AIInsightsView from './components/AIInsightsView';
 import StockHistoryModal from './components/StockHistoryModal';
 import { generateMonthlyReport } from './lib/pdfGenerator';
 import { exportToCSV } from './lib/csvExport';
@@ -127,7 +126,7 @@ const formatTime = (date: any, timezone: string = 'UTC') => {
 
 // --- Types ---
 
-type Tab = 'dashboard' | 'inventory' | 'events' | 'reports' | 'settings' | 'users' | 'logs' | 'ai_insights';
+type Tab = 'dashboard' | 'inventory' | 'events' | 'reports' | 'settings' | 'users' | 'logs';
 
 // --- Components ---
 
@@ -137,7 +136,6 @@ const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin, isOpen, onClo
     { id: 'inventory', label: 'Inventory', icon: Package },
     { id: 'events', label: 'Events', icon: Calendar },
     { id: 'reports', label: 'Reports', icon: BarChart3 },
-    { id: 'ai_insights', label: 'AI Insights', icon: TrendingUp },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -2248,7 +2246,6 @@ export default function App() {
               )}
               {activeTab === 'users' && <UsersView users={users} />}
               {activeTab === 'logs' && <LogsView logs={auditLogs} settings={settings} />}
-              {activeTab === 'ai_insights' && <AIInsightsView inventory={inventory} events={events} auditLogs={auditLogs} />}
               {activeTab === 'settings' && <SettingsView settings={settings} isAdmin={isAdmin} />}
             </motion.div>
           </AnimatePresence>
