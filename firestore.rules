@@ -121,7 +121,7 @@ service cloud.firestore {
         allow read: if isMember();
         allow create: if (isAdmin() || isMember()) && isValidId(materialId) && isServerTimestamp(incoming().assignedAt);
         allow update: if (isAdmin() || isMember()) && 
-                      incoming().diff(existing()).affectedKeys().hasOnly(['quantity']);
+                      incoming().diff(existing()).affectedKeys().hasOnly(['quantity', 'preCount', 'postCount']);
         allow delete: if isAdmin() || isMember();
       }
     }

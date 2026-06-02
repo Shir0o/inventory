@@ -70,6 +70,33 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   throw new Error(JSON.stringify(errInfo));
 }
 
+// --- Helper to sanitize undefined values for Firestore ---
+function cleanUndefined(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanUndefined(item));
+  }
+  if (typeof obj === 'object') {
+    if (obj.constructor && (obj.constructor.name === 'FieldValue' || obj.constructor.name === 'Timestamp')) {
+      return obj;
+    }
+    if (obj instanceof Date) {
+      return obj;
+    }
+    const result: any = {};
+    for (const key of Object.keys(obj)) {
+      const val = obj[key];
+      if (val !== undefined) {
+        result[key] = cleanUndefined(val);
+      }
+    }
+    return result;
+  }
+  return obj;
+}
+
 // --- Audit Logs ---
 
 export type AuditAction = 
@@ -94,14 +121,14 @@ export async function createAuditLog(action: AuditAction, targetId: string, targ
       targetId,
       targetType,
       details,
-      userId: auth.currentUser?.uid,
+      userId: auth.currentUser?.uid || null,
       userName: auth.currentUser?.displayName || 'Unknown User',
-      userEmail: auth.currentUser?.email,
+      userEmail: auth.currentUser?.email || null,
       timestamp: serverTimestamp()
     };
 
     if (metadata !== undefined) {
-      logData.metadata = metadata;
+      logData.metadata = cleanUndefined(metadata);
     }
 
     return await addDoc(collection(db, path), logData);
@@ -155,10 +182,10 @@ export async function createNotification(type: NotificationType, title: string, 
       type,
       title,
       message,
-      metadata,
+      metadata: metadata !== undefined ? cleanUndefined(metadata) : null,
       read: false,
       createdAt: serverTimestamp(),
-      userId: auth.currentUser?.uid
+      userId: auth.currentUser?.uid || null
     });
   } catch (error) {
     console.error("Failed to create notification", error);
@@ -432,6 +459,8 @@ export async function createEventWithDistributions(
           title: item.title,
           language: item.language || data.language || '',
           quantity: item.quantity,
+          preCount: (item as any).preCount !== undefined ? (item as any).preCount : item.quantity,
+          postCount: (item as any).postCount !== undefined ? (item as any).postCount : 0,
           assignedAt: serverTimestamp()
         });
       }
@@ -563,6 +592,8 @@ export async function distributeItems(eventId: string, items: { itemId: string, 
           title: item.title,
           language: item.language || data.language || '',
           quantity: item.quantity,
+          preCount: (item as any).preCount !== undefined ? (item as any).preCount : item.quantity,
+          postCount: (item as any).postCount !== undefined ? (item as any).postCount : 0,
           assignedAt: serverTimestamp()
         });
 
@@ -702,6 +733,116 @@ export async function updateEventMaterialQuantity(eventId: string, materialId: s
     });
     
     await createAuditLog('EVENT_UPDATED', eventId, 'event', `Adjusted quantity of material in event ${eventId}`);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function updateEventMaterialCounts(
+  eventId: string, 
+  materialId: string, 
+  newPreCount: number, 
+  newPostCount: number, 
+  thresholds?: { warning: number, critical: number }
+) {
+  const path = `events/${eventId}/materials/${materialId}`;
+  try {
+    await runTransaction(db, async (transaction) => {
+      const eventRef = doc(db, 'events', eventId);
+      const materialRef = doc(db, `events/${eventId}/materials`, materialId);
+      
+      const eventDoc = await transaction.get(eventRef);
+      const materialDoc = await transaction.get(materialRef);
+      
+      if (!eventDoc.exists() || !materialDoc.exists()) {
+        throw new Error("Event or Material does not exist!");
+      }
+
+      const materialData = materialDoc.data();
+      const oldPreCount = materialData.preCount !== undefined ? materialData.preCount : (materialData.quantity || 0);
+      const oldPostCount = materialData.postCount !== undefined ? materialData.postCount : 0;
+      const oldQuantity = materialData.quantity || 0;
+
+      const newQuantity = Math.max(0, newPreCount - newPostCount);
+      const quantityDiff = newQuantity - oldQuantity;
+
+      if (quantityDiff === 0 && newPreCount === oldPreCount && newPostCount === oldPostCount) {
+        return;
+      }
+
+      const itemId = materialData.itemId;
+      if (itemId) {
+        const itemRef = doc(db, 'inventory', itemId);
+        const itemDoc = await transaction.get(itemRef);
+        
+        if (itemDoc.exists()) {
+          const inventoryData = itemDoc.data();
+          const currentStock = inventoryData.stockLevel || 0;
+          
+          if (currentStock < quantityDiff) {
+            throw new Error(`Insufficient stock for adjustment. Available: ${currentStock}, Needed: ${quantityDiff}`);
+          }
+          
+          const newStockLevel = currentStock - quantityDiff;
+
+          // Determine system status
+          let status = 'Healthy';
+          const warningLimit = thresholds?.warning || 250;
+          const criticalLimit = thresholds?.critical || 75;
+          
+          if (newStockLevel <= criticalLimit) status = 'Out';
+          else if (newStockLevel <= warningLimit) status = 'Low';
+
+          transaction.update(itemRef, {
+            stockLevel: newStockLevel,
+            status,
+            updatedAt: serverTimestamp()
+          });
+
+          // Update stats
+          const eventData = eventDoc.data();
+          const currentStats = eventData.categoryStats || {};
+          const cat = (inventoryData.category || '').toLowerCase();
+          const lang = (inventoryData.language || '').toLowerCase();
+
+          const statsUpdate: any = {
+            materialsDistributed: (eventData.materialsDistributed || 0) + quantityDiff,
+            'categoryStats.total': (currentStats.total || 0) + quantityDiff
+          };
+
+          if (cat.includes('bible')) {
+            statsUpdate['categoryStats.bibles'] = (currentStats.bibles || 0) + quantityDiff;
+            if (lang.includes('english') || lang === 'en') statsUpdate['categoryStats.bibles_en'] = (currentStats.bibles_en || 0) + quantityDiff;
+            else if (lang.includes('spanish') || lang === 'es') statsUpdate['categoryStats.bibles_es'] = (currentStats.bibles_es || 0) + quantityDiff;
+          } else if (cat.includes('tract')) {
+            statsUpdate['categoryStats.tracts'] = (currentStats.tracts || 0) + quantityDiff;
+            if (lang.includes('english') || lang === 'en') statsUpdate['categoryStats.tracts_en'] = (currentStats.tracts_en || 0) + quantityDiff;
+            else if (lang.includes('spanish') || lang === 'es') statsUpdate['categoryStats.tracts_es'] = (currentStats.tracts_es || 0) + quantityDiff;
+          } else if (cat.includes('booklet')) {
+            statsUpdate['categoryStats.booklets'] = (currentStats.booklets || 0) + quantityDiff;
+            if (lang.includes('english') || lang === 'en') statsUpdate['categoryStats.booklets_en'] = (currentStats.booklets_en || 0) + quantityDiff;
+            else if (lang.includes('spanish') || lang === 'es') statsUpdate['categoryStats.booklets_es'] = (currentStats.booklets_es || 0) + quantityDiff;
+          }
+
+          transaction.update(eventRef, statsUpdate);
+        }
+      } else {
+        // Unlinked item
+        const eventData = eventDoc.data();
+        transaction.update(eventRef, {
+          materialsDistributed: (eventData.materialsDistributed || 0) + quantityDiff,
+          'categoryStats.total': (eventData.categoryStats?.total || 0) + quantityDiff
+        });
+      }
+
+      transaction.update(materialRef, {
+        quantity: newQuantity,
+        preCount: newPreCount,
+        postCount: newPostCount
+      });
+    });
+    
+    await createAuditLog('EVENT_UPDATED', eventId, 'event', `Adjusted pre/post counts of material in event ${eventId}`);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }

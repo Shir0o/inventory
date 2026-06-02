@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Trash2, Calendar as CalendarIcon, Package, Edit2, Check, RotateCcw, Plus, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { addEvent, updateEvent, deleteEvent, subscribeToEventMaterials, updateEventMaterialQuantity, removeEventMaterial, distributeItems, updateInventoryItem, createEventWithDistributions } from '../services/firestoreService';
+import { addEvent, updateEvent, deleteEvent, subscribeToEventMaterials, updateEventMaterialQuantity, removeEventMaterial, distributeItems, updateInventoryItem, createEventWithDistributions, updateEventMaterialCounts } from '../services/firestoreService';
 import { Timestamp } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 
@@ -21,6 +21,8 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
   const [optimisticMaterials, setOptimisticMaterials] = useState<any[]>([]);
   const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
   const [editQuantity, setEditQuantity] = useState<number>(0);
+  const [editPreCount, setEditPreCount] = useState<number>(0);
+  const [editPostCount, setEditPostCount] = useState<number>(0);
   const [isAddingMaterial, setIsAddingMaterial] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
@@ -212,6 +214,44 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
     }
   };
 
+  const handleUpdateMaterialCounts = async (materialId: string, newPreCount: number, newPostCount: number) => {
+    if (!event?.id) return;
+    if (newPreCount < newPostCount) {
+      alert("Pre-Count (Checked Out) cannot be less than Post-Count (Returned).");
+      return;
+    }
+    
+    const originalMaterial = optimisticMaterials.find(m => m.id === materialId);
+    if (!originalMaterial) return;
+
+    const originalPreCount = originalMaterial.preCount !== undefined ? originalMaterial.preCount : originalMaterial.quantity;
+    const originalPostCount = originalMaterial.postCount !== undefined ? originalMaterial.postCount : 0;
+    const originalQuantity = originalMaterial.quantity || 0;
+    
+    const newDist = Math.max(0, newPreCount - newPostCount);
+
+    // Optimistic Update
+    setOptimisticMaterials(prev => prev.map(m => 
+      m.id === materialId ? { ...m, preCount: newPreCount, postCount: newPostCount, quantity: newDist, isOptimistic: true } : m
+    ));
+    setEditingMaterialId(null);
+
+    try {
+      const thresholds = {
+        warning: settings?.warningThreshold || 250,
+        critical: settings?.criticalThreshold || 75
+      };
+      await updateEventMaterialCounts(event.id, materialId, newPreCount, newPostCount, thresholds);
+    } catch (error: any) {
+      console.error("Failed to update material counts", error);
+      // Rollback
+      setOptimisticMaterials(prev => prev.map(m => 
+        m.id === materialId ? originalMaterial : m
+      ));
+      alert(error?.message || "Failed to update counts. Make sure you have sufficient inventory stock.");
+    }
+  };
+
   const handleRemoveMaterial = async (materialId: string) => {
     if (!event?.id) return;
     
@@ -305,6 +345,8 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
         const itemsToDistribute = beforeCountMaterials.map(m => ({
           itemId: m.itemId,
           quantity: m.quantity,
+          preCount: m.quantity,
+          postCount: 0,
           title: m.title,
           sku: m.sku,
           language: m.language || ''
@@ -714,273 +756,414 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                   )}
 
                   {!event ? (
-                    beforeCountMaterials.length === 0 && !isAddingMaterial ? (
-                      <div className="h-full py-12 flex flex-col items-center justify-center text-center space-y-4">
-                        <Package className="w-10 sm:w-12 h-10 sm:h-12 text-outline-variant" />
+                    /* CASE 1: Planning / Pre-Counting */
+                    <>
+                      <div className="p-3.5 bg-primary/5 border border-primary/20 rounded-sharp text-on-surface flex items-start gap-3 animate-in fade-in duration-200">
+                        <span className="text-base select-none shrink-0 text-primary">📝</span>
                         <div>
-                          <p className="font-headline font-bold text-on-surface-variant uppercase tracking-widest text-[10px] sm:text-[11px]">Before Count Is Empty</p>
-                          <p className="text-[11px] sm:text-[12px] text-slate-400 mt-1 max-w-[200px]">Add materials and how many you took before creating this event.</p>
+                          <p className="text-[10px] font-headline font-bold text-primary uppercase tracking-wider">Planning Phase (Pre-Counting)</p>
+                          <p className="text-[11px] text-on-surface-variant mt-0.5 leading-relaxed">Specify the quantities packed/checked out (Pre-Count) for transport to this event. System stock levels will be reserved upon scheduling.</p>
                         </div>
                       </div>
-                    ) : (
-                      beforeCountMaterials.map((m) => (
-                        <div key={m.itemId} className="p-3 sm:p-4 bg-surface rounded-sharp border border-outline-variant hover:border-primary flex flex-col gap-3 transition-colors">
-                          <div className="flex justify-between items-center gap-3">
-                            <div className="flex items-center gap-3 sm:gap-4">
-                              <div className="w-8 h-8 bg-surface-container shrink-0 rounded-sharp flex items-center justify-center border border-outline-variant">
-                                <Package className="w-4 h-4 sm:w-5 h-5 text-primary" />
-                              </div>
-                              <div>
-                                <p className="font-headline font-bold text-primary text-[13px] sm:text-[14px] line-clamp-1">{m.title}</p>
-                                <div className="flex items-center gap-2">
-                                  <p className="font-mono text-[9px] sm:text-[10px] text-on-surface-variant uppercase tracking-wider">{m.sku}</p>
-                                  {m.language && (
-                                    <>
-                                      <span className="text-[8px] text-slate-300">•</span>
-                                      <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-surface-container px-1 rounded">{m.language}</span>
-                                    </>
-                                  )}
+
+                      {beforeCountMaterials.length === 0 && !isAddingMaterial ? (
+                        <div className="h-full py-12 flex flex-col items-center justify-center text-center space-y-4">
+                          <Package className="w-10 sm:w-12 h-10 sm:h-12 text-outline-variant" />
+                          <div>
+                            <p className="font-headline font-bold text-on-surface-variant uppercase tracking-widest text-[10px] sm:text-[11px]">Before Count Is Empty</p>
+                            <p className="text-[11px] sm:text-[12px] text-slate-400 mt-1 max-w-[200px]">Add materials and define how many you checked out for transport.</p>
+                          </div>
+                        </div>
+                      ) : (
+                        beforeCountMaterials.map((m) => (
+                          <div key={m.itemId} className="p-3 sm:p-4 bg-surface rounded-sharp border border-outline-variant hover:border-primary flex flex-col gap-3 transition-colors">
+                            <div className="flex justify-between items-center gap-3">
+                              <div className="flex items-center gap-3 sm:gap-4">
+                                <div className="w-8 h-8 bg-surface-container shrink-0 rounded-sharp flex items-center justify-center border border-outline-variant">
+                                  <Package className="w-4 h-4 sm:w-5 h-5 text-primary" />
+                                </div>
+                                <div>
+                                  <p className="font-headline font-bold text-primary text-[13px] sm:text-[14px] line-clamp-1">{m.title}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-mono text-[9px] sm:text-[10px] text-on-surface-variant uppercase tracking-wider">{m.sku}</p>
+                                    {m.language && (
+                                      <>
+                                        <span className="text-[8px] text-slate-300">•</span>
+                                        <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-surface-container px-1 rounded">{m.language}</span>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
+                              <button 
+                                type="button"
+                                onClick={() => {
+                                  setBeforeCountMaterials(prev => prev.filter(item => item.itemId !== m.itemId));
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-tertiary hover:bg-surface-container rounded-sharp transition-all"
+                                title="Remove Item"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                             </div>
-                            <button 
-                              type="button"
-                              onClick={() => {
-                                setBeforeCountMaterials(prev => prev.filter(item => item.itemId !== m.itemId));
-                              }}
-                              className="p-1.5 text-slate-400 hover:text-tertiary hover:bg-surface-container rounded-sharp transition-all"
-                              title="Remove Item"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
 
-                          <div className="pt-2 border-t border-dashed border-outline-variant flex flex-col gap-3">
-                            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-                              <div className="flex items-center gap-2 select-none">
-                                <input 
-                                  type="checkbox"
-                                  id={`correct-${m.itemId}`}
-                                  checked={m.correctStock}
-                                  onChange={e => {
-                                    setBeforeCountMaterials(prev => prev.map(item => 
-                                      item.itemId === m.itemId ? { ...item, correctStock: e.target.checked } : item
-                                    ));
-                                  }}
-                                  className="rounded border-outline-variant text-primary focus:ring-primary w-4 h-4 transition-colors"
-                                />
-                                <label htmlFor={`correct-${m.itemId}`} className="text-[10px] font-headline font-bold text-on-surface-variant uppercase tracking-widest cursor-pointer">
-                                  Correct System Stock level first
-                                </label>
+                            <div className="pt-2 border-t border-dashed border-outline-variant flex flex-col gap-3">
+                              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                                <div className="flex items-center gap-2 select-none">
+                                  <input 
+                                    type="checkbox"
+                                    id={`correct-${m.itemId}`}
+                                    checked={m.correctStock}
+                                    onChange={e => {
+                                      setBeforeCountMaterials(prev => prev.map(item => 
+                                        item.itemId === m.itemId ? { ...item, correctStock: e.target.checked } : item
+                                      ));
+                                    }}
+                                    className="rounded border-outline-variant text-primary focus:ring-primary w-4 h-4 transition-colors"
+                                  />
+                                  <label htmlFor={`correct-${m.itemId}`} className="text-[10px] font-headline font-bold text-on-surface-variant uppercase tracking-widest cursor-pointer">
+                                    Correct System Stock level first
+                                  </label>
+                                </div>
+
+                                {m.correctStock && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Actual Shelf Total:</span>
+                                    <input 
+                                      type="number"
+                                      min={0}
+                                      value={m.newStockLevel}
+                                      onChange={e => {
+                                        const val = Math.max(0, parseInt(e.target.value) || 0);
+                                        setBeforeCountMaterials(prev => prev.map(item => {
+                                          if (item.itemId === m.itemId) {
+                                            const qty = Math.min(item.quantity, val);
+                                            return { ...item, newStockLevel: val, quantity: qty };
+                                          }
+                                          return item;
+                                        }));
+                                      }}
+                                      className="w-20 bg-surface-container-low border border-outline-variant px-2 py-1 font-mono text-xs text-center focus:ring-1 focus:ring-primary rounded-sharp"
+                                    />
+                                    <span className="text-[9px] font-mono text-slate-400 font-bold">(System: {m.systemStock})</span>
+                                  </div>
+                                )}
                               </div>
 
-                              {m.correctStock && (
+                              <div className="flex items-center justify-between bg-surface-container-low p-2 rounded-sharp border border-outline-variant">
+                                <div className="text-[10px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">
+                                  Pre-Count Checked Out (Taken):
+                                </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[10px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Actual Shelf Total:</span>
-                                  <input 
-                                    type="number"
-                                    min={0}
-                                    value={m.newStockLevel}
-                                    onChange={e => {
-                                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                                  <button 
+                                    type="button"
+                                    onClick={() => {
                                       setBeforeCountMaterials(prev => prev.map(item => {
                                         if (item.itemId === m.itemId) {
-                                          const qty = Math.min(item.quantity, val);
-                                          return { ...item, newStockLevel: val, quantity: qty };
+                                          return { ...item, quantity: Math.max(1, item.quantity - 1) };
                                         }
                                         return item;
                                       }));
                                     }}
-                                    className="w-20 bg-surface-container-low border border-outline-variant px-2 py-1 font-mono text-xs text-center focus:ring-1 focus:ring-primary rounded-sharp"
+                                    className="px-2 py-1 text-xs font-bold font-mono bg-surface border border-outline-variant hover:bg-surface-container text-on-surface rounded-sharp transition-colors"
+                                  >
+                                    -
+                                  </button>
+                                  <input 
+                                    type="number"
+                                    min={1}
+                                    max={m.correctStock ? m.newStockLevel : m.systemStock}
+                                    value={m.quantity}
+                                    onChange={e => {
+                                      const val = Math.max(1, parseInt(e.target.value) || 0);
+                                      const limitStock = m.correctStock ? m.newStockLevel : m.systemStock;
+                                      const finalVal = Math.min(val, limitStock);
+                                      setBeforeCountMaterials(prev => prev.map(item => 
+                                        item.itemId === m.itemId ? { ...item, quantity: finalVal } : item
+                                      ));
+                                    }}
+                                    className="w-16 bg-white border border-outline-variant px-1 py-0.5 font-mono text-xs text-center focus:ring-1 focus:ring-primary rounded-sharp"
                                   />
-                                  <span className="text-[9px] font-mono text-slate-400 font-bold">(System: {m.systemStock})</span>
+                                  <button 
+                                    type="button"
+                                    onClick={() => {
+                                      setBeforeCountMaterials(prev => prev.map(item => {
+                                        if (item.itemId === m.itemId) {
+                                          const limitStock = item.correctStock ? item.newStockLevel : item.systemStock;
+                                          return { ...item, quantity: Math.min(limitStock, item.quantity + 1) };
+                                        }
+                                        return item;
+                                      }));
+                                    }}
+                                    className="px-2 py-1 text-xs font-bold font-mono bg-surface border border-outline-variant hover:bg-surface-container text-on-surface rounded-sharp transition-colors"
+                                  >
+                                    +
+                                  </button>
+                                  <span className="text-[10px] font-mono text-slate-400 font-bold">
+                                    / {m.correctStock ? m.newStockLevel : m.systemStock} available
+                                  </span>
                                 </div>
-                              )}
-                            </div>
-
-                            <div className="flex items-center justify-between bg-surface-container-low p-2 rounded-sharp border border-outline-variant">
-                              <div className="text-[10px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">
-                                Quantity Taken (Before Count):
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button 
-                                  type="button"
-                                  onClick={() => {
-                                    setBeforeCountMaterials(prev => prev.map(item => {
-                                      if (item.itemId === m.itemId) {
-                                        return { ...item, quantity: Math.max(1, item.quantity - 1) };
-                                      }
-                                      return item;
-                                    }));
-                                  }}
-                                  className="px-2 py-1 text-xs font-bold font-mono bg-surface border border-outline-variant hover:bg-surface-container text-on-surface rounded-sharp transition-colors"
-                                >
-                                  -
-                                </button>
-                                <input 
-                                  type="number"
-                                  min={1}
-                                  max={m.correctStock ? m.newStockLevel : m.systemStock}
-                                  value={m.quantity}
-                                  onChange={e => {
-                                    const val = Math.max(1, parseInt(e.target.value) || 0);
-                                    const limitStock = m.correctStock ? m.newStockLevel : m.systemStock;
-                                    const finalVal = Math.min(val, limitStock);
-                                    setBeforeCountMaterials(prev => prev.map(item => 
-                                      item.itemId === m.itemId ? { ...item, quantity: finalVal } : item
-                                    ));
-                                  }}
-                                  className="w-16 bg-white border border-outline-variant px-1 py-0.5 font-mono text-xs text-center focus:ring-1 focus:ring-primary rounded-sharp"
-                                />
-                                <button 
-                                  type="button"
-                                  onClick={() => {
-                                    setBeforeCountMaterials(prev => prev.map(item => {
-                                      if (item.itemId === m.itemId) {
-                                        const limitStock = item.correctStock ? item.newStockLevel : item.systemStock;
-                                        return { ...item, quantity: Math.min(limitStock, item.quantity + 1) };
-                                      }
-                                      return item;
-                                    }));
-                                  }}
-                                  className="px-2 py-1 text-xs font-bold font-mono bg-surface border border-outline-variant hover:bg-surface-container text-on-surface rounded-sharp transition-colors"
-                                >
-                                  +
-                                </button>
-                                <span className="text-[10px] font-mono text-slate-400 font-bold">
-                                  / {m.correctStock ? m.newStockLevel : m.systemStock} available
-                                </span>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))
-                    )
+                        ))
+                      )}
+                    </>
                   ) : (
-                    optimisticMaterials.length === 0 && !isAddingMaterial ? (
-                      <div className="h-full py-12 flex flex-col items-center justify-center text-center space-y-4">
-                        <Package className="w-10 sm:w-12 h-10 sm:h-12 text-outline-variant" />
+                    /* CASE 2: Active Reconciliation / Post-Counting */
+                    <>
+                      <div className="p-3.5 bg-secondary/10 border border-secondary/20 rounded-sharp text-on-surface flex items-start gap-3 animate-in fade-in duration-205">
+                        <span className="text-base select-none shrink-0 text-primary">📊</span>
                         <div>
-                          <p className="font-headline font-bold text-on-surface-variant uppercase tracking-widest text-[10px] sm:text-[11px]">No distribution data</p>
-                          <p className="text-[11px] sm:text-[12px] text-slate-400 mt-1 max-w-[200px]">Resources must be allocated via the primary distribution interface.</p>
+                          <p className="text-[10px] font-headline font-bold text-primary uppercase tracking-wider">Post-Event Reconciliation (Post-Counting)</p>
+                          <p className="text-[11px] text-on-surface-variant mt-0.5 leading-relaxed">Log the returned quantities (Post-Count) below. The system automatically calculates distributed items and returns any unused materials back into warehouse stock.</p>
                         </div>
                       </div>
-                    ) : (
-                      optimisticMaterials.map((m) => (
-                        <div key={m.id} className={cn(
-                          "p-3 sm:p-4 bg-surface rounded-sharp border border-outline-variant flex flex-col sm:flex-row justify-between sm:items-center gap-3 group transition-colors",
-                          m.isOptimistic ? "opacity-60 border-dashed border-primary animate-pulse" : "hover:border-primary"
-                        )}>
-                          <div className="flex items-center gap-3 sm:gap-4">
-                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-surface-container shrink-0 rounded-sharp flex items-center justify-center border border-outline-variant">
-                              <Package className={cn("w-4 h-4 sm:w-5 h-5", m.isOptimistic ? "text-slate-400" : "text-primary")} />
-                            </div>
-                            <div>
-                              <p className="font-headline font-bold text-primary text-[13px] sm:text-[14px] line-clamp-1">
-                                {m.title}
-                                {m.isOptimistic && <span className="ml-2 text-[9px] text-primary italic font-normal">(Syncing...)</span>}
-                              </p>
-                              <div className="flex items-center gap-2">
-                                <p className="font-mono text-[9px] sm:text-[10px] text-on-surface-variant uppercase tracking-wider">{m.sku}</p>
-                                {m.language && (
-                                  <>
-                                    <span className="text-[8px] text-slate-300">•</span>
-                                    <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-surface-container px-1 rounded">
-                                      {m.language}
-                                    </span>
-                                  </>
+
+                      {optimisticMaterials.length === 0 && !isAddingMaterial ? (
+                        <div className="h-full py-12 flex flex-col items-center justify-center text-center space-y-4">
+                          <Package className="w-10 sm:w-12 h-10 sm:h-12 text-outline-variant" />
+                          <div>
+                            <p className="font-headline font-bold text-on-surface-variant uppercase tracking-widest text-[10px] sm:text-[11px]">No distribution data</p>
+                            <p className="text-[11px] sm:text-[12px] text-slate-400 mt-1 max-w-[200px]">Resources must be allocated via the primary distribution interface.</p>
+                          </div>
+                        </div>
+                      ) : (
+                        optimisticMaterials.map((m) => {
+                          const itemPreCount = m.preCount !== undefined ? m.preCount : m.quantity;
+                          const itemPostCount = m.postCount !== undefined ? m.postCount : 0;
+                          const itemDistributed = Math.max(0, itemPreCount - itemPostCount);
+
+                          const isEditingThisMaterial = editingMaterialId === m.id;
+                          
+                          // Inline validation logic
+                          const liveNewDist = Math.max(0, editPreCount - editPostCount);
+                          const liveInventoryDiff = liveNewDist - (m.quantity || 0);
+
+                          return (
+                            <div key={m.id} className={cn(
+                              "p-3.5 bg-surface rounded-sharp border flex flex-col gap-3 group transition-all",
+                              m.isOptimistic ? "opacity-60 border-dashed border-primary animate-pulse" : "border-outline-variant hover:border-primary/50"
+                            )}>
+                              {/* Material General Info Card */}
+                              <div className="flex justify-between items-start gap-2">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-surface-container shrink-0 rounded-sharp flex items-center justify-center border border-outline-variant">
+                                    <Package className={cn("w-3.5 h-3.5 sm:w-4 h-4", m.isOptimistic ? "text-slate-400" : "text-primary")} />
+                                  </div>
+                                  <div>
+                                    <p className="font-headline font-bold text-primary text-[12px] sm:text-[13px] line-clamp-1">
+                                      {m.title}
+                                      {m.isOptimistic && <span className="ml-2 text-[9px] text-primary italic font-normal">(Syncing...)</span>}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <p className="font-mono text-[9px] text-on-surface-variant uppercase tracking-wider">{m.sku}</p>
+                                      {m.language && (
+                                        <>
+                                          <span className="text-[8px] text-slate-300">•</span>
+                                          <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-surface-container px-1 py-0.2 rounded">
+                                            {m.language}
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {isAdmin && !isEditingThisMaterial && (
+                                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button 
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingMaterialId(m.id);
+                                        setEditPreCount(itemPreCount);
+                                        setEditPostCount(itemPostCount);
+                                      }}
+                                      className="p-1 px-1.5 bg-surface border border-outline-variant text-[10px] font-bold font-sans text-primary hover:bg-slate-50 hover:border-primary shrink-0 rounded-sharp flex items-center gap-1 transition-all"
+                                      title="Edit pre/post counts"
+                                    >
+                                      <Edit2 className="w-2.5 h-2.5" /> Reconcile
+                                    </button>
+                                    <button 
+                                      type="button"
+                                      onClick={() => setRemovingMaterialId(m.id)}
+                                      className="p-1 text-slate-400 hover:text-tertiary hover:bg-slate-50 border border-transparent hover:border-outline-variant rounded-sharp transition-all"
+                                      title="Remove Item"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 )}
                               </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">
-                            {editingMaterialId === m.id ? (
-                              <div className="flex items-center gap-2">
-                                <input 
-                                  type="number"
-                                  value={editQuantity}
-                                  onChange={e => setEditQuantity(parseInt(e.target.value) || 0)}
-                                  className="w-16 sm:w-20 bg-surface-container-low border-0 border-b border-primary px-2 py-1 font-mono text-sm focus:ring-0"
-                                  autoFocus
-                                />
-                                <button 
-                                  onClick={() => handleUpdateMaterial(m.id)}
-                                  disabled={loading}
-                                  className="p-1.5 bg-primary text-white rounded-sharp hover:bg-primary-container transition-colors disabled:opacity-50"
-                                >
-                                  <Check className="w-4 h-4" />
-                                </button>
-                                <button 
-                                  onClick={() => setEditingMaterialId(null)}
-                                  className="p-1.5 text-on-surface-variant hover:bg-surface-container rounded-sharp transition-colors"
-                                >
-                                  <RotateCcw className="w-4 h-4" />
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="text-left sm:text-right">
-                                <p className="font-mono font-bold text-base sm:text-lg text-primary">{m.quantity}</p>
-                                <p className="text-[8px] sm:text-[9px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Distributed</p>
-                              </div>
-                            )}
 
-                            {isAdmin && !editingMaterialId && (
-                              <div className={cn("flex gap-1 transition-opacity", removingMaterialId === m.id ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
-                                {removingMaterialId === m.id ? (
-                                  <div className="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-150">
+                              {/* Material Numbers / Reconciliation Block */}
+                              <div className="p-2 sm:p-3 bg-surface-container-low rounded-sharp border border-outline-variant/60">
+                                {isEditingThisMaterial ? (
+                                  /* Reconciliation inline entry form */
+                                  <div className="space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <div>
+                                        <label className="text-[9px] font-headline font-bold text-on-surface-variant uppercase tracking-widest block mb-1">
+                                          Pre-Count (Checked Out):
+                                        </label>
+                                        <div className="flex items-center gap-1">
+                                          <button 
+                                            type="button"
+                                            onClick={() => setEditPreCount(prev => Math.max(0, prev - 1))}
+                                            className="px-1.5 py-0.5 text-xs font-mono bg-white border border-outline-variant rounded-sharp"
+                                          >
+                                            -
+                                          </button>
+                                          <input 
+                                            type="number"
+                                            value={editPreCount}
+                                            onChange={e => setEditPreCount(Math.max(0, parseInt(e.target.value) || 0))}
+                                            className="w-14 bg-white border border-outline-variant py-0.5 text-xs text-center font-mono focus:ring-1 focus:ring-primary rounded-sharp"
+                                          />
+                                          <button 
+                                            type="button"
+                                            onClick={() => setEditPreCount(prev => prev + 1)}
+                                            className="px-1.5 py-0.5 text-xs font-mono bg-white border border-outline-variant rounded-sharp"
+                                          >
+                                            +
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      <div>
+                                        <label className="text-[9px] font-headline font-bold text-on-surface-variant uppercase tracking-widest block mb-1">
+                                          Post-Count (Returned Leftover):
+                                        </label>
+                                        <div className="flex items-center gap-1">
+                                          <button 
+                                            type="button"
+                                            onClick={() => setEditPostCount(prev => Math.max(0, prev - 1))}
+                                            className="px-1.5 py-0.5 text-xs font-mono bg-white border border-outline-variant rounded-sharp"
+                                          >
+                                            -
+                                          </button>
+                                          <input 
+                                            type="number"
+                                            value={editPostCount}
+                                            onChange={e => setEditPostCount(Math.max(0, parseInt(e.target.value) || 0))}
+                                            className="w-14 bg-white border border-outline-variant py-0.5 text-xs text-center font-mono focus:ring-1 focus:ring-primary rounded-sharp"
+                                          />
+                                          <button 
+                                            type="button"
+                                            onClick={() => setEditPostCount(prev => prev + 1)}
+                                            className="px-1.5 py-0.5 text-xs font-mono bg-white border border-outline-variant rounded-sharp"
+                                          >
+                                            +
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Calculated output and warehouse indicators */}
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pt-2 border-t border-dashed border-outline-variant">
+                                      <div className="text-[10px]">
+                                        <p className="font-sans font-bold">
+                                          Auto-Calculated Distributed: <span className="text-primary font-mono">{liveNewDist}</span> units
+                                        </p>
+                                        <p className="text-[9px] mt-0.5 font-sans">
+                                          {liveInventoryDiff > 0 ? (
+                                            <span className="text-amber-600 font-bold">⚠️ Will reserve {liveInventoryDiff} additional units from warehouse.</span>
+                                          ) : liveInventoryDiff < 0 ? (
+                                            <span className="text-green-600 font-bold">🍀 Will return {Math.abs(liveInventoryDiff)} unclaimed units back to warehouse.</span>
+                                          ) : (
+                                            <span className="text-slate-400 font-medium">No warehouse inventory changes.</span>
+                                          )}
+                                        </p>
+                                      </div>
+
+                                      <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                                        <button 
+                                          type="button"
+                                          onClick={() => handleUpdateMaterialCounts(m.id, editPreCount, editPostCount)}
+                                          disabled={loading}
+                                          className="p-1 px-2.5 bg-primary hover:bg-primary-container text-white rounded-sharp text-[10px] font-bold uppercase transition-colors disabled:opacity-50 flex items-center gap-1"
+                                        >
+                                          <Check className="w-3 h-3" /> Save Count
+                                        </button>
+                                        <button 
+                                          type="button"
+                                          onClick={() => setEditingMaterialId(null)}
+                                          className="p-1 px-2 border border-outline-variant text-[10px] text-on-surface-variant bg-white font-bold uppercase hover:bg-surface-container rounded-sharp transition-colors"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  /* Normal inline snapshot display */
+                                  <div className="flex justify-between items-center flex-wrap gap-2">
+                                    <div className="grid grid-cols-3 gap-3 sm:gap-6 text-center divide-x divide-outline-variant">
+                                      <div className="pr-1.5 sm:pr-4">
+                                        <p className="font-mono text-sm sm:text-base font-bold text-on-surface">{itemPreCount}</p>
+                                        <p className="text-[8px] font-headline font-bold text-on-surface-variant uppercase tracking-widest mt-0.5 whitespace-nowrap">Checked Out</p>
+                                      </div>
+                                      <div className="px-1.5 sm:px-4">
+                                        <p className="font-mono text-sm sm:text-base font-bold text-on-surface">{itemPostCount}</p>
+                                        <p className="text-[8px] font-headline font-bold text-on-surface-variant uppercase tracking-widest mt-0.5 whitespace-nowrap">Returned</p>
+                                      </div>
+                                      <div className="pl-1.5 sm:pl-4">
+                                        <p className="font-mono text-sm sm:text-base font-bold text-primary">{itemDistributed}</p>
+                                        <p className="text-[8px] font-headline font-bold text-on-surface-variant uppercase tracking-widest mt-0.5 whitespace-nowrap text-primary justify-center flex items-center">Distributed</p>
+                                      </div>
+                                    </div>
+
+                                    <div>
+                                      {itemDistributed > 0 ? (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 text-emerald-600 rounded-sharp">
+                                          ✓ Active Handout ({itemDistributed})
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-medium uppercase bg-slate-100 text-slate-500 rounded-sharp">
+                                          0 Distributed
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Material confirmation for delete state */}
+                              {removingMaterialId === m.id && (
+                                <div className="p-2 border border-tertiary-container bg-tertiary-container/10 rounded-sharp flex items-center justify-between gap-2 animate-in slide-in-from-top-1">
+                                  <span className="text-[10px] text-tertiary select-none font-bold">Confirm removing from this event ledger? Unused items return to warehouse.</span>
+                                  <div className="flex gap-1">
                                     <button
                                       type="button"
                                       onClick={() => {
                                         setRemovingMaterialId(null);
                                         handleRemoveMaterial(m.id);
                                       }}
-                                      className="px-2 py-1 bg-tertiary text-white font-headline font-bold text-[9px] uppercase tracking-wider rounded-sharp hover:bg-tertiary-container transition-all"
+                                      className="px-2 py-0.5 bg-tertiary text-white font-bold text-[9px] uppercase tracking-wider rounded-sharp"
                                     >
                                       Remove
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => setRemovingMaterialId(null)}
-                                      className="px-2 py-1 bg-surface-container hover:bg-surface-container-high border border-outline-variant font-headline font-bold text-[9px] uppercase tracking-wider rounded-sharp transition-all text-on-surface-variant"
+                                      className="px-2 py-0.5 border border-outline-variant bg-white text-on-surface-variant font-bold text-[9px] uppercase tracking-wider rounded-sharp"
                                     >
                                       Keep
                                     </button>
                                   </div>
-                                ) : (
-                                  <>
-                                    <button 
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingMaterialId(m.id);
-                                        setEditQuantity(m.quantity);
-                                      }}
-                                      className="p-1.5 text-slate-400 hover:text-primary hover:bg-surface-container rounded-sharp transition-all"
-                                      title="Edit Quantity"
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button 
-                                      type="button"
-                                      onClick={() => setRemovingMaterialId(m.id)}
-                                      className="p-1.5 text-slate-400 hover:text-tertiary hover:bg-surface-container rounded-sharp transition-all"
-                                      title="Remove Item"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    )
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </>
                   )}
                 </div>
                 <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-outline-variant flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
                   <div className="font-mono text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-wider">
-                    TOTAL ALLOCATION: <span className="text-primary font-bold">
-                      {event ? formData.materialsDistributed : beforeCountMaterials.reduce((sum, item) => sum + item.quantity, 0)}
+                    TOTAL DISTRIBUTED: <span className="text-primary font-bold">
+                      {event ? optimisticMaterials.reduce((sum, m) => sum + (m.quantity || 0), 0) : beforeCountMaterials.reduce((sum, m) => sum + m.quantity, 0)}
                     </span>
                   </div>
                   <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-4 sm:ml-auto w-full sm:w-auto mt-2 sm:mt-0">
