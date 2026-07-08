@@ -1577,9 +1577,9 @@ export default function App() {
     );
   }
 
-  if (!user) return <LoginView />;
-
-  if (currentUserProfile?.role === 'guest' || !isAuthorized) return <PendingAccessView isAuthorized={isAuthorized} />;
+  // Temporarily disabled auth for development
+  // if (!user) return <LoginView />;
+  // if (currentUserProfile?.role === 'guest' || !isAuthorized) return <PendingAccessView isAuthorized={isAuthorized} />;
 
   return (
     <div className="min-h-screen bg-gray-50">
