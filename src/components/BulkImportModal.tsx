@@ -1,8 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { X, Upload, FileText, Check, AlertCircle, Loader2, Save } from 'lucide-react';
+import { X, Upload, FileText, Check, AlertCircle, Loader2, Save, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import Papa from 'papaparse';
-import { parseInventoryData, parseEventData, ParsedInventoryItem, ParsedEvent } from '../services/aiService';
+import { parseInventoryData, parseEventData } from '../services/aiService';
 import { addInventoryItem, importEventWithMaterials, subscribeToSettings, getInventoryItemBySku } from '../services/firestoreService';
 import { cn } from '../lib/utils';
 
@@ -304,28 +303,29 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-primary/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm"
           />
           <motion.div 
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-4xl bg-background ledger-card overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[90vh]"
+            className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]"
           >
-            <div className="indicator-primary" />
-            <div className="px-6 sm:px-8 py-4 sm:py-6 border-b border-outline-variant flex justify-between items-center bg-surface-container shrink-0">
+            <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <div className="flex items-center gap-3">
-                <Upload className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-                <h2 className="font-headline font-bold text-base sm:text-lg text-primary uppercase tracking-wider">
-                  Bulk {importType === 'inventory' ? 'Inventory' : 'Event'} Import
+                <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-primary-600" />
+                </div>
+                <h2 className="font-display font-semibold text-lg text-gray-900">
+                  AI Bulk Import
                 </h2>
               </div>
-              <button onClick={onClose} className="text-on-surface-variant hover:text-primary transition-colors p-2">
+              <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -334,20 +334,20 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
               {step === 'upload' && (
                 <div className="space-y-6 sm:y-8">
                   <div className="flex flex-col sm:flex-row justify-center gap-4">
-                    <button 
+                    <button
                       onClick={() => setImportType('inventory')}
                       className={cn(
-                        "flex-1 py-3 px-6 rounded-sharp font-headline font-bold text-[11px] uppercase tracking-widest transition-all border-2",
-                        importType === 'inventory' ? "bg-primary text-white border-primary" : "bg-surface-container text-on-surface-variant border-outline-variant hover:border-primary/50"
+                        "flex-1 py-3 px-6 rounded-xl font-display font-bold text-[11px] uppercase tracking-widest transition-all border-2",
+                        importType === 'inventory' ? "bg-primary-600 text-white border-primary-600" : "bg-gray-100 text-gray-500 border-gray-200 hover:border-primary-300"
                       )}
                     >
                       Resources
                     </button>
-                    <button 
+                    <button
                       onClick={() => setImportType('events')}
                       className={cn(
-                        "flex-1 py-3 px-6 rounded-sharp font-headline font-bold text-[11px] uppercase tracking-widest transition-all border-2",
-                        importType === 'events' ? "bg-primary text-white border-primary" : "bg-surface-container text-on-surface-variant border-outline-variant hover:border-primary/50"
+                        "flex-1 py-3 px-6 rounded-xl font-display font-bold text-[11px] uppercase tracking-widest transition-all border-2",
+                        importType === 'events' ? "bg-primary-600 text-white border-primary-600" : "bg-gray-100 text-gray-500 border-gray-200 hover:border-primary-300"
                       )}
                     >
                       Events & Distributions
@@ -355,34 +355,34 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
                   </div>
 
                   <div className="text-center space-y-2">
-                    <h3 className="font-headline font-bold text-lg sm:text-xl text-primary">Upload your {importType} list</h3>
-                    <p className="text-on-surface-variant text-xs sm:text-sm">Gemini AI will parse your {importType === 'inventory' ? 'stock items' : 'events and material distributions'} automatically.</p>
+                    <h3 className="font-display font-bold text-lg sm:text-xl text-primary-600">Upload your {importType} list</h3>
+                    <p className="text-gray-500 text-xs sm:text-sm">Gemini AI will parse your {importType === 'inventory' ? 'stock items' : 'events and material distributions'} automatically.</p>
                   </div>
 
-                  <div 
+                  <div
                     onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-outline-variant rounded-sharp p-8 sm:p-12 text-center hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group"
+                    className="border-2 border-dashed border-gray-200 rounded-xl p-8 sm:p-12 text-center hover:border-primary-400 hover:bg-primary-50 transition-all cursor-pointer group"
                   >
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      onChange={handleFileUpload} 
-                      className="hidden" 
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      className="hidden"
                       accept=".csv,.txt,.tsv"
                     />
                     <div className="flex flex-col items-center gap-4">
-                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-primary/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-primary-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-primary-600" />
                       </div>
                       <div className="space-y-1">
-                        <p className="font-headline font-bold text-primary uppercase tracking-widest text-[10px] sm:text-xs">Click to browse files</p>
-                        <p className="text-[9px] sm:text-[10px] font-mono text-slate-400 uppercase">Supports CSV, TSV, TXT</p>
+                        <p className="font-display font-bold text-primary-600 uppercase tracking-widest text-[10px] sm:text-xs">Click to browse files</p>
+                        <p className="text-[9px] sm:text-[10px] font-mono text-gray-400 uppercase">Supports CSV, TSV, TXT</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-surface-container p-4 sm:p-6 rounded-sharp border border-outline-variant">
-                    <h4 className="font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-widest text-primary mb-4">AI Processing Instructions</h4>
+                  <div className="bg-gray-50 p-4 sm:p-6 rounded-xl border border-gray-200">
+                    <h4 className="font-display font-bold text-[10px] sm:text-[11px] uppercase tracking-widest text-primary-600 mb-4">AI Processing Instructions</h4>
                     <ul className="space-y-3">
                       {importType === 'inventory' ? (
                         [
@@ -390,8 +390,8 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
                           "Categories should be Bibles, Tracts, or Booklets.",
                           "AI performs atomic mapping to our schema."
                         ].map((text, i) => (
-                          <li key={i} className="flex gap-3 text-xs sm:text-sm text-on-surface-variant">
-                            <span className="font-mono font-bold text-primary">{i + 1}.</span>
+                          <li key={i} className="flex gap-3 text-xs sm:text-sm text-gray-600">
+                            <span className="font-mono font-bold text-primary-600">{i + 1}.</span>
                             {text}
                           </li>
                         ))
@@ -401,8 +401,8 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
                           "List materials distributed (SKU and quantity).",
                           "AI groups materials into discrete events."
                         ].map((text, i) => (
-                          <li key={i} className="flex gap-3 text-xs sm:text-sm text-on-surface-variant">
-                            <span className="font-mono font-bold text-primary">{i + 1}.</span>
+                          <li key={i} className="flex gap-3 text-xs sm:text-sm text-gray-600">
+                            <span className="font-mono font-bold text-primary-600">{i + 1}.</span>
                             {text}
                           </li>
                         ))
@@ -415,14 +415,14 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
               {step === 'parsing' && (
                 <div className="h-64 flex flex-col items-center justify-center gap-6">
                   <div className="relative">
-                    <Loader2 className="w-16 h-16 text-primary animate-spin" />
+                    <Loader2 className="w-16 h-16 text-primary-600 animate-spin" />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-8 h-8 bg-secondary rounded-full animate-pulse" />
+                      <div className="w-8 h-8 bg-secondary-500 rounded-full animate-pulse" />
                     </div>
                   </div>
                   <div className="text-center space-y-2">
-                    <h3 className="font-headline font-bold text-xl text-primary animate-pulse">AI is parsing your {importType}...</h3>
-                    <p className="text-on-surface-variant text-sm font-mono uppercase tracking-widest">Constructing matrix schema</p>
+                    <h3 className="font-display font-bold text-xl text-primary-600 animate-pulse">AI is parsing your {importType}...</h3>
+                    <p className="text-gray-500 text-sm font-mono uppercase tracking-widest">Constructing matrix schema</p>
                   </div>
                 </div>
               )}
@@ -431,67 +431,67 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
                 <div className="space-y-6">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 px-1">
                     <div>
-                      <h3 className="font-headline font-bold text-lg sm:text-xl text-primary">Review AI Proposal</h3>
-                      <p className="text-on-surface-variant text-xs sm:text-sm">Successfully mapped {parsedItems.length} {importType}.</p>
+                      <h3 className="font-display font-bold text-lg sm:text-xl text-primary-600">Review AI Proposal</h3>
+                      <p className="text-gray-500 text-xs sm:text-sm">Successfully mapped {parsedItems.length} {importType}.</p>
                     </div>
                     {importType === 'inventory' && hasValidationErrors && (
-                      <div className="flex items-center gap-2 bg-tertiary/10 text-tertiary px-3 py-2 rounded-sharp border border-tertiary/20">
+                      <div className="flex items-center gap-2 bg-accent-50 text-accent-700 px-3 py-2 rounded-xl border border-accent-200">
                         <AlertCircle className="w-4 h-4" />
-                        <span className="text-[10px] font-headline font-bold uppercase tracking-wider">Duplicate SKUs Detected</span>
+                        <span className="text-[10px] font-display font-bold uppercase tracking-wider">Duplicate SKUs Detected</span>
                       </div>
                     )}
-                    
+
                     <div className="flex items-center gap-2">
                       {importType === 'inventory' && (
-                        <div className="flex items-center gap-1.5 p-1 bg-surface-container rounded-sharp border border-outline-variant mr-1">
-                          <span className="text-[9px] font-headline font-bold uppercase tracking-widest text-on-surface-variant px-1.5">Apply All:</span>
-                          <button 
+                        <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-xl border border-gray-200 mr-1">
+                          <span className="text-[9px] font-display font-bold uppercase tracking-widest text-gray-500 px-1.5">Apply All:</span>
+                          <button
                             onClick={() => bulkSetLanguage('English')}
-                            className="px-2 py-1 bg-surface text-primary border border-outline-variant rounded-sharp font-headline font-bold text-[9px] uppercase hover:bg-primary/10 transition-colors"
+                            className="px-2 py-1 bg-white text-primary-600 border border-gray-200 rounded-lg font-display font-bold text-[9px] uppercase hover:bg-primary-50 transition-colors"
                           >
                             EN
                           </button>
-                          <button 
+                          <button
                             onClick={() => bulkSetLanguage('Spanish')}
-                            className="px-2 py-1 bg-surface text-primary border border-outline-variant rounded-sharp font-headline font-bold text-[9px] uppercase hover:bg-primary/10 transition-colors"
+                            className="px-2 py-1 bg-white text-primary-600 border border-gray-200 rounded-lg font-display font-bold text-[9px] uppercase hover:bg-primary-50 transition-colors"
                           >
                             ES
                           </button>
                         </div>
                       )}
-                      <button 
+                      <button
                         onClick={reset}
-                        className="px-3 py-1.5 border border-outline-variant text-on-surface-variant font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-wider rounded-sharp hover:bg-surface-container transition-colors"
+                        className="px-3 py-1.5 border border-gray-200 text-gray-600 font-display font-bold text-[10px] sm:text-[11px] uppercase tracking-wider rounded-xl hover:bg-gray-100 transition-colors"
                       >
                         Reset AI
                       </button>
                     </div>
                   </div>
 
-                  <div className="border border-outline-variant rounded-sharp overflow-hidden bg-surface">
+                  <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse min-w-[600px]">
                         <thead>
-                          <tr className="bg-surface-container border-b border-outline-variant">
+                          <tr className="bg-gray-50 border-b border-gray-200">
                             {importType === 'inventory' ? (
                               <>
-                                <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">SKU</th>
-                                <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Details</th>
-                                <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Lang</th>
-                                <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Category</th>
-                                <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Level</th>
+                                <th className="px-4 py-3 font-display text-[10px] uppercase tracking-widest text-gray-500 font-bold">SKU</th>
+                                <th className="px-4 py-3 font-display text-[10px] uppercase tracking-widest text-gray-500 font-bold">Details</th>
+                                <th className="px-4 py-3 font-display text-[10px] uppercase tracking-widest text-gray-500 font-bold">Lang</th>
+                                <th className="px-4 py-3 font-display text-[10px] uppercase tracking-widest text-gray-500 font-bold">Category</th>
+                                <th className="px-4 py-3 font-display text-[10px] uppercase tracking-widest text-gray-500 font-bold">Level</th>
                               </>
                             ) : (
                               <>
-                                <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Event</th>
-                                <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Context</th>
-                                <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Distributions</th>
-                                <th className="px-4 py-3 font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Status</th>
+                                <th className="px-4 py-3 font-display text-[10px] uppercase tracking-widest text-gray-500 font-bold">Event</th>
+                                <th className="px-4 py-3 font-display text-[10px] uppercase tracking-widest text-gray-500 font-bold">Context</th>
+                                <th className="px-4 py-3 font-display text-[10px] uppercase tracking-widest text-gray-500 font-bold">Distributions</th>
+                                <th className="px-4 py-3 font-display text-[10px] uppercase tracking-widest text-gray-500 font-bold">Status</th>
                               </>
                             )}
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-outline-variant">
+                        <tbody className="divide-y divide-gray-200">
                           {parsedItems.map((item, i) => {
                             const isExisting = existingSkus.has(item.sku);
                             const isBatchDuplicate = duplicatesInBatch.has(item.sku);
@@ -500,57 +500,57 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
                             return (
                               <tr key={i} className={cn(
                                 "transition-colors group",
-                                hasError ? "bg-tertiary/5" : "hover:bg-surface-container"
+                                hasError ? "bg-accent-50" : "hover:bg-gray-50"
                               )}>
                                 {importType === 'inventory' ? (
                                   <>
                                     <td className="px-4 py-3 whitespace-nowrap">
                                       <div className="flex flex-col gap-1">
-                                        <input 
+                                        <input
                                           type="text"
                                           value={item.sku}
                                           onChange={(e) => updateParsedItem(i, 'sku', e.target.value.toUpperCase())}
                                           className={cn(
                                             "w-24 bg-transparent font-mono text-xs font-bold border-b outline-none px-1 py-0.5 rounded",
-                                            hasError ? "border-tertiary text-tertiary" : "border-transparent focus:border-primary focus:bg-surface"
+                                            hasError ? "border-accent-400 text-accent-700" : "border-transparent focus:border-primary-500 focus:bg-white"
                                           )}
                                         />
-                                        {isExisting && <span className="text-[7px] text-tertiary font-bold uppercase tracking-wider">Already in Matrix</span>}
-                                        {isBatchDuplicate && <span className="text-[7px] text-tertiary font-bold uppercase tracking-wider">Duplicate in Batch</span>}
+                                        {isExisting && <span className="text-[7px] text-accent-600 font-bold uppercase tracking-wider">Already in Matrix</span>}
+                                        {isBatchDuplicate && <span className="text-[7px] text-accent-600 font-bold uppercase tracking-wider">Duplicate in Batch</span>}
                                       </div>
                                     </td>
                                   <td className="px-4 py-3">
                                     <div className="flex flex-col gap-1">
-                                      <input 
+                                      <input
                                         type="text"
                                         value={item.title}
                                         onChange={(e) => updateParsedItem(i, 'title', e.target.value)}
-                                        className="w-full bg-transparent font-bold text-xs sm:text-[13px] text-primary border-b border-transparent focus:border-primary outline-none focus:bg-surface px-1 py-0.5 rounded"
+                                        className="w-full bg-transparent font-bold text-xs sm:text-[13px] text-primary-600 border-b border-transparent focus:border-primary-500 outline-none focus:bg-white px-1 py-0.5 rounded"
                                       />
-                                      <input 
+                                      <input
                                         type="text"
                                         placeholder="Subtitle (Optional)"
                                         value={item.subtitle || ''}
                                         onChange={(e) => updateParsedItem(i, 'subtitle', e.target.value)}
-                                        className="w-full bg-transparent text-[9px] sm:text-[10px] text-slate-400 border-b border-transparent focus:border-primary outline-none focus:bg-surface px-1 py-0.5 rounded"
+                                        className="w-full bg-transparent text-[9px] sm:text-[10px] text-gray-400 border-b border-transparent focus:border-primary-500 outline-none focus:bg-white px-1 py-0.5 rounded"
                                       />
                                     </div>
                                   </td>
                                   <td className="px-4 py-3">
-                                    <select 
+                                    <select
                                       value={item.language || 'English'}
                                       onChange={(e) => updateParsedItem(i, 'language', e.target.value)}
-                                      className="bg-secondary/10 text-secondary text-[9px] font-bold uppercase rounded-sharp border-none outline-none cursor-pointer hover:bg-secondary/20 p-1"
+                                      className="bg-secondary-50 text-secondary-700 text-[9px] font-bold uppercase rounded-lg border-none outline-none cursor-pointer hover:bg-secondary-100 p-1"
                                     >
                                       <option value="English">EN</option>
                                       <option value="Spanish">ES</option>
                                     </select>
                                   </td>
                                   <td className="px-4 py-3">
-                                    <select 
+                                    <select
                                       value={item.category}
                                       onChange={(e) => updateParsedItem(i, 'category', e.target.value)}
-                                      className="bg-primary/10 text-primary text-[9px] sm:text-[10px] font-bold uppercase rounded-sharp border-none outline-none cursor-pointer hover:bg-primary/20 p-1"
+                                      className="bg-primary-50 text-primary-700 text-[9px] sm:text-[10px] font-bold uppercase rounded-lg border-none outline-none cursor-pointer hover:bg-primary-100 p-1"
                                     >
                                       {categories.map((cat: string) => (
                                         <option key={cat} value={cat}>{cat}</option>
@@ -558,11 +558,11 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
                                     </select>
                                   </td>
                                   <td className="px-4 py-3 whitespace-nowrap">
-                                    <input 
+                                    <input
                                       type="number"
                                       value={item.stockLevel}
                                       onChange={(e) => updateParsedItem(i, 'stockLevel', parseInt(e.target.value) || 0)}
-                                      className="w-16 bg-transparent font-mono text-xs font-bold border-b border-transparent focus:border-primary outline-none focus:bg-surface px-1 py-0.5 rounded text-center"
+                                      className="w-16 bg-transparent font-mono text-xs font-bold border-b border-transparent focus:border-primary-500 outline-none focus:bg-white px-1 py-0.5 rounded text-center"
                                     />
                                   </td>
                                 </>
@@ -570,54 +570,54 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
                                 <>
                                   <td className="px-4 py-3">
                                     <div className="flex flex-col gap-1">
-                                      <input 
+                                      <input
                                         type="text"
                                         value={item.name}
                                         onChange={(e) => updateParsedItem(i, 'name', e.target.value)}
-                                        className="w-full bg-transparent font-bold text-xs sm:text-[13px] text-primary border-b border-transparent focus:border-primary outline-none focus:bg-surface px-1 py-0.5 rounded"
+                                        className="w-full bg-transparent font-bold text-xs sm:text-[13px] text-primary-600 border-b border-transparent focus:border-primary-500 outline-none focus:bg-white px-1 py-0.5 rounded"
                                       />
-                                      <input 
+                                      <input
                                         type="date"
                                         value={item.date}
                                         onChange={(e) => updateParsedItem(i, 'date', e.target.value)}
-                                        className="w-full bg-transparent font-mono text-[9px] text-on-surface-variant border-b border-transparent focus:border-primary outline-none focus:bg-surface px-1 py-0.5 rounded"
+                                        className="w-full bg-transparent font-mono text-[9px] text-gray-500 border-b border-transparent focus:border-primary-500 outline-none focus:bg-white px-1 py-0.5 rounded"
                                       />
                                     </div>
                                   </td>
                                   <td className="px-4 py-3">
-                                    <input 
+                                    <input
                                       type="text"
                                       value={item.location}
                                       onChange={(e) => updateParsedItem(i, 'location', e.target.value)}
-                                      className="w-full bg-transparent text-xs text-on-surface-variant line-clamp-1 border-b border-transparent focus:border-primary outline-none focus:bg-surface px-1 py-0.5 rounded"
+                                      className="w-full bg-transparent text-xs text-gray-500 line-clamp-1 border-b border-transparent focus:border-primary-500 outline-none focus:bg-white px-1 py-0.5 rounded"
                                     />
                                   </td>
                                   <td className="px-4 py-3">
                                     <div className="flex flex-col gap-1">
-                                      <input 
+                                      <input
                                         type="text"
                                         defaultValue={stringifyMaterials(item.materials)}
                                         onBlur={(e) => updateParsedItem(i, 'materials', parseMaterials(e.target.value))}
                                         className={cn(
-                                          "w-full bg-transparent font-mono text-[10px] border-b outline-none focus:bg-surface px-1 py-0.5 rounded",
-                                          item.materials.some((m: any) => !['GENERAL', 'BIBLES', 'TRACTS', 'BOOKLETS'].includes(m.sku) && !existingSkus.has(m.sku)) 
-                                            ? "border-tertiary text-tertiary" 
-                                            : "text-on-surface-variant border-transparent focus:border-primary"
+                                          "w-full bg-transparent font-mono text-[10px] border-b outline-none focus:bg-white px-1 py-0.5 rounded",
+                                          item.materials.some((m: any) => !['GENERAL', 'BIBLES', 'TRACTS', 'BOOKLETS'].includes(m.sku) && !existingSkus.has(m.sku))
+                                            ? "border-accent-400 text-accent-700"
+                                            : "text-gray-500 border-transparent focus:border-primary-500"
                                         )}
                                         placeholder="SKU:QTY or Total"
                                       />
                                       {item.materials.some((m: any) => !['GENERAL', 'BIBLES', 'TRACTS', 'BOOKLETS'].includes(m.sku) && !existingSkus.has(m.sku)) && (
-                                        <span className="text-[7px] text-tertiary font-bold uppercase tracking-wider">
+                                        <span className="text-[7px] text-accent-600 font-bold uppercase tracking-wider">
                                           Unknown SKUs: {item.materials.filter((m: any) => !['GENERAL', 'BIBLES', 'TRACTS', 'BOOKLETS'].includes(m.sku) && !existingSkus.has(m.sku)).map((m: any) => m.sku).join(', ')}
                                         </span>
                                       )}
                                     </div>
                                   </td>
                                   <td className="px-4 py-3">
-                                    <select 
+                                    <select
                                       value={item.status}
                                       onChange={(e) => updateParsedItem(i, 'status', e.target.value)}
-                                      className="bg-secondary/10 text-secondary text-[9px] font-bold uppercase rounded-sharp border-none outline-none cursor-pointer hover:bg-secondary/20 p-1"
+                                      className="bg-secondary-50 text-secondary-700 text-[9px] font-bold uppercase rounded-lg border-none outline-none cursor-pointer hover:bg-secondary-100 p-1"
                                     >
                                       <option value="Scheduled">Scheduled</option>
                                       <option value="Completed">Completed</option>
@@ -634,10 +634,10 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
                     </div>
                   </div>
 
-                  <div className="pt-6 border-t border-outline-variant flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4 shrink-0">
+                  <div className="pt-6 border-t border-gray-200 flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4 shrink-0">
                     <button
                       onClick={onClose}
-                      className="px-6 py-3 text-on-surface-variant font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-surface-container transition-colors rounded-sharp text-center"
+                      className="px-6 py-3 text-gray-500 font-display font-bold text-[11px] uppercase tracking-wider hover:bg-gray-100 transition-colors rounded-xl text-center"
                     >
                       {isAdmin ? 'Cancel' : 'Close'}
                     </button>
@@ -645,7 +645,7 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
                       <button
                         onClick={handleImport}
                         disabled={loading}
-                        className="flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+                        className="flex items-center justify-center gap-2 px-8 py-3 bg-primary-600 text-white font-display font-bold text-[11px] uppercase tracking-wider hover:bg-primary-700 transition-all rounded-xl shadow-lg disabled:opacity-50"
                       >
                         {loading ? (
                           <>
@@ -666,23 +666,23 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
 
               {step === 'success' && (
                 <div className="h-64 flex flex-col items-center justify-center gap-6">
-                  <div className="w-20 h-20 bg-secondary/20 rounded-full flex items-center justify-center">
-                    <Check className="w-10 h-10 text-secondary" />
+                  <div className="w-20 h-20 bg-secondary-100 rounded-full flex items-center justify-center">
+                    <Check className="w-10 h-10 text-secondary-600" />
                   </div>
                   <div className="text-center space-y-2">
-                    <h3 className="font-headline font-bold text-2xl text-primary">Reconciliation Success!</h3>
-                    <p className="text-on-surface-variant text-sm">Successfully synced {importProgress.total} records to the {importType} ledger.</p>
+                    <h3 className="font-display font-bold text-2xl text-primary-600">Reconciliation Success!</h3>
+                    <p className="text-gray-500 text-sm">Successfully synced {importProgress.total} records to the {importType} ledger.</p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <button
                       onClick={onClose}
-                      className="px-8 py-3 border border-outline-variant text-on-surface-variant font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-surface-container transition-all rounded-sharp shadow-lg"
+                      className="px-8 py-3 border border-gray-200 text-gray-600 font-display font-bold text-[12px] uppercase tracking-wider hover:bg-gray-100 transition-all rounded-xl shadow-lg"
                     >
                       Finish & Close
                     </button>
                     <button
                       onClick={reset}
-                      className="px-8 py-3 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg flex items-center justify-center gap-2"
+                      className="px-8 py-3 bg-primary-600 text-white font-display font-bold text-[12px] uppercase tracking-wider hover:bg-primary-700 transition-all rounded-xl shadow-lg flex items-center justify-center gap-2"
                     >
                       <Upload className="w-4 h-4" />
                       Import Another Batch

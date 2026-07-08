@@ -42,13 +42,13 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings }: StockHistoryModa
   const getLogTypeInfo = (log: any) => {
     switch (log.action) {
       case 'ITEM_CREATED':
-        return { label: 'Created', color: 'bg-green-100 text-green-700 border-green-200' };
+        return { label: 'Created', color: 'bg-success-50 text-success-700 border-success-200' };
       case 'STOCK_UPDATE':
-        return { label: 'Manual Update', color: 'bg-blue-100 text-blue-700 border-blue-200' };
+        return { label: 'Manual Update', color: 'bg-primary-50 text-primary-700 border-primary-200' };
       case 'DISTRIBUTION':
-        return { label: 'Distribution', color: 'bg-orange-100 text-orange-700 border-orange-200' };
+        return { label: 'Distribution', color: 'bg-accent-50 text-accent-700 border-accent-200' };
       default:
-        return { label: log.action, color: 'bg-slate-100 text-slate-700 border-slate-200' };
+        return { label: log.action, color: 'bg-gray-100 text-gray-700 border-gray-200' };
     }
   };
 
@@ -56,47 +56,46 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings }: StockHistoryModa
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-primary/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm"
           />
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-2xl bg-background ledger-card overflow-hidden flex flex-col max-h-[85vh]"
+            className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
           >
-            <div className="indicator-secondary" />
-            <div className="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container shrink-0">
+            <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <div className="flex items-center gap-3">
-                <History className="w-5 h-5 text-secondary" />
+                <div className="w-10 h-10 rounded-xl bg-secondary-100 flex items-center justify-center">
+                  <History className="w-5 h-5 text-secondary-600" />
+                </div>
                 <div>
-                  <h2 className="font-headline font-bold text-base text-primary uppercase tracking-wider">
-                    Stock History
-                  </h2>
-                  <p className="text-[10px] font-mono text-on-surface-variant uppercase tracking-widest">{item?.sku} • {item?.title}</p>
+                  <h2 className="font-display font-semibold text-lg text-gray-900">Stock History</h2>
+                  <p className="text-xs text-gray-400 font-mono">{item?.sku} - {item?.title}</p>
                 </div>
               </div>
-              <button onClick={onClose} className="text-on-surface-variant hover:text-primary transition-colors p-2">
-                <X className="w-6 h-6" />
+              <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-6">
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-12 space-y-3">
-                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-                  <p className="text-[11px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Loading Audit Trail...</p>
+                  <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-sm text-gray-500">Loading...</p>
                 </div>
               ) : logs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-                  <Package className="w-12 h-12 text-outline-variant" />
+                  <Package className="w-12 h-12 text-gray-300" />
                   <div>
-                    <p className="font-headline font-bold text-on-surface-variant uppercase tracking-widest text-[11px]">No history found</p>
-                    <p className="text-[12px] text-slate-400 mt-1 max-w-[250px]">Distributions and manual updates will appear here once recorded.</p>
+                    <p className="font-medium text-gray-500">No history found</p>
+                    <p className="text-sm text-gray-400 mt-1">Updates will appear here.</p>
                   </div>
                 </div>
               ) : (
@@ -117,40 +116,40 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings }: StockHistoryModa
                     }
 
                     return (
-                      <div key={log.id} className="relative pl-6 pb-6 border-l border-outline-variant last:pb-0">
-                        <div className="absolute left-[-5px] top-1.5 w-2.5 h-2.5 rounded-full bg-outline-variant border-2 border-background" />
-                        <div className="ledger-card p-4 bg-surface hover:border-primary/30 transition-colors">
+                      <div key={log.id} className="relative pl-6 pb-6 border-l border-gray-200 last:pb-0">
+                        <div className="absolute left-[-5px] top-1.5 w-2.5 h-2.5 rounded-full bg-gray-300 border-2 border-white" />
+                        <div className="bg-white p-4 rounded-xl border border-gray-200 hover:border-primary-300 transition-colors shadow-sm">
                           <div className="flex justify-between items-start gap-4 mb-2">
                             <span className={cn(
-                              "px-2 py-0.5 rounded-sharp border text-[9px] font-bold uppercase tracking-wider",
+                              "px-2 py-0.5 rounded-lg border text-[9px] font-bold uppercase tracking-wider",
                               info.color
                             )}>
                               {info.label}
                             </span>
-                            <div className="flex items-center gap-1.5 text-on-surface-variant">
+                            <div className="flex items-center gap-1.5 text-gray-500">
                               <Calendar className="w-3 h-3" />
                               <span className="text-[10px] font-mono leading-none">{formatDate(log.timestamp)}</span>
                             </div>
                           </div>
-                          
-                          <p className="text-[13px] text-primary font-medium">{log.details}</p>
-                          
+
+                          <p className="text-[13px] text-primary-600 font-medium">{log.details}</p>
+
                           {changeAmount && (
                             <div className="mt-2 flex items-center gap-2">
                               {log.action === 'DISTRIBUTION' ? (
-                                <div className="flex items-center gap-1 text-tertiary font-mono font-bold text-[12px]">
+                                <div className="flex items-center gap-1 text-accent-600 font-mono font-bold text-[12px]">
                                   <ArrowRight className="w-3 h-3 rotate-45" />
                                   <span>{changeAmount} units</span>
                                 </div>
                               ) : (
-                                <div className="text-secondary font-mono font-bold text-[12px]">
+                                <div className="text-secondary-600 font-mono font-bold text-[12px]">
                                   {changeAmount}
                                 </div>
                               )}
                             </div>
                           )}
 
-                          <div className="mt-3 pt-3 border-t border-outline-variant flex items-center gap-2 text-on-surface-variant">
+                          <div className="mt-3 pt-3 border-t border-gray-200 flex items-center gap-2 text-gray-500">
                             <User className="w-3 h-3" />
                             <span className="text-[10px] font-bold uppercase tracking-widest">
                               {log.userName || 'System'} {log.userEmail ? `(${log.userEmail})` : ''}
@@ -164,10 +163,10 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings }: StockHistoryModa
               )}
             </div>
 
-            <div className="px-6 py-4 bg-surface-container border-t border-outline-variant flex justify-center shrink-0">
-              <button 
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-center shrink-0">
+              <button
                 onClick={onClose}
-                className="px-8 py-2 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-all"
+                className="px-8 py-2 bg-primary-600 text-white font-display font-bold text-[11px] uppercase tracking-wider rounded-xl hover:bg-primary-700 transition-all"
               >
                 Close Trail
               </button>

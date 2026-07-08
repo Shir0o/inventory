@@ -402,39 +402,43 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-primary/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm"
           />
           <motion.div 
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-lg bg-background ledger-card overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[90vh]"
+            className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]"
           >
-            <div className="indicator-secondary" />
-            <div className="px-6 sm:px-8 py-4 sm:py-6 border-b border-outline-variant flex justify-between items-center bg-surface-container shrink-0">
-              <h2 className="font-headline font-bold text-base sm:text-lg text-primary uppercase tracking-wider line-clamp-1">
-                {event ? 'Edit Distribution Event' : 'Schedule New Event'}
-              </h2>
-              <button onClick={onClose} className="text-on-surface-variant hover:text-primary transition-colors p-2">
-                <X className="w-5 h-5 sm:w-6 sm:h-6" />
+            <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-secondary-100 flex items-center justify-center">
+                  <CalendarIcon className="w-5 h-5 text-secondary-600" />
+                </div>
+                <h2 className="font-display font-semibold text-lg text-gray-900">
+                  {event ? 'Edit Event' : 'New Event'}
+                </h2>
+              </div>
+              <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex border-b border-outline-variant bg-surface-container-low shrink-0">
-              <button 
+            <div className="flex border-b border-gray-200 bg-gray-100 shrink-0">
+              <button
                 onClick={() => setActiveTab('details')}
                 className={cn(
-                  "flex-1 py-3 sm:py-4 font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-widest transition-all border-b-2",
-                  activeTab === 'details' ? "border-primary text-primary bg-white" : "border-transparent text-on-surface-variant hover:bg-surface-container"
+                  "flex-1 py-3 sm:py-4 font-display font-bold text-[10px] sm:text-[11px] uppercase tracking-widest transition-all border-b-2",
+                  activeTab === 'details' ? "border-primary-500 text-primary-600 bg-white" : "border-transparent text-gray-500 hover:bg-gray-50"
                 )}
               >
                 Details
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab('materials')}
                 className={cn(
-                  "flex-1 py-3 sm:py-4 font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-widest transition-all border-b-2",
-                  activeTab === 'materials' ? "border-primary text-primary bg-white" : "border-transparent text-on-surface-variant hover:bg-surface-container"
+                  "flex-1 py-3 sm:py-4 font-display font-bold text-[10px] sm:text-[11px] uppercase tracking-widest transition-all border-b-2",
+                  activeTab === 'materials' ? "border-primary-500 text-primary-600 bg-white" : "border-transparent text-gray-500 hover:bg-gray-50"
                 )}
               >
                 {event ? `Materials (${materials.length})` : `Before Count (${beforeCountMaterials.length})`}
@@ -443,10 +447,10 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
 
             {modalFeedback && (
               <div onClick={() => setModalFeedback(null)} className={cn(
-                "mx-6 sm:mx-8 mt-4 p-3 font-headline font-semibold text-xs rounded-sharp cursor-pointer border flex justify-between items-center transition-all animate-in fade-in slide-in-from-top-2 shrink-0",
-                modalFeedback.type === 'error' 
-                  ? 'bg-tertiary/10 border-tertiary/20 text-tertiary font-bold' 
-                  : 'bg-secondary/10 border-secondary/20 text-primary font-bold'
+                "mx-6 sm:mx-8 mt-4 p-3 font-display font-semibold text-xs rounded-xl cursor-pointer border flex justify-between items-center transition-all animate-in fade-in slide-in-from-top-2 shrink-0",
+                modalFeedback.type === 'error'
+                  ? 'bg-accent-50 border-accent-200 text-accent-700 font-bold'
+                  : 'bg-secondary-50 border-secondary-200 text-secondary-700 font-bold'
               )}>
                 <span className="flex-1">{modalFeedback.message}</span>
                 <span className="text-[9px] font-mono font-bold uppercase tracking-widest opacity-60 ml-2 select-none">Dismiss</span>
@@ -457,59 +461,59 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
               <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6 overflow-y-auto custom-scrollbar">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Event Name / Designation</label>
-                    <input 
+                    <label className="font-display font-bold text-[10px] sm:text-[11px] text-gray-500 uppercase tracking-widest block">Event Name / Designation</label>
+                    <input
                       required
-                      type="text" 
+                      type="text"
                       value={formData.name}
                       onChange={e => setFormData({...formData, name: e.target.value})}
-                      className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-sans text-sm focus:ring-0 focus:border-primary transition-all"
+                      className="w-full border-0 border-b-2 border-gray-200 bg-gray-50 px-4 py-2 sm:py-3 font-sans text-sm focus:ring-0 focus:border-primary-500 transition-all"
                       placeholder="e.g. Regional Youth Conference"
                     />
                   </div>
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div className="space-y-2">
-                      <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Event Date</label>
-                      <input 
+                      <label className="font-display font-bold text-[10px] sm:text-[11px] text-gray-500 uppercase tracking-widest block">Event Date</label>
+                      <input
                         required
-                        type="date" 
+                        type="date"
                         value={formData.date}
                         onChange={e => setFormData({...formData, date: e.target.value})}
-                        className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-mono text-sm focus:ring-0 focus:border-primary transition-all"
+                        className="w-full border-0 border-b-2 border-gray-200 bg-gray-50 px-4 py-2 sm:py-3 font-mono text-sm focus:ring-0 focus:border-primary-500 transition-all"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Distributed Count</label>
-                      <input 
+                      <label className="font-display font-bold text-[10px] sm:text-[11px] text-gray-500 uppercase tracking-widest block">Distributed Count</label>
+                      <input
                         readOnly
-                        type="number" 
+                        type="number"
                         value={formData.materialsDistributed}
-                        className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-mono text-sm focus:ring-0 focus:border-primary transition-all opacity-70 cursor-not-allowed"
+                        className="w-full border-0 border-b-2 border-gray-200 bg-gray-50 px-4 py-2 sm:py-3 font-mono text-sm focus:ring-0 focus:border-primary-500 transition-all opacity-70 cursor-not-allowed"
                       />
                     </div>
                   </div>
 
                   {event?.categoryStats && (
-                    <div className="p-4 bg-surface-container-low border border-outline-variant rounded-sharp space-y-3">
-                      <h4 className="font-headline font-bold text-[10px] text-primary uppercase tracking-widest border-b border-outline-variant pb-2">Coverage Overview</h4>
+                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                      <h4 className="font-display font-bold text-[10px] text-primary-600 uppercase tracking-widest border-b border-gray-200 pb-2">Coverage Overview</h4>
                       <div className="grid grid-cols-3 gap-4">
                         <div className="text-center">
-                          <p className="font-headline font-bold text-lg text-primary">{event.categoryStats.bibles || 0}</p>
-                          <p className="text-[9px] font-mono text-on-surface-variant uppercase tracking-tighter">Bibles</p>
+                          <p className="font-display font-bold text-lg text-primary-600">{event.categoryStats.bibles || 0}</p>
+                          <p className="text-[9px] font-mono text-gray-500 uppercase tracking-tighter">Bibles</p>
                           {(event.categoryStats.bibles_en > 0 || event.categoryStats.bibles_es > 0) && (
-                            <div className="flex justify-center gap-1 mt-1 text-[8px] font-bold text-slate-400 uppercase">
+                            <div className="flex justify-center gap-1 mt-1 text-[8px] font-bold text-gray-400 uppercase">
                               <span>EN:{event.categoryStats.bibles_en || 0}</span>
                               <span className="opacity-30">•</span>
                               <span>ES:{event.categoryStats.bibles_es || 0}</span>
                             </div>
                           )}
                         </div>
-                        <div className="text-center border-l border-r border-outline-variant">
-                          <p className="font-headline font-bold text-lg text-primary">{event.categoryStats.tracts || 0}</p>
-                          <p className="text-[9px] font-mono text-on-surface-variant uppercase tracking-tighter">Tracts</p>
+                        <div className="text-center border-l border-r border-gray-200">
+                          <p className="font-display font-bold text-lg text-primary-600">{event.categoryStats.tracts || 0}</p>
+                          <p className="text-[9px] font-mono text-gray-500 uppercase tracking-tighter">Tracts</p>
                           {(event.categoryStats.tracts_en > 0 || event.categoryStats.tracts_es > 0) && (
-                            <div className="flex justify-center gap-1 mt-1 text-[8px] font-bold text-slate-400 uppercase">
+                            <div className="flex justify-center gap-1 mt-1 text-[8px] font-bold text-gray-400 uppercase">
                               <span>EN:{event.categoryStats.tracts_en || 0}</span>
                               <span className="opacity-30">•</span>
                               <span>ES:{event.categoryStats.tracts_es || 0}</span>
@@ -517,10 +521,10 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                           )}
                         </div>
                         <div className="text-center">
-                          <p className="font-headline font-bold text-lg text-primary">{event.categoryStats.booklets || 0}</p>
-                          <p className="text-[9px] font-mono text-on-surface-variant uppercase tracking-tighter">Booklets</p>
+                          <p className="font-display font-bold text-lg text-primary-600">{event.categoryStats.booklets || 0}</p>
+                          <p className="text-[9px] font-mono text-gray-500 uppercase tracking-tighter">Booklets</p>
                           {(event.categoryStats.booklets_en > 0 || event.categoryStats.booklets_es > 0) && (
-                            <div className="flex justify-center gap-1 mt-1 text-[8px] font-bold text-slate-400 uppercase">
+                            <div className="flex justify-center gap-1 mt-1 text-[8px] font-bold text-gray-400 uppercase">
                               <span>EN:{event.categoryStats.booklets_en || 0}</span>
                               <span className="opacity-30">•</span>
                               <span>ES:{event.categoryStats.booklets_es || 0}</span>
@@ -533,30 +537,30 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div className="space-y-2">
-                      <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Location / Venue</label>
-                      <input 
+                      <label className="font-display font-bold text-[10px] sm:text-[11px] text-gray-500 uppercase tracking-widest block">Location / Venue</label>
+                      <input
                         required
-                        type="text" 
+                        type="text"
                         value={formData.location}
                         onChange={e => setFormData({...formData, location: e.target.value})}
-                        className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-sans text-sm focus:ring-0 focus:border-primary transition-all"
+                        className="w-full border-0 border-b-2 border-gray-200 bg-gray-50 px-4 py-2 sm:py-3 font-sans text-sm focus:ring-0 focus:border-primary-500 transition-all"
                         placeholder="e.g. Central Park Pavilion"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Operational Status</label>
+                    <label className="font-display font-bold text-[10px] sm:text-[11px] text-gray-500 uppercase tracking-widest block">Operational Status</label>
                     <div className="flex flex-wrap gap-2">
                       {['Scheduled', 'Stock Alert', 'Completed'].map(s => (
                         <button
                           key={s}
                           type="button"
                           onClick={() => setFormData({...formData, status: s})}
-                          className={`flex-1 min-w-[100px] py-1.5 sm:py-2 text-[9px] sm:text-[11px] font-bold uppercase tracking-wider border-2 rounded-sharp transition-all ${
-                            formData.status === s 
-                              ? 'bg-secondary text-primary border-secondary' 
-                              : 'border-outline-variant text-on-surface-variant hover:border-secondary/50'
+                          className={`flex-1 min-w-[100px] py-1.5 sm:py-2 text-[9px] sm:text-[11px] font-bold uppercase tracking-wider border-2 rounded-xl transition-all ${
+                            formData.status === s
+                              ? 'bg-secondary-500 text-white border-secondary-500'
+                              : 'border-gray-200 text-gray-500 hover:border-secondary-300'
                           }`}
                         >
                           {s}
@@ -566,7 +570,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-outline-variant flex flex-col-reverse sm:flex-row justify-between gap-4 shrink-0">
+                <div className="pt-6 border-t border-gray-200 flex flex-col-reverse sm:flex-row justify-between gap-4 shrink-0">
                   {event && isAdmin && (
                     showEventDeleteConfirm ? (
                       <div className="flex gap-2 w-full sm:w-auto">
@@ -574,7 +578,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                           type="button"
                           onClick={handleDelete}
                           disabled={loading}
-                          className="flex items-center justify-center gap-2 px-6 py-3 bg-tertiary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-tertiary-container transition-all rounded-sharp shadow-md w-full sm:w-auto animate-in fade-in zoom-in-95 duration-150"
+                          className="flex items-center justify-center gap-2 px-6 py-3 bg-accent-600 text-white font-display font-bold text-[11px] uppercase tracking-wider hover:bg-accent-700 transition-all rounded-xl shadow-md w-full sm:w-auto animate-in fade-in zoom-in-95 duration-150"
                         >
                           <Trash2 className="w-4 h-4" />
                           Confirm Delete
@@ -582,7 +586,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                         <button
                           type="button"
                           onClick={() => setShowEventDeleteConfirm(false)}
-                          className="px-4 py-3 border border-outline-variant text-on-surface-variant font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-surface-container transition-colors rounded-sharp w-full sm:w-auto text-center"
+                          className="px-4 py-3 border border-gray-200 text-gray-600 font-display font-bold text-[11px] uppercase tracking-wider hover:bg-gray-100 transition-colors rounded-xl w-full sm:w-auto text-center"
                         >
                           Cancel
                         </button>
@@ -592,7 +596,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                         type="button"
                         onClick={() => setShowEventDeleteConfirm(true)}
                         disabled={loading}
-                        className="flex items-center justify-center gap-2 px-6 py-3 border-2 border-tertiary text-tertiary font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-tertiary/5 transition-colors rounded-sharp disabled:opacity-50 w-full sm:w-auto"
+                        className="flex items-center justify-center gap-2 px-6 py-3 border-2 border-accent-300 text-accent-600 font-display font-bold text-[11px] uppercase tracking-wider hover:bg-accent-50 transition-colors rounded-xl disabled:opacity-50 w-full sm:w-auto"
                       >
                         <Trash2 className="w-4 h-4" />
                         Delete
@@ -603,7 +607,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                     <button
                       type="button"
                       onClick={onClose}
-                      className="px-6 py-3 text-on-surface-variant font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-surface-container transition-colors rounded-sharp text-center"
+                      className="px-6 py-3 text-gray-500 font-display font-bold text-[11px] uppercase tracking-wider hover:bg-gray-100 transition-colors rounded-xl text-center"
                     >
                       {isAdmin ? 'Cancel' : 'Close'}
                     </button>
@@ -611,7 +615,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                       <button
                         type="submit"
                         disabled={loading}
-                        className="flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+                        className="flex items-center justify-center gap-2 px-8 py-3 bg-primary-600 text-white font-display font-bold text-[11px] uppercase tracking-wider hover:bg-primary-700 transition-all rounded-xl shadow-lg disabled:opacity-50"
                       >
                         <Save className="w-4 h-4" />
                         {loading ? 'Processing...' : (event ? 'Update Record' : 'Schedule')}
@@ -626,28 +630,28 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                   {isAdmin && (
                     <div className="mb-4">
                       {isAddingMaterial ? (
-                        <div className="space-y-3 p-4 bg-surface-container rounded-sharp border border-primary/20">
+                        <div className="space-y-3 p-4 bg-gray-100 rounded-xl border border-primary-200">
                           <div className="flex justify-between items-center mb-2">
-                             <h4 className="text-[10px] font-headline font-bold text-primary uppercase tracking-widest">Select Resource to Add</h4>
-                             <button onClick={() => setIsAddingMaterial(false)} className="text-on-surface-variant hover:text-tertiary">
+                             <h4 className="text-[10px] font-display font-bold text-primary-600 uppercase tracking-widest">Select Resource to Add</h4>
+                             <button onClick={() => setIsAddingMaterial(false)} className="text-gray-500 hover:text-accent-600">
                                 <RotateCcw className="w-3.5 h-3.5" />
                              </button>
                           </div>
                           <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                            <input 
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
                               autoFocus
                               type="text"
                               value={searchQuery}
                               onChange={e => setSearchQuery(e.target.value)}
                               placeholder="Search inventory..."
-                              className="w-full pl-10 pr-4 py-2 bg-white border border-outline-variant rounded-sharp text-xs focus:border-primary focus:ring-0 transition-all"
+                              className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:border-primary-500 focus:ring-0 transition-all"
                             />
                           </div>
                           <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
                             {inventory
-                              .filter(i => 
-                                (i.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                              .filter(i =>
+                                (i.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                                  i.sku?.toLowerCase().includes(searchQuery.toLowerCase())) &&
                                 (event ? !optimisticMaterials.find(m => m.sku === i.sku) : !beforeCountMaterials.find(m => m.itemId === i.id))
                               )
@@ -657,7 +661,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                 return (
                                   <div
                                     key={i.id}
-                                    className="w-full text-left p-2 hover:bg-primary/5 rounded-sharp border-b border-outline-variant/10 flex flex-col gap-2 transition-colors"
+                                    className="w-full text-left p-2 hover:bg-primary-50 rounded-xl border-b border-gray-100 flex flex-col gap-2 transition-colors"
                                   >
                                     <div className="flex justify-between items-center w-full">
                                       <button
@@ -673,16 +677,16 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                         className="flex-1 text-left"
                                       >
                                         <div className="flex items-center gap-2">
-                                          <p className="text-[11px] font-bold text-primary">{i.title}</p>
+                                          <p className="text-[11px] font-bold text-primary-600">{i.title}</p>
                                           {i.language && (
-                                            <span className="text-[8px] px-1 bg-surface-container-high text-on-surface-variant font-bold rounded uppercase">
+                                            <span className="text-[8px] px-1 bg-gray-100 text-gray-500 font-bold rounded uppercase">
                                               {i.language}
                                             </span>
                                           )}
                                         </div>
-                                        <p className="text-[9px] font-mono text-on-surface-variant">
+                                        <p className="text-[9px] font-mono text-gray-500">
                                           {i.sku} • {isOutOfStock ? (
-                                            <span className="text-tertiary text-tertiary font-bold bg-tertiary/10 px-1 py-0.5 rounded">OUT OF STOCK</span>
+                                            <span className="text-accent-600 font-bold bg-accent-50 px-1 py-0.5 rounded">OUT OF STOCK</span>
                                           ) : (
                                             <span>{i.stockLevel} in stock</span>
                                           )}
@@ -697,7 +701,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                               setSelectedAdjustItem(isAdjusting ? null : i);
                                               setAdjustStockValue(10);
                                             }}
-                                            className="px-2 py-1 bg-tertiary/10 hover:bg-tertiary hover:text-white text-tertiary font-headline font-bold text-[9px] uppercase tracking-wider rounded-sharp transition-all"
+                                            className="px-2 py-1 bg-accent-50 hover:bg-accent-600 hover:text-white text-accent-600 font-display font-bold text-[9px] uppercase tracking-wider rounded-xl transition-all"
                                           >
                                             {isAdjusting ? "Cancel" : "Adjust Shelf"}
                                           </button>
@@ -705,7 +709,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                           <button
                                             type="button"
                                             onClick={() => handleAddMaterial(i)}
-                                            className="p-1 text-primary hover:bg-primary/10 rounded-sharp"
+                                            className="p-1 text-primary-600 hover:bg-primary-50 rounded-xl"
                                           >
                                             <Plus className="w-4 h-4" />
                                           </button>
@@ -714,9 +718,9 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                     </div>
 
                                     {isAdjusting && (
-                                      <div className="p-2 bg-surface-container-low rounded-sharp border border-tertiary/30 shadow-inner flex flex-wrap items-center justify-between gap-2">
+                                      <div className="p-2 bg-gray-50 rounded-xl border border-accent-200 shadow-inner flex flex-wrap items-center justify-between gap-2">
                                         <div className="flex items-center gap-2">
-                                          <span className="text-[9px] font-headline font-bold text-on-surface-variant uppercase tracking-widest shrink-0">
+                                          <span className="text-[9px] font-display font-bold text-gray-500 uppercase tracking-widest shrink-0">
                                             Actual Shelf Stock:
                                           </span>
                                           <input
@@ -724,14 +728,14 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                             min={1}
                                             value={adjustStockValue}
                                             onChange={e => setAdjustStockValue(Math.max(1, parseInt(e.target.value) || 0))}
-                                            className="w-16 bg-white border border-outline-variant px-1.5 py-0.5 font-mono text-xs text-center focus:ring-1 focus:ring-tertiary rounded-sharp"
+                                            className="w-16 bg-white border border-gray-200 px-1.5 py-0.5 font-mono text-xs text-center focus:ring-1 focus:ring-accent-500 rounded-lg"
                                           />
                                         </div>
                                         <button
                                           type="button"
                                           onClick={() => handleAdjustAndAdd(i)}
                                           disabled={loading}
-                                          className="px-3 py-1 bg-tertiary hover:bg-tertiary-container text-white font-headline font-bold text-[9px] uppercase tracking-widest rounded-sharp transition-all shadow-sm"
+                                          className="px-3 py-1 bg-accent-600 hover:bg-accent-700 text-white font-display font-bold text-[9px] uppercase tracking-widest rounded-xl transition-all shadow-sm"
                                         >
                                           {loading ? "Saving..." : "Verify & Add"}
                                         </button>
@@ -744,9 +748,9 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                           </div>
                         </div>
                       ) : (
-                        <button 
+                        <button
                           onClick={() => setIsAddingMaterial(true)}
-                          className="w-full py-3 border-2 border-dashed border-outline-variant hover:border-primary hover:bg-primary/5 text-on-surface-variant hover:text-primary transition-all rounded-sharp flex items-center justify-center gap-2 font-headline font-bold text-[10px] uppercase tracking-widest"
+                          className="w-full py-3 border-2 border-dashed border-gray-200 hover:border-primary-400 hover:bg-primary-50 text-gray-500 hover:text-primary-600 transition-all rounded-xl flex items-center justify-center gap-2 font-display font-bold text-[10px] uppercase tracking-widest"
                         >
                           <Plus className="w-4 h-4" />
                           {event ? "Add Resource to Distribution" : "Add Resource to Before Count"}
@@ -758,78 +762,78 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                   {!event ? (
                     /* CASE 1: Planning / Pre-Counting */
                     <>
-                      <div className="p-3.5 bg-primary/5 border border-primary/20 rounded-sharp text-on-surface flex items-start gap-3 animate-in fade-in duration-200">
-                        <span className="text-base select-none shrink-0 text-primary">📝</span>
+                      <div className="p-3.5 bg-primary-50 border border-primary-200 rounded-xl text-gray-900 flex items-start gap-3 animate-in fade-in duration-200">
+                        <span className="text-base select-none shrink-0 text-primary-600">📝</span>
                         <div>
-                          <p className="text-[10px] font-headline font-bold text-primary uppercase tracking-wider">Planning Phase (Pre-Counting)</p>
-                          <p className="text-[11px] text-on-surface-variant mt-0.5 leading-relaxed">Specify the quantities packed/checked out (Pre-Count) for transport to this event. System stock levels will be reserved upon scheduling.</p>
+                          <p className="text-[10px] font-display font-bold text-primary-600 uppercase tracking-wider">Planning Phase (Pre-Counting)</p>
+                          <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">Specify the quantities packed/checked out (Pre-Count) for transport to this event. System stock levels will be reserved upon scheduling.</p>
                         </div>
                       </div>
 
                       {beforeCountMaterials.length === 0 && !isAddingMaterial ? (
                         <div className="h-full py-12 flex flex-col items-center justify-center text-center space-y-4">
-                          <Package className="w-10 sm:w-12 h-10 sm:h-12 text-outline-variant" />
+                          <Package className="w-10 sm:w-12 h-10 sm:h-12 text-gray-300" />
                           <div>
-                            <p className="font-headline font-bold text-on-surface-variant uppercase tracking-widest text-[10px] sm:text-[11px]">Before Count Is Empty</p>
-                            <p className="text-[11px] sm:text-[12px] text-slate-400 mt-1 max-w-[200px]">Add materials and define how many you checked out for transport.</p>
+                            <p className="font-display font-bold text-gray-500 uppercase tracking-widest text-[10px] sm:text-[11px]">Before Count Is Empty</p>
+                            <p className="text-[11px] sm:text-[12px] text-gray-400 mt-1 max-w-[200px]">Add materials and define how many you checked out for transport.</p>
                           </div>
                         </div>
                       ) : (
                         beforeCountMaterials.map((m) => (
-                          <div key={m.itemId} className="p-3 sm:p-4 bg-surface rounded-sharp border border-outline-variant hover:border-primary flex flex-col gap-3 transition-colors">
+                          <div key={m.itemId} className="p-3 sm:p-4 bg-white rounded-xl border border-gray-200 hover:border-primary-400 flex flex-col gap-3 transition-colors">
                             <div className="flex justify-between items-center gap-3">
                               <div className="flex items-center gap-3 sm:gap-4">
-                                <div className="w-8 h-8 bg-surface-container shrink-0 rounded-sharp flex items-center justify-center border border-outline-variant">
-                                  <Package className="w-4 h-4 sm:w-5 h-5 text-primary" />
+                                <div className="w-8 h-8 bg-gray-100 shrink-0 rounded-xl flex items-center justify-center border border-gray-200">
+                                  <Package className="w-4 h-4 sm:w-5 h-5 text-primary-600" />
                                 </div>
                                 <div>
-                                  <p className="font-headline font-bold text-primary text-[13px] sm:text-[14px] line-clamp-1">{m.title}</p>
+                                  <p className="font-display font-bold text-primary-600 text-[13px] sm:text-[14px] line-clamp-1">{m.title}</p>
                                   <div className="flex items-center gap-2">
-                                    <p className="font-mono text-[9px] sm:text-[10px] text-on-surface-variant uppercase tracking-wider">{m.sku}</p>
+                                    <p className="font-mono text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-wider">{m.sku}</p>
                                     {m.language && (
                                       <>
-                                        <span className="text-[8px] text-slate-300">•</span>
-                                        <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-surface-container px-1 rounded">{m.language}</span>
+                                        <span className="text-[8px] text-gray-300">•</span>
+                                        <span className="text-[9px] font-bold text-gray-500 uppercase bg-gray-100 px-1 rounded">{m.language}</span>
                                       </>
                                     )}
                                   </div>
                                 </div>
                               </div>
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => {
                                   setBeforeCountMaterials(prev => prev.filter(item => item.itemId !== m.itemId));
                                 }}
-                                className="p-1.5 text-slate-400 hover:text-tertiary hover:bg-surface-container rounded-sharp transition-all"
+                                className="p-1.5 text-gray-400 hover:text-accent-600 hover:bg-gray-100 rounded-xl transition-all"
                                 title="Remove Item"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
 
-                            <div className="pt-2 border-t border-dashed border-outline-variant flex flex-col gap-3">
+                            <div className="pt-2 border-t border-dashed border-gray-200 flex flex-col gap-3">
                               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                                 <div className="flex items-center gap-2 select-none">
-                                  <input 
+                                  <input
                                     type="checkbox"
                                     id={`correct-${m.itemId}`}
                                     checked={m.correctStock}
                                     onChange={e => {
-                                      setBeforeCountMaterials(prev => prev.map(item => 
+                                      setBeforeCountMaterials(prev => prev.map(item =>
                                         item.itemId === m.itemId ? { ...item, correctStock: e.target.checked } : item
                                       ));
                                     }}
-                                    className="rounded border-outline-variant text-primary focus:ring-primary w-4 h-4 transition-colors"
+                                    className="rounded border-gray-200 text-primary-600 focus:ring-primary-500 w-4 h-4 transition-colors"
                                   />
-                                  <label htmlFor={`correct-${m.itemId}`} className="text-[10px] font-headline font-bold text-on-surface-variant uppercase tracking-widest cursor-pointer">
+                                  <label htmlFor={`correct-${m.itemId}`} className="text-[10px] font-display font-bold text-gray-500 uppercase tracking-widest cursor-pointer">
                                     Correct System Stock level first
                                   </label>
                                 </div>
 
                                 {m.correctStock && (
                                   <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Actual Shelf Total:</span>
-                                    <input 
+                                    <span className="text-[10px] font-display font-bold text-gray-500 uppercase tracking-widest">Actual Shelf Total:</span>
+                                    <input
                                       type="number"
                                       min={0}
                                       value={m.newStockLevel}
@@ -843,19 +847,19 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                           return item;
                                         }));
                                       }}
-                                      className="w-20 bg-surface-container-low border border-outline-variant px-2 py-1 font-mono text-xs text-center focus:ring-1 focus:ring-primary rounded-sharp"
+                                      className="w-20 bg-gray-50 border border-gray-200 px-2 py-1 font-mono text-xs text-center focus:ring-1 focus:ring-primary-500 rounded-lg"
                                     />
-                                    <span className="text-[9px] font-mono text-slate-400 font-bold">(System: {m.systemStock})</span>
+                                    <span className="text-[9px] font-mono text-gray-400 font-bold">(System: {m.systemStock})</span>
                                   </div>
                                 )}
                               </div>
 
-                              <div className="flex items-center justify-between bg-surface-container-low p-2 rounded-sharp border border-outline-variant">
-                                <div className="text-[10px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">
+                              <div className="flex items-center justify-between bg-gray-50 p-2 rounded-xl border border-gray-200">
+                                <div className="text-[10px] font-display font-bold text-gray-500 uppercase tracking-widest">
                                   Pre-Count Checked Out (Taken):
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <button 
+                                  <button
                                     type="button"
                                     onClick={() => {
                                       setBeforeCountMaterials(prev => prev.map(item => {
@@ -865,11 +869,11 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                         return item;
                                       }));
                                     }}
-                                    className="px-2 py-1 text-xs font-bold font-mono bg-surface border border-outline-variant hover:bg-surface-container text-on-surface rounded-sharp transition-colors"
+                                    className="px-2 py-1 text-xs font-bold font-mono bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors"
                                   >
                                     -
                                   </button>
-                                  <input 
+                                  <input
                                     type="number"
                                     min={1}
                                     max={m.correctStock ? m.newStockLevel : m.systemStock}
@@ -878,13 +882,13 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                       const val = Math.max(1, parseInt(e.target.value) || 0);
                                       const limitStock = m.correctStock ? m.newStockLevel : m.systemStock;
                                       const finalVal = Math.min(val, limitStock);
-                                      setBeforeCountMaterials(prev => prev.map(item => 
+                                      setBeforeCountMaterials(prev => prev.map(item =>
                                         item.itemId === m.itemId ? { ...item, quantity: finalVal } : item
                                       ));
                                     }}
-                                    className="w-16 bg-white border border-outline-variant px-1 py-0.5 font-mono text-xs text-center focus:ring-1 focus:ring-primary rounded-sharp"
+                                    className="w-16 bg-white border border-gray-200 px-1 py-0.5 font-mono text-xs text-center focus:ring-1 focus:ring-primary-500 rounded-lg"
                                   />
-                                  <button 
+                                  <button
                                     type="button"
                                     onClick={() => {
                                       setBeforeCountMaterials(prev => prev.map(item => {
@@ -895,11 +899,11 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                         return item;
                                       }));
                                     }}
-                                    className="px-2 py-1 text-xs font-bold font-mono bg-surface border border-outline-variant hover:bg-surface-container text-on-surface rounded-sharp transition-colors"
+                                    className="px-2 py-1 text-xs font-bold font-mono bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors"
                                   >
                                     +
                                   </button>
-                                  <span className="text-[10px] font-mono text-slate-400 font-bold">
+                                  <span className="text-[10px] font-mono text-gray-400 font-bold">
                                     / {m.correctStock ? m.newStockLevel : m.systemStock} available
                                   </span>
                                 </div>
@@ -912,20 +916,20 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                   ) : (
                     /* CASE 2: Active Reconciliation / Post-Counting */
                     <>
-                      <div className="p-3.5 bg-secondary/10 border border-secondary/20 rounded-sharp text-on-surface flex items-start gap-3 animate-in fade-in duration-205">
-                        <span className="text-base select-none shrink-0 text-primary">📊</span>
+                      <div className="p-3.5 bg-secondary-50 border border-secondary-200 rounded-xl text-gray-900 flex items-start gap-3 animate-in fade-in duration-205">
+                        <span className="text-base select-none shrink-0 text-primary-600">📊</span>
                         <div>
-                          <p className="text-[10px] font-headline font-bold text-primary uppercase tracking-wider">Post-Event Reconciliation (Post-Counting)</p>
-                          <p className="text-[11px] text-on-surface-variant mt-0.5 leading-relaxed">Log the returned quantities (Post-Count) below. The system automatically calculates distributed items and returns any unused materials back into warehouse stock.</p>
+                          <p className="text-[10px] font-display font-bold text-primary-600 uppercase tracking-wider">Post-Event Reconciliation (Post-Counting)</p>
+                          <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">Log the returned quantities (Post-Count) below. The system automatically calculates distributed items and returns any unused materials back into warehouse stock.</p>
                         </div>
                       </div>
 
                       {optimisticMaterials.length === 0 && !isAddingMaterial ? (
                         <div className="h-full py-12 flex flex-col items-center justify-center text-center space-y-4">
-                          <Package className="w-10 sm:w-12 h-10 sm:h-12 text-outline-variant" />
+                          <Package className="w-10 sm:w-12 h-10 sm:h-12 text-gray-300" />
                           <div>
-                            <p className="font-headline font-bold text-on-surface-variant uppercase tracking-widest text-[10px] sm:text-[11px]">No distribution data</p>
-                            <p className="text-[11px] sm:text-[12px] text-slate-400 mt-1 max-w-[200px]">Resources must be allocated via the primary distribution interface.</p>
+                            <p className="font-display font-bold text-gray-500 uppercase tracking-widest text-[10px] sm:text-[11px]">No distribution data</p>
+                            <p className="text-[11px] sm:text-[12px] text-gray-400 mt-1 max-w-[200px]">Resources must be allocated via the primary distribution interface.</p>
                           </div>
                         </div>
                       ) : (
@@ -935,33 +939,33 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                           const itemDistributed = Math.max(0, itemPreCount - itemPostCount);
 
                           const isEditingThisMaterial = editingMaterialId === m.id;
-                          
+
                           // Inline validation logic
                           const liveNewDist = Math.max(0, editPreCount - editPostCount);
                           const liveInventoryDiff = liveNewDist - (m.quantity || 0);
 
                           return (
                             <div key={m.id} className={cn(
-                              "p-3.5 bg-surface rounded-sharp border flex flex-col gap-3 group transition-all",
-                              m.isOptimistic ? "opacity-60 border-dashed border-primary animate-pulse" : "border-outline-variant hover:border-primary/50"
+                              "p-3.5 bg-white rounded-xl border flex flex-col gap-3 group transition-all",
+                              m.isOptimistic ? "opacity-60 border-dashed border-primary-400 animate-pulse" : "border-gray-200 hover:border-primary-400"
                             )}>
                               {/* Material General Info Card */}
                               <div className="flex justify-between items-start gap-2">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-surface-container shrink-0 rounded-sharp flex items-center justify-center border border-outline-variant">
-                                    <Package className={cn("w-3.5 h-3.5 sm:w-4 h-4", m.isOptimistic ? "text-slate-400" : "text-primary")} />
+                                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gray-100 shrink-0 rounded-xl flex items-center justify-center border border-gray-200">
+                                    <Package className={cn("w-3.5 h-3.5 sm:w-4 h-4", m.isOptimistic ? "text-gray-400" : "text-primary-600")} />
                                   </div>
                                   <div>
-                                    <p className="font-headline font-bold text-primary text-[12px] sm:text-[13px] line-clamp-1">
+                                    <p className="font-display font-bold text-primary-600 text-[12px] sm:text-[13px] line-clamp-1">
                                       {m.title}
-                                      {m.isOptimistic && <span className="ml-2 text-[9px] text-primary italic font-normal">(Syncing...)</span>}
+                                      {m.isOptimistic && <span className="ml-2 text-[9px] text-primary-500 italic font-normal">(Syncing...)</span>}
                                     </p>
                                     <div className="flex items-center gap-2 mt-0.5">
-                                      <p className="font-mono text-[9px] text-on-surface-variant uppercase tracking-wider">{m.sku}</p>
+                                      <p className="font-mono text-[9px] text-gray-500 uppercase tracking-wider">{m.sku}</p>
                                       {m.language && (
                                         <>
-                                          <span className="text-[8px] text-slate-300">•</span>
-                                          <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-surface-container px-1 py-0.2 rounded">
+                                          <span className="text-[8px] text-gray-300">•</span>
+                                          <span className="text-[9px] font-bold text-gray-500 uppercase bg-gray-100 px-1 py-0.2 rounded">
                                             {m.language}
                                           </span>
                                         </>
@@ -972,22 +976,22 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
 
                                 {isAdmin && !isEditingThisMaterial && (
                                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button 
+                                    <button
                                       type="button"
                                       onClick={() => {
                                         setEditingMaterialId(m.id);
                                         setEditPreCount(itemPreCount);
                                         setEditPostCount(itemPostCount);
                                       }}
-                                      className="p-1 px-1.5 bg-surface border border-outline-variant text-[10px] font-bold font-sans text-primary hover:bg-slate-50 hover:border-primary shrink-0 rounded-sharp flex items-center gap-1 transition-all"
+                                      className="p-1 px-1.5 bg-white border border-gray-200 text-[10px] font-bold font-sans text-primary-600 hover:bg-gray-50 hover:border-primary-400 shrink-0 rounded-xl flex items-center gap-1 transition-all"
                                       title="Edit pre/post counts"
                                     >
                                       <Edit2 className="w-2.5 h-2.5" /> Reconcile
                                     </button>
-                                    <button 
+                                    <button
                                       type="button"
                                       onClick={() => setRemovingMaterialId(m.id)}
-                                      className="p-1 text-slate-400 hover:text-tertiary hover:bg-slate-50 border border-transparent hover:border-outline-variant rounded-sharp transition-all"
+                                      className="p-1 text-gray-400 hover:text-accent-600 hover:bg-gray-50 border border-transparent hover:border-gray-200 rounded-xl transition-all"
                                       title="Remove Item"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
@@ -997,33 +1001,33 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                               </div>
 
                               {/* Material Numbers / Reconciliation Block */}
-                              <div className="p-2 sm:p-3 bg-surface-container-low rounded-sharp border border-outline-variant/60">
+                              <div className="p-2 sm:p-3 bg-gray-50 rounded-xl border border-gray-200">
                                 {isEditingThisMaterial ? (
                                   /* Reconciliation inline entry form */
                                   <div className="space-y-3 animate-in fade-in zoom-in-95 duration-150">
                                     <div className="grid grid-cols-2 gap-3">
                                       <div>
-                                        <label className="text-[9px] font-headline font-bold text-on-surface-variant uppercase tracking-widest block mb-1">
+                                        <label className="text-[9px] font-display font-bold text-gray-500 uppercase tracking-widest block mb-1">
                                           Pre-Count (Checked Out):
                                         </label>
                                         <div className="flex items-center gap-1">
-                                          <button 
+                                          <button
                                             type="button"
                                             onClick={() => setEditPreCount(prev => Math.max(0, prev - 1))}
-                                            className="px-1.5 py-0.5 text-xs font-mono bg-white border border-outline-variant rounded-sharp"
+                                            className="px-1.5 py-0.5 text-xs font-mono bg-white border border-gray-200 rounded-lg"
                                           >
                                             -
                                           </button>
-                                          <input 
+                                          <input
                                             type="number"
                                             value={editPreCount}
                                             onChange={e => setEditPreCount(Math.max(0, parseInt(e.target.value) || 0))}
-                                            className="w-14 bg-white border border-outline-variant py-0.5 text-xs text-center font-mono focus:ring-1 focus:ring-primary rounded-sharp"
+                                            className="w-14 bg-white border border-gray-200 py-0.5 text-xs text-center font-mono focus:ring-1 focus:ring-primary-500 rounded-lg"
                                           />
-                                          <button 
+                                          <button
                                             type="button"
                                             onClick={() => setEditPreCount(prev => prev + 1)}
-                                            className="px-1.5 py-0.5 text-xs font-mono bg-white border border-outline-variant rounded-sharp"
+                                            className="px-1.5 py-0.5 text-xs font-mono bg-white border border-gray-200 rounded-lg"
                                           >
                                             +
                                           </button>
@@ -1031,27 +1035,27 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                       </div>
 
                                       <div>
-                                        <label className="text-[9px] font-headline font-bold text-on-surface-variant uppercase tracking-widest block mb-1">
+                                        <label className="text-[9px] font-display font-bold text-gray-500 uppercase tracking-widest block mb-1">
                                           Post-Count (Returned Leftover):
                                         </label>
                                         <div className="flex items-center gap-1">
-                                          <button 
+                                          <button
                                             type="button"
                                             onClick={() => setEditPostCount(prev => Math.max(0, prev - 1))}
-                                            className="px-1.5 py-0.5 text-xs font-mono bg-white border border-outline-variant rounded-sharp"
+                                            className="px-1.5 py-0.5 text-xs font-mono bg-white border border-gray-200 rounded-lg"
                                           >
                                             -
                                           </button>
-                                          <input 
+                                          <input
                                             type="number"
                                             value={editPostCount}
                                             onChange={e => setEditPostCount(Math.max(0, parseInt(e.target.value) || 0))}
-                                            className="w-14 bg-white border border-outline-variant py-0.5 text-xs text-center font-mono focus:ring-1 focus:ring-primary rounded-sharp"
+                                            className="w-14 bg-white border border-gray-200 py-0.5 text-xs text-center font-mono focus:ring-1 focus:ring-primary-500 rounded-lg"
                                           />
-                                          <button 
+                                          <button
                                             type="button"
                                             onClick={() => setEditPostCount(prev => prev + 1)}
-                                            className="px-1.5 py-0.5 text-xs font-mono bg-white border border-outline-variant rounded-sharp"
+                                            className="px-1.5 py-0.5 text-xs font-mono bg-white border border-gray-200 rounded-lg"
                                           >
                                             +
                                           </button>
@@ -1060,35 +1064,35 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                     </div>
 
                                     {/* Calculated output and warehouse indicators */}
-                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pt-2 border-t border-dashed border-outline-variant">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pt-2 border-t border-dashed border-gray-200">
                                       <div className="text-[10px]">
                                         <p className="font-sans font-bold">
-                                          Auto-Calculated Distributed: <span className="text-primary font-mono">{liveNewDist}</span> units
+                                          Auto-Calculated Distributed: <span className="text-primary-600 font-mono">{liveNewDist}</span> units
                                         </p>
                                         <p className="text-[9px] mt-0.5 font-sans">
                                           {liveInventoryDiff > 0 ? (
-                                            <span className="text-amber-600 font-bold">⚠️ Will reserve {liveInventoryDiff} additional units from warehouse.</span>
+                                            <span className="text-warning-600 font-bold">Will reserve {liveInventoryDiff} additional units from warehouse.</span>
                                           ) : liveInventoryDiff < 0 ? (
-                                            <span className="text-green-600 font-bold">🍀 Will return {Math.abs(liveInventoryDiff)} unclaimed units back to warehouse.</span>
+                                            <span className="text-success-600 font-bold">Will return {Math.abs(liveInventoryDiff)} unclaimed units back to warehouse.</span>
                                           ) : (
-                                            <span className="text-slate-400 font-medium">No warehouse inventory changes.</span>
+                                            <span className="text-gray-400 font-medium">No warehouse inventory changes.</span>
                                           )}
                                         </p>
                                       </div>
 
                                       <div className="flex items-center gap-1.5 self-end sm:self-auto">
-                                        <button 
+                                        <button
                                           type="button"
                                           onClick={() => handleUpdateMaterialCounts(m.id, editPreCount, editPostCount)}
                                           disabled={loading}
-                                          className="p-1 px-2.5 bg-primary hover:bg-primary-container text-white rounded-sharp text-[10px] font-bold uppercase transition-colors disabled:opacity-50 flex items-center gap-1"
+                                          className="p-1 px-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-[10px] font-bold uppercase transition-colors disabled:opacity-50 flex items-center gap-1"
                                         >
                                           <Check className="w-3 h-3" /> Save Count
                                         </button>
-                                        <button 
+                                        <button
                                           type="button"
                                           onClick={() => setEditingMaterialId(null)}
-                                          className="p-1 px-2 border border-outline-variant text-[10px] text-on-surface-variant bg-white font-bold uppercase hover:bg-surface-container rounded-sharp transition-colors"
+                                          className="p-1 px-2 border border-gray-200 text-[10px] text-gray-600 bg-white font-bold uppercase hover:bg-gray-100 rounded-lg transition-colors"
                                         >
                                           Cancel
                                         </button>
@@ -1098,28 +1102,28 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                 ) : (
                                   /* Normal inline snapshot display */
                                   <div className="flex justify-between items-center flex-wrap gap-2">
-                                    <div className="grid grid-cols-3 gap-3 sm:gap-6 text-center divide-x divide-outline-variant">
+                                    <div className="grid grid-cols-3 gap-3 sm:gap-6 text-center divide-x divide-gray-200">
                                       <div className="pr-1.5 sm:pr-4">
-                                        <p className="font-mono text-sm sm:text-base font-bold text-on-surface">{itemPreCount}</p>
-                                        <p className="text-[8px] font-headline font-bold text-on-surface-variant uppercase tracking-widest mt-0.5 whitespace-nowrap">Checked Out</p>
+                                        <p className="font-mono text-sm sm:text-base font-bold text-gray-900">{itemPreCount}</p>
+                                        <p className="text-[8px] font-display font-bold text-gray-500 uppercase tracking-widest mt-0.5 whitespace-nowrap">Checked Out</p>
                                       </div>
                                       <div className="px-1.5 sm:px-4">
-                                        <p className="font-mono text-sm sm:text-base font-bold text-on-surface">{itemPostCount}</p>
-                                        <p className="text-[8px] font-headline font-bold text-on-surface-variant uppercase tracking-widest mt-0.5 whitespace-nowrap">Returned</p>
+                                        <p className="font-mono text-sm sm:text-base font-bold text-gray-900">{itemPostCount}</p>
+                                        <p className="text-[8px] font-display font-bold text-gray-500 uppercase tracking-widest mt-0.5 whitespace-nowrap">Returned</p>
                                       </div>
                                       <div className="pl-1.5 sm:pl-4">
-                                        <p className="font-mono text-sm sm:text-base font-bold text-primary">{itemDistributed}</p>
-                                        <p className="text-[8px] font-headline font-bold text-on-surface-variant uppercase tracking-widest mt-0.5 whitespace-nowrap text-primary justify-center flex items-center">Distributed</p>
+                                        <p className="font-mono text-sm sm:text-base font-bold text-primary-600">{itemDistributed}</p>
+                                        <p className="text-[8px] font-display font-bold text-primary-600 uppercase tracking-widest mt-0.5 whitespace-nowrap justify-center flex items-center">Distributed</p>
                                       </div>
                                     </div>
 
                                     <div>
                                       {itemDistributed > 0 ? (
-                                        <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 text-emerald-600 rounded-sharp">
-                                          ✓ Active Handout ({itemDistributed})
+                                        <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-gradient-to-r from-success-50 to-secondary-50 border border-success-200 text-success-600 rounded-lg">
+                                          Active Handout ({itemDistributed})
                                         </span>
                                       ) : (
-                                        <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-medium uppercase bg-slate-100 text-slate-500 rounded-sharp">
+                                        <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-medium uppercase bg-gray-100 text-gray-500 rounded-lg">
                                           0 Distributed
                                         </span>
                                       )}
@@ -1130,8 +1134,8 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
 
                               {/* Material confirmation for delete state */}
                               {removingMaterialId === m.id && (
-                                <div className="p-2 border border-tertiary-container bg-tertiary-container/10 rounded-sharp flex items-center justify-between gap-2 animate-in slide-in-from-top-1">
-                                  <span className="text-[10px] text-tertiary select-none font-bold">Confirm removing from this event ledger? Unused items return to warehouse.</span>
+                                <div className="p-2 border border-accent-200 bg-accent-50 rounded-xl flex items-center justify-between gap-2 animate-in slide-in-from-top-1">
+                                  <span className="text-[10px] text-accent-700 select-none font-bold">Confirm removing from this event ledger? Unused items return to warehouse.</span>
                                   <div className="flex gap-1">
                                     <button
                                       type="button"
@@ -1139,14 +1143,14 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                                         setRemovingMaterialId(null);
                                         handleRemoveMaterial(m.id);
                                       }}
-                                      className="px-2 py-0.5 bg-tertiary text-white font-bold text-[9px] uppercase tracking-wider rounded-sharp"
+                                      className="px-2 py-0.5 bg-accent-600 text-white font-bold text-[9px] uppercase tracking-wider rounded-lg"
                                     >
                                       Remove
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => setRemovingMaterialId(null)}
-                                      className="px-2 py-0.5 border border-outline-variant bg-white text-on-surface-variant font-bold text-[9px] uppercase tracking-wider rounded-sharp"
+                                      className="px-2 py-0.5 border border-gray-200 bg-white text-gray-600 font-bold text-[9px] uppercase tracking-wider rounded-lg"
                                     >
                                       Keep
                                     </button>
@@ -1160,9 +1164,9 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                     </>
                   )}
                 </div>
-                <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-outline-variant flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
-                  <div className="font-mono text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-wider">
-                    TOTAL DISTRIBUTED: <span className="text-primary font-bold">
+                <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
+                  <div className="font-mono text-[10px] sm:text-[11px] text-gray-500 uppercase tracking-wider">
+                    TOTAL DISTRIBUTED: <span className="text-primary-600 font-bold">
                       {event ? optimisticMaterials.reduce((sum, m) => sum + (m.quantity || 0), 0) : beforeCountMaterials.reduce((sum, m) => sum + m.quantity, 0)}
                     </span>
                   </div>
@@ -1170,7 +1174,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                     <button
                       type="button"
                       onClick={() => setActiveTab('details')}
-                      className="px-6 py-2 text-on-surface-variant font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-widest hover:bg-surface-container transition-colors rounded-sharp text-center"
+                      className="px-6 py-2 text-gray-500 font-display font-bold text-[10px] sm:text-[11px] uppercase tracking-widest hover:bg-gray-100 transition-colors rounded-xl text-center"
                     >
                       Back to Details
                     </button>
@@ -1178,7 +1182,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                       <button
                         onClick={() => handleSubmit()}
                         disabled={loading}
-                        className="flex items-center justify-center gap-2 px-8 py-2.5 bg-primary text-white font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-widest hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+                        className="flex items-center justify-center gap-2 px-8 py-2.5 bg-primary-600 text-white font-display font-bold text-[10px] sm:text-[11px] uppercase tracking-widest hover:bg-primary-700 transition-all rounded-xl shadow-lg disabled:opacity-50"
                       >
                         <Save className="w-4 h-4" />
                         {loading ? 'Processing...' : 'Schedule Event'}
@@ -1187,7 +1191,7 @@ const EventModal = ({ isOpen, onClose, event, settings, isAdmin = false, invento
                     {event && (
                       <button
                         onClick={onClose}
-                        className="w-full sm:w-auto px-6 py-2 text-on-surface-variant font-headline font-bold text-[10px] sm:text-[11px] uppercase tracking-widest hover:bg-surface-container transition-colors rounded-sharp text-center"
+                        className="w-full sm:w-auto px-6 py-2 text-gray-500 font-display font-bold text-[10px] sm:text-[11px] uppercase tracking-widest hover:bg-gray-100 transition-colors rounded-xl text-center"
                       >
                         Close Ledger
                       </button>
