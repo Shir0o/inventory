@@ -4,19 +4,20 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import {
-  LayoutDashboard,
-  Package,
-  Calendar,
-  BarChart3,
-  Settings,
-  PlusCircle,
-  Search,
-  Bell,
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
-  Truck,
+import { 
+  LayoutDashboard, 
+  Package, 
+  Calendar, 
+  BarChart3, 
+  Settings, 
+  PlusCircle, 
+  Search, 
+  Bell, 
+  HelpCircle, 
+  TrendingUp, 
+  TrendingDown, 
+  AlertTriangle, 
+  Truck, 
   Database,
   MoreVertical,
   Download,
@@ -29,6 +30,8 @@ import {
   BellRing,
   RefreshCw,
   Building2,
+  ChevronLeft,
+  ChevronRight,
   LogOut,
   LogIn,
   ShoppingCart,
@@ -38,26 +41,19 @@ import {
   Plus,
   FileText,
   Menu,
-  X,
-  ChevronRight,
-  Activity,
-  Zap,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  Sparkles
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { updateSettings } from './services/firestoreService';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  AreaChart,
+import { seedData, updateSettings } from './services/firestoreService';
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  AreaChart, 
   Area,
   PieChart,
   Pie,
@@ -80,6 +76,7 @@ const formatDate = (date: any, timezone: string = 'UTC') => {
   if (!date) return 'N/A';
   const d = date.toDate ? date.toDate() : new Date(date);
   if (isNaN(d.getTime())) return 'Invalid Date';
+  
   try {
     return new Intl.DateTimeFormat('en-US', {
       timeZone: timezone || 'UTC',
@@ -96,6 +93,7 @@ const formatDateTime = (date: any, timezone: string = 'UTC') => {
   if (!date) return 'N/A';
   const d = date.toDate ? date.toDate() : new Date(date);
   if (isNaN(d.getTime())) return 'Invalid Date';
+  
   try {
     return new Intl.DateTimeFormat('en-US', {
       timeZone: timezone || 'UTC',
@@ -114,6 +112,7 @@ const formatTime = (date: any, timezone: string = 'UTC') => {
   if (!date) return 'N/A';
   const d = date.toDate ? date.toDate() : new Date(date);
   if (isNaN(d.getTime())) return 'Invalid Date';
+  
   try {
     return new Intl.DateTimeFormat('en-US', {
       timeZone: timezone || 'UTC',
@@ -125,17 +124,13 @@ const formatTime = (date: any, timezone: string = 'UTC') => {
   }
 };
 
+// --- Types ---
+
 type Tab = 'dashboard' | 'inventory' | 'events' | 'reports' | 'settings' | 'users' | 'logs';
 
-// --- Sidebar ---
-const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin, isOpen, onClose }: {
-  activeTab: Tab,
-  setActiveTab: (t: Tab) => void,
-  onDistribute: () => void,
-  isAdmin: boolean,
-  isOpen: boolean,
-  onClose: () => void
-}) => {
+// --- Components ---
+
+const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin, isOpen, onClose }: { activeTab: Tab, setActiveTab: (t: Tab) => void, onDistribute: () => void, isAdmin: boolean, isOpen: boolean, onClose: () => void }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'inventory', label: 'Inventory', icon: Package },
@@ -146,7 +141,7 @@ const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin, isOpen, onClo
 
   if (isAdmin) {
     navItems.splice(4, 0, { id: 'users', label: 'Users', icon: Users });
-    navItems.splice(5, 0, { id: 'logs', label: 'Activity', icon: Activity });
+    navItems.splice(5, 0, { id: 'logs', label: 'Paper Trail', icon: History });
   }
 
   return (
@@ -158,70 +153,61 @@ const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin, isOpen, onClo
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-gray-900/50 z-[60] lg:hidden backdrop-blur-sm"
+            className="fixed inset-0 bg-black/50 z-[60] lg:hidden backdrop-blur-sm"
           />
         )}
       </AnimatePresence>
 
       <aside className={cn(
-        "fixed left-0 top-0 h-screen w-64 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 flex flex-col z-[70] transition-transform duration-300 lg:translate-x-0 shadow-2xl",
+        "fixed left-0 top-0 h-screen w-64 bg-primary flex flex-col z-[70] transition-transform duration-300 lg:translate-x-0",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        {/* Logo */}
-        <div className="p-6 border-b border-gray-700/50">
+        <div className="p-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-secondary-400 to-secondary-600 rounded-xl flex items-center justify-center shadow-lg shadow-secondary-500/25">
-              <Database className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-secondary flex items-center justify-center rounded-sharp">
+              <Database className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <div className="font-display font-bold text-xl text-white tracking-tight">LitTrack</div>
-              <div className="text-[10px] text-gray-400 font-mono uppercase tracking-widest">Inventory System</div>
+              <div className="font-mono font-bold text-lg tracking-tighter text-white uppercase leading-none">Invo</div>
+              <div className="font-headline font-medium text-[8px] text-slate-400 tracking-widest uppercase opacity-60">System v1</div>
             </div>
           </div>
+          <button onClick={onClose} className="lg:hidden text-white hover:text-secondary transition-colors">
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto custom-scrollbar">
-          {navItems.map((item) => {
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id as Tab);
-                  if (window.innerWidth < 1024) onClose();
-                }}
-                className={cn(
-                  "w-full px-4 py-3 flex items-center gap-3 rounded-xl transition-all duration-200 group",
-                  isActive
-                    ? "bg-white/10 text-white shadow-lg"
-                    : "text-gray-400 hover:text-white hover:bg-white/5"
-                )}
-              >
-                <div className={cn(
-                  "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-                  isActive ? "bg-secondary-500 text-white" : "bg-gray-700/50 group-hover:bg-gray-700"
-                )}>
-                  <item.icon className="w-4 h-4" />
-                </div>
-                <span className="font-medium text-sm">{item.label}</span>
-                {isActive && <ChevronRight className="w-4 h-4 ml-auto text-secondary-400" />}
-              </button>
-            );
-          })}
+        <nav className="flex-1 mt-4 space-y-1 overflow-y-auto custom-scrollbar">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveTab(item.id as Tab);
+                if (window.innerWidth < 1024) onClose();
+              }}
+              className={cn(
+                "w-full px-6 py-3 flex items-center gap-3 font-headline text-[13px] tracking-tight transition-all duration-150",
+                activeTab === item.id 
+                  ? "text-secondary border-l-4 border-secondary bg-primary-container font-bold" 
+                  : "text-slate-300 hover:text-white hover:bg-primary-container"
+              )}
+            >
+              <item.icon className={cn("w-5 h-5", activeTab === item.id ? "fill-secondary/10" : "")} />
+              <span>{item.label}</span>
+            </button>
+          ))}
         </nav>
 
-        {/* Quick action */}
-        <div className="p-4 border-t border-gray-700/50">
-          <button
+        <div className="p-6 mt-auto space-y-3">
+          <button 
             onClick={() => {
               onDistribute();
               if (window.innerWidth < 1024) onClose();
             }}
-            className="w-full bg-gradient-to-r from-secondary-500 to-secondary-600 hover:from-secondary-600 hover:to-secondary-700 text-white font-semibold text-sm py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-secondary-500/25"
+            className="w-full bg-secondary text-primary font-headline font-bold text-xs py-3 rounded-sharp flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg"
           >
             <ShoppingCart className="w-4 h-4" />
-            New Distribution
+            DISTRIBUTE
           </button>
         </div>
       </aside>
@@ -229,62 +215,67 @@ const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin, isOpen, onClo
   );
 };
 
-// --- Topbar ---
-const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: {
-  searchQuery: string,
-  setSearchQuery: (s: string) => void,
-  onScan: () => void,
-  onMenuClick: () => void
-}) => {
+const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: { searchQuery: string, setSearchQuery: (s: string) => void, onScan: () => void, onMenuClick: () => void }) => {
   const { user, logout, notifications } = useFirebase();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'CRITICAL_STOCK': return <AlertCircle className="w-4 h-4 text-danger-500" />;
-      case 'LOW_STOCK': return <AlertTriangle className="w-4 h-4 text-warning-500" />;
-      case 'EVENT': return <Calendar className="w-4 h-4 text-primary-500" />;
-      default: return <Bell className="w-4 h-4 text-gray-400" />;
+      case 'CRITICAL_STOCK': return <AlertTriangle className="w-4 h-4 text-tertiary" />;
+      case 'LOW_STOCK': return <AlertTriangle className="w-4 h-4 text-secondary" />;
+      case 'EVENT': return <Calendar className="w-4 h-4 text-primary" />;
+      default: return <Bell className="w-4 h-4 text-primary" />;
     }
   };
 
   return (
-    <header className="fixed top-0 right-0 h-16 left-0 lg:left-64 bg-white/80 backdrop-blur-xl border-b border-gray-200/80 flex items-center justify-between px-4 lg:px-6 z-50">
-      <div className="flex items-center gap-4 flex-1">
-        <button onClick={onMenuClick} className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
-          <Menu className="w-5 h-5" />
+    <header className="fixed top-0 right-0 h-16 left-0 lg:left-64 bg-surface border-b border-outline-variant flex items-center justify-between px-4 lg:px-8 z-50">
+      <div className="flex items-center gap-4 lg:gap-8 flex-1">
+        <button onClick={onMenuClick} className="lg:hidden p-2 text-primary hover:bg-surface-container rounded-sharp transition-colors">
+          <Menu className="w-6 h-6" />
         </button>
 
-        <div className="relative group w-64 hidden md:block">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
+        <div className="relative group w-48 lg:w-64 hidden sm:block">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input 
+            type="text" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search inventory..."
-            className="w-full pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-xl text-sm font-sans placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:bg-white transition-all"
+            placeholder="SEARCH..." 
+            className="w-full pl-10 pr-4 py-1.5 bg-surface-container border-none text-[12px] font-mono tracking-tight focus:ring-1 focus:ring-primary rounded-sharp"
           />
+        </div>
+
+        <div className="hidden lg:flex items-center gap-6">
+          {['Bibles', 'Tracts', 'Booklets'].map((link) => (
+            <a key={link} href="#" className="text-slate-500 hover:text-primary font-headline font-bold text-[11px] uppercase tracking-[1px] transition-all whitespace-nowrap">
+              {link}
+            </a>
+          ))}
         </div>
       </div>
 
-      <div className="flex items-center gap-1 lg:gap-2">
-        <button
+      <div className="flex items-center gap-2 lg:gap-4">
+        <button 
           onClick={onScan}
-          className="p-2.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 transition-colors rounded-xl flex items-center gap-2"
+          className="p-2 text-slate-500 hover:text-primary transition-colors flex items-center gap-2 group"
           title="Scan QR Code"
         >
-          <Camera className="w-5 h-5" />
+          <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          <span className="text-[10px] font-mono uppercase tracking-widest hidden xl:block">Scan</span>
         </button>
 
         <div className="relative">
-          <button
+          <button 
             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-            className="p-2.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 transition-colors rounded-xl relative"
+            className="p-2 text-slate-500 hover:text-primary transition-colors relative"
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-danger-500 rounded-full ring-2 ring-white" />
+              <span className="absolute top-1 right-1 w-4 h-4 bg-tertiary text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-background">
+                {unreadCount}
+              </span>
             )}
           </button>
 
@@ -292,33 +283,29 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: {
             {isNotificationsOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)} />
-                <motion.div
+                <motion.div 
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 overflow-hidden"
+                  className="absolute right-0 top-full mt-3 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-background ledger-card shadow-2xl z-50 overflow-hidden"
                 >
-                  <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                    <span className="font-display font-semibold text-sm text-gray-900">Notifications</span>
-                    {unreadCount > 0 && (
-                      <span className="px-2 py-0.5 bg-danger-100 text-danger-600 text-xs font-semibold rounded-full">
-                        {unreadCount} new
-                      </span>
-                    )}
+                  <div className="px-4 py-3 border-b border-outline-variant bg-surface-container flex justify-between items-center">
+                    <span className="font-headline font-bold text-[11px] uppercase tracking-widest text-primary">Notifications</span>
+                    {unreadCount > 0 && <span className="font-mono text-[9px] text-tertiary font-bold uppercase">{unreadCount} New Alerts</span>}
                   </div>
                   <div className="max-h-[60vh] overflow-y-auto">
                     {notifications.length === 0 ? (
-                      <div className="p-8 text-center">
-                        <BellRing className="w-8 h-8 mx-auto mb-3 text-gray-300" />
-                        <p className="text-sm text-gray-400">All caught up!</p>
+                      <div className="p-8 text-center opacity-40">
+                        <BellRing className="w-8 h-8 mx-auto mb-2" />
+                        <p className="font-mono text-[10px] uppercase tracking-widest">All clear</p>
                       </div>
                     ) : (
                       notifications.map(n => (
-                        <div
-                          key={n.id}
+                        <div 
+                          key={n.id} 
                           className={cn(
-                            "p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer",
-                            !n.read && "bg-primary-50/30"
+                            "p-4 border-b border-outline-variant hover:bg-surface-container transition-colors cursor-pointer",
+                            !n.read && "bg-primary/5"
                           )}
                           onClick={async () => {
                             const { markNotificationAsRead } = await import('./services/firestoreService');
@@ -326,11 +313,11 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: {
                           }}
                         >
                           <div className="flex gap-3">
-                            <div className="mt-0.5 shrink-0">{getNotificationIcon(n.type)}</div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm text-gray-900">{n.title}</p>
-                              <p className="text-[13px] text-gray-500 leading-snug mt-0.5">{n.message}</p>
-                              <p className="text-[11px] text-gray-400 mt-2">
+                            <div className="mt-1 shrink-0">{getNotificationIcon(n.type)}</div>
+                            <div>
+                              <p className="font-headline font-bold text-[13px] text-primary">{n.title}</p>
+                              <p className="text-[12px] text-on-surface-variant leading-tight mt-1">{n.message}</p>
+                              <p className="text-[10px] font-mono text-slate-400 mt-2 uppercase tracking-tighter">
                                 {new Date(n.createdAt).toLocaleString()}
                               </p>
                             </div>
@@ -344,19 +331,18 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: {
             )}
           </AnimatePresence>
         </div>
-
-        <button className="p-2.5 text-gray-500 hover:text-danger-600 hover:bg-danger-50 transition-colors rounded-xl" onClick={logout} title="Logout">
+        
+        <button className="p-2 text-slate-500 hover:text-primary transition-colors" onClick={logout} title="Logout">
           <LogOut className="w-5 h-5" />
         </button>
-
-        <div className="flex items-center gap-3 ml-2 pl-3 lg:pl-4 border-l border-gray-200">
-          <div className="text-right hidden lg:block">
-            <div className="text-sm font-medium text-gray-900 truncate max-w-[140px]">{user?.displayName || 'Admin'}</div>
+        <div className="flex items-center gap-2 lg:gap-3 ml-1 lg:ml-2 pl-2 lg:pl-4 border-l border-outline-variant">
+          <div className="text-right hidden sm:block">
+            <div className="text-[11px] font-bold text-primary truncate max-w-[120px]">{user?.displayName || 'Admin'}</div>
           </div>
-          <div className="h-9 w-9 rounded-full overflow-hidden ring-2 ring-gray-100 shrink-0">
-            <img
-              src={user?.photoURL || "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150"}
-              alt="Profile"
+          <div className="h-8 w-8 bg-slate-200 rounded-sharp overflow-hidden border border-outline-variant shrink-0">
+            <img 
+              src={user?.photoURL || "https://picsum.photos/seed/admin/100/100"} 
+              alt="Profile" 
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
@@ -367,260 +353,201 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: {
   );
 };
 
-// --- Stat Card ---
-const StatCard = ({ title, value, subtitle, trend, icon: Icon, color, onClick }: {
-  title: string;
-  value: string | number;
-  subtitle?: string;
-  trend?: 'up' | 'down' | 'neutral';
-  icon: any;
-  color: 'primary' | 'secondary' | 'accent' | 'success' | 'warning' | 'danger';
-  onClick?: () => void;
-}) => {
-  const colorClasses = {
-    primary: 'from-primary-500 to-primary-600',
-    secondary: 'from-secondary-500 to-secondary-600',
-    accent: 'from-accent-500 to-accent-600',
-    success: 'from-success-500 to-success-600',
-    warning: 'from-warning-500 to-warning-600',
-    danger: 'from-danger-500 to-danger-600',
-  };
+// --- Page Views ---
 
-  const bgClasses = {
-    primary: 'bg-primary-50',
-    secondary: 'bg-secondary-50',
-    accent: 'bg-accent-50',
-    success: 'bg-success-50',
-    warning: 'bg-warning-50',
-    danger: 'bg-danger-50',
-  };
-
-  const textClasses = {
-    primary: 'text-primary-600',
-    secondary: 'text-secondary-600',
-    accent: 'text-accent-600',
-    success: 'text-success-600',
-    warning: 'text-warning-600',
-    danger: 'text-danger-600',
-  };
-
-  return (
-    <div
-      onClick={onClick}
-      className={cn(
-        "bg-white rounded-2xl border border-gray-200 p-6 relative overflow-hidden transition-all duration-300",
-        onClick && "cursor-pointer hover:shadow-lg hover:border-gray-300 hover:-translate-y-0.5"
-      )}
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">{title}</p>
-          <p className="text-3xl font-display font-bold text-gray-900 mt-2">{value}</p>
-          {subtitle && (
-            <p className="text-sm text-gray-400 mt-1.5">{subtitle}</p>
-          )}
-        </div>
-        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", bgClasses[color])}>
-          <Icon className={cn("w-6 h-6", textClasses[color])} />
-        </div>
-      </div>
-      {trend && (
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-100">
-          <div className={cn(
-            "h-full transition-all duration-500",
-            trend === 'up' && 'bg-gradient-to-r from-success-400 to-success-500 w-3/4',
-            trend === 'down' && 'bg-gradient-to-r from-danger-400 to-danger-500 w-1/4',
-            trend === 'neutral' && 'bg-gradient-to-r from-gray-300 to-gray-400 w-1/2'
-          )} />
-        </div>
-      )}
-    </div>
-  );
-};
-
-// --- Dashboard View ---
-const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isAdmin, settings }: {
-  inventory: any[],
-  events: any[],
-  onEdit: (item: any) => void,
-  auditLogs: any[],
-  setActiveTab: (t: Tab) => void,
-  isAdmin: boolean,
-  settings: any
-}) => {
+const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isAdmin, settings }: { inventory: any[], events: any[], onEdit: (item: any) => void, auditLogs: any[], setActiveTab: (t: Tab) => void, isAdmin: boolean, settings: any }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const lowStockItems = inventory.filter(item => item.status === 'Low' || item.status === 'Out');
-  const displayedItems = isExpanded ? lowStockItems : lowStockItems.slice(0, 4);
+  const displayedItems = isExpanded ? lowStockItems : lowStockItems.slice(0, 3);
   const totalUnits = inventory.reduce((acc, item) => acc + (item.stockLevel || 0), 0);
   const distributedMTD = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
 
+  const getLogIcon = (action: string) => {
+    if (action.includes('STOCK') || action.includes('ITEM')) return Package;
+    if (action.includes('EVENT') || action.includes('DISTRIBUTION')) return Calendar;
+    if (action.includes('USER') || action.includes('ROLE') || action.includes('EMAIL')) return Shield;
+    return History;
+  };
+
+  const getLogColor = (action: string) => {
+    if (action.includes('CREATED') || action.includes('AUTHORIZED')) return 'bg-secondary/10 text-secondary';
+    if (action.includes('UPDATE')) return 'bg-primary-container text-white';
+    if (action.includes('ALERT') || action.includes('THRESHOLD')) return 'bg-tertiary/10 text-tertiary';
+    return 'bg-slate-100 text-slate-500';
+  };
+
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div>
-        <h1 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 tracking-tight">Dashboard</h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Welcome back! Here's an overview of your inventory system.
+        <h1 className="font-headline font-extrabold text-3xl text-primary tracking-tight mb-1">Inventory Dashboard</h1>
+        <p className="text-on-surface-variant font-medium text-sm">
+          System status: <span className="text-secondary font-mono">OPERATIONAL</span> • Last sync: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <StatCard
-          title="Total Items"
-          value={inventory.length}
-          subtitle="In catalog"
-          icon={Package}
-          color="primary"
-          onClick={() => setActiveTab('inventory')}
-        />
-        <StatCard
-          title="Total Units"
-          value={totalUnits.toLocaleString()}
-          subtitle="In stock"
-          icon={Database}
-          color="secondary"
-        />
-        <StatCard
-          title="Low Stock"
-          value={lowStockItems.length}
-          subtitle="Items need attention"
-          icon={AlertTriangle}
-          color="warning"
-        />
-        <StatCard
-          title="Distributed"
-          value={distributedMTD.toLocaleString()}
-          subtitle="Total units"
-          icon={Truck}
-          color="accent"
-        />
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Low Stock Alerts */}
-        <div className={cn("bg-white rounded-2xl border border-gray-200 overflow-hidden", isAdmin ? "lg:col-span-2" : "col-span-full")}>
-          <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-warning-100 flex items-center justify-center">
-                <AlertTriangle className="w-4 h-4 text-warning-600" />
-              </div>
-              <div>
-                <h2 className="font-display font-semibold text-gray-900">Low Stock Alerts</h2>
-                <p className="text-xs text-gray-400">{lowStockItems.length} items need attention</p>
-              </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="ledger-card p-6 h-40 flex flex-col justify-between">
+          <div className="indicator-primary" />
+          <div className="flex justify-between items-start">
+            <span className="font-headline text-[12px] font-bold uppercase tracking-[1px] text-on-surface-variant">Total Catalog Items</span>
+            <Database className="w-5 h-5 text-primary/20" />
+          </div>
+          <div>
+            <div className="font-mono text-4xl font-bold text-primary">{inventory.length}</div>
+            <div className="flex items-center gap-1 text-[11px] text-secondary font-bold mt-1">
+              <TrendingUp className="w-3 h-3" />
+              SYSTEM ASSETS
             </div>
           </div>
-          <div className="divide-y divide-gray-100">
-            {displayedItems.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => onEdit(item)}
-                className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className={cn(
-                    "w-2 h-10 rounded-full",
-                    item.status === 'Out' ? 'bg-danger-500' : 'bg-warning-500'
-                  )} />
-                  <div>
-                    <p className="font-medium text-gray-900">{item.title}</p>
-                    <p className="text-sm text-gray-400 font-mono">{item.sku}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className={cn(
-                      "font-mono font-semibold",
-                      item.status === 'Out' ? 'text-danger-600' : 'text-warning-600'
-                    )}>{item.stockLevel}</p>
-                    <p className="text-xs text-gray-400">units</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-600 transition-colors" />
-                </div>
-              </div>
-            ))}
-            {lowStockItems.length === 0 && (
-              <div className="px-6 py-12 text-center">
-                <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-success-500" />
-                <p className="text-gray-500">All items are well stocked!</p>
+        </div>
+
+        <div className="ledger-card p-6 h-40 flex flex-col justify-between">
+          <div className="indicator-tertiary" />
+          <div className="flex justify-between items-start">
+            <span className="font-headline text-[12px] font-bold uppercase tracking-[1px] text-on-surface-variant">Critical Stock Alerts</span>
+            <AlertTriangle className="w-5 h-5 text-tertiary/20" />
+          </div>
+          <div>
+            <div className="font-mono text-4xl font-bold text-tertiary">{lowStockItems.length}</div>
+            <div className="flex items-center gap-1 text-[11px] text-tertiary font-bold mt-1">
+              <AlertTriangle className="w-3 h-3" />
+              REQUIRES IMMEDIATE REORDER
+            </div>
+          </div>
+        </div>
+
+        <div className="ledger-card p-6 h-40 flex flex-col justify-between">
+          <div className="indicator-secondary" />
+          <div className="flex justify-between items-start">
+            <span className="font-headline text-[12px] font-bold uppercase tracking-[1px] text-on-surface-variant">Distributed MTD</span>
+            <Truck className="w-5 h-5 text-secondary/20" />
+          </div>
+          <div>
+            <div className="font-mono text-4xl font-bold text-primary">{distributedMTD.toLocaleString()}</div>
+            <div className="text-[11px] text-on-surface-variant font-bold mt-1 uppercase">
+              Active distribution channels: {events.length.toString().padStart(2, '0')}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className={cn("space-y-6", isAdmin ? "lg:col-span-2" : "col-span-full")}>
+          <div className="ledger-card">
+            <div className="px-4 sm:px-6 py-4 border-b border-outline-variant flex flex-col sm:flex-row justify-between sm:items-center gap-3 bg-surface-container">
+              <h2 className="font-headline font-bold text-xs sm:text-sm uppercase tracking-wider text-primary">Action Required: Low Stock</h2>
+              <span className="text-[9px] sm:text-[11px] font-mono font-bold text-tertiary px-2 py-0.5 border border-tertiary/30 bg-tertiary/5 w-fit">PRIORITY: HIGH</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-surface-container/50 text-on-surface-variant">
+                  <tr>
+                    <th className="px-4 sm:px-6 py-3 font-headline text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">SKU</th>
+                    <th className="px-4 sm:px-6 py-3 font-headline text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Resource Name</th>
+                    <th className="px-4 sm:px-6 py-3 font-headline text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-right">Level</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant">
+                  {displayedItems.map((item, index) => (
+                    <tr 
+                      key={item.id || `low-stock-${item.sku}-${index}`} 
+                      onClick={() => onEdit(item)}
+                      className="hover:bg-surface-container transition-colors cursor-pointer group"
+                    >
+                      <td className="px-4 sm:px-6 py-4 font-mono text-[10px] sm:text-xs font-bold group-hover:text-primary transition-colors">{item.sku}</td>
+                      <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm font-medium">{item.title}</td>
+                      <td className="px-4 sm:px-6 py-4 font-mono text-[10px] sm:text-xs text-tertiary font-bold text-right">{item.stockLevel}</td>
+                    </tr>
+                  ))}
+                  {lowStockItems.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="px-4 sm:px-6 py-8 text-center text-on-surface-variant text-[10px] sm:text-xs font-mono uppercase tracking-widest">Clear status</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {lowStockItems.length > 3 && (
+              <div className="px-6 py-3 bg-surface-container text-center">
+                <button 
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="text-xs font-bold text-primary hover:underline uppercase tracking-widest"
+                >
+                  {isExpanded ? 'Show Less' : `View All Alerts (${lowStockItems.length})`}
+                </button>
               </div>
             )}
           </div>
-          {lowStockItems.length > 4 && (
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-              >
-                {isExpanded ? 'Show less' : `View all ${lowStockItems.length} items`}
-              </button>
-            </div>
-          )}
-        </div>
 
-        {/* Activity Feed */}
-        {isAdmin && (
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center">
-                  <Activity className="w-4 h-4 text-primary-600" />
-                </div>
-                <div>
-                  <h2 className="font-display font-semibold text-gray-900">Recent Activity</h2>
-                  <p className="text-xs text-gray-400">System events</p>
-                </div>
+        <div className="ledger-card h-[200px] sm:h-[320px] relative">
+          <div className="absolute top-0 left-0 w-full z-10 px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-b from-white/90 to-transparent">
+            <h2 className="font-headline font-bold text-xs sm:text-sm uppercase tracking-wider text-primary">Regional Hubs</h2>
+          </div>
+          <img 
+            src="https://picsum.photos/seed/map/1200/600?grayscale&blur=2" 
+            alt="Map" 
+            className="w-full h-full object-cover opacity-60"
+            referrerPolicy="no-referrer"
+          />
+          <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6">
+            <div className="bg-primary text-white p-2 sm:p-3 rounded-sharp flex items-center gap-2 sm:gap-3 shadow-lg">
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-secondary animate-pulse" />
+              <span className="text-[9px] sm:text-[11px] font-mono font-bold uppercase">Central: Online</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {isAdmin && (
+        <div className="space-y-6">
+          <div className="ledger-card flex flex-col h-full">
+            <div className="px-6 py-4 border-b border-outline-variant bg-surface-container">
+              <h2 className="font-headline font-bold text-sm uppercase tracking-wider text-primary">System Log</h2>
+            </div>
+            <div className="p-6 flex-1">
+              <div className="space-y-8 relative">
+                <div className="absolute left-[11px] top-2 bottom-2 w-px bg-outline-variant" />
+                {auditLogs.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 opacity-40">
+                    <History className="w-8 h-8 mb-2" />
+                    <p className="font-mono text-[10px] uppercase tracking-widest">No activity</p>
+                  </div>
+                ) : (
+                  auditLogs.slice(0, 5).map((log, i) => {
+                    const Icon = getLogIcon(log.action);
+                    const timeStr = formatTime(log.timestamp, settings?.timezone);
+                    
+                    return (
+                      <div key={log.id || i} className="relative pl-10">
+                        <div className={cn("absolute left-0 top-0 w-6 h-6 flex items-center justify-center rounded-full z-10", getLogColor(log.action))}>
+                          <Icon className="w-3 h-3" />
+                        </div>
+                        <div className="text-[11px] text-on-surface-variant font-mono mb-1">{timeStr} • {log.action.replace('_', ' ')}</div>
+                        <p className="text-sm font-medium text-primary leading-tight line-clamp-2">{log.details}</p>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
-            <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
-              {auditLogs.slice(0, 6).map((log) => (
-                <div key={log.id} className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                      <History className="w-3.5 h-3.5 text-gray-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-700 truncate">{log.details}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {formatTime(log.timestamp, settings?.timezone)} • {log.action.replace('_', ' ')}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {auditLogs.length === 0 && (
-                <div className="px-6 py-8 text-center">
-                  <p className="text-gray-400 text-sm">No recent activity</p>
-                </div>
-              )}
-            </div>
-            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
-              <button
+            <div className="px-6 py-4 border-t border-outline-variant bg-surface-container text-center">
+              <button 
                 onClick={() => setActiveTab('logs')}
-                className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
+                className="text-xs font-bold text-secondary flex items-center justify-center gap-2 w-full hover:text-primary transition-all"
               >
-                View all activity <ArrowRight className="w-3 h-3" />
+                VIEW FULL AUDIT TRAIL
+                <ArrowRight className="w-3 h-3" />
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
+  </div>
   );
 };
 
-// --- Inventory View ---
-const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, globalSearch, isAdmin }: {
-  inventory: any[],
-  onAdd: () => void,
-  onEdit: (item: any) => void,
-  onShowHistory: (item: any) => void,
-  onBulkImport: () => void,
-  globalSearch: string,
-  isAdmin: boolean
-}) => {
+const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, globalSearch, isAdmin }: { inventory: any[], onAdd: () => void, onEdit: (item: any) => void, onShowHistory: (item: any) => void, onBulkImport: () => void, globalSearch: string, isAdmin: boolean }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [localSearch, setLocalSearch] = useState('');
   const [filters, setFilters] = useState({
@@ -635,59 +562,71 @@ const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, 
 
   const filteredInventory = inventory.filter(item => {
     const query = (localSearch || globalSearch).toLowerCase();
-    const matchesSearch = item.title?.toLowerCase().includes(query) || item.sku?.toLowerCase().includes(query);
+    const matchesSearch = 
+      item.title?.toLowerCase().includes(query) || 
+      item.sku?.toLowerCase().includes(query);
     const matchesCategory = filters.category === 'All' || item.category === filters.category;
     const matchesLanguage = filters.language === 'All' || item.language === filters.language;
-    const matchesStatus = filters.status === 'All' || item.status === filters.status ||
+    const matchesStatus = 
+      filters.status === 'All' || 
+      item.status === filters.status ||
       (filters.status === 'Alerts' && (item.status === 'Low' || item.status === 'Out'));
+    
     return matchesSearch && matchesCategory && matchesLanguage && matchesStatus;
   });
 
   const totalUnits = filteredInventory.reduce((acc, item) => acc + (item.stockLevel || 0), 0);
   const lowStockCount = filteredInventory.filter(item => item.status === 'Low' || item.status === 'Out').length;
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'Healthy':
-        return <span className="badge badge-success">Healthy</span>;
-      case 'Low':
-        return <span className="badge badge-warning">Low</span>;
-      case 'Out':
-        return <span className="badge badge-danger">Out</span>;
-      default:
-        return <span className="badge">{status}</span>;
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
-          <h1 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 tracking-tight">Inventory</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage your literature catalog</p>
+          <span className="font-mono text-[11px] text-secondary bg-primary px-2 py-0.5 rounded-sharp mb-2 inline-block">INV-MTX-PRIME</span>
+          <h2 className="text-[24px] sm:text-[32px] font-headline font-bold text-primary tracking-tight leading-loose sm:leading-none">Literature Matrix</h2>
+          <p className="text-on-surface-variant text-sm mt-1 sm:mt-2">Tracking outreach literature and resources.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           {isAdmin && (
-            <button onClick={onBulkImport} className="btn btn-outline btn-sm">
-              <Upload className="w-4 h-4" /> Bulk Import
+            <button 
+              onClick={onBulkImport}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 border border-outline-variant bg-surface text-[12px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="sm:inline">Bulk</span>
             </button>
           )}
-          <button onClick={() => exportToCSV(filteredInventory, 'inventory')} className="btn btn-outline btn-sm">
-            <Download className="w-4 h-4" /> Export
+          <button 
+            onClick={() => exportToCSV(filteredInventory, 'lit_ledger_inventory')}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 border border-outline-variant bg-surface text-[12px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
+          >
+            <Download className="w-4 h-4" />
+            <span className="sm:inline">Export</span>
           </button>
           {isAdmin && (
-            <button onClick={onAdd} className="btn btn-primary btn-sm">
-              <PlusCircle className="w-4 h-4" /> Add Item
+            <button 
+              onClick={onAdd}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-primary text-white text-[12px] font-bold active:scale-95 transition-all rounded-sharp shadow-lg whitespace-nowrap"
+            >
+              <PlusCircle className="w-4 h-4" />
+              Add Resource
             </button>
           )}
-          <button onClick={() => setShowFilters(!showFilters)} className={cn("btn btn-sm", showFilters ? "btn-primary" : "btn-outline")}>
-            <Filter className="w-4 h-4" /> Filters
+          <button 
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              "flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 border text-[12px] font-medium transition-all rounded-sharp",
+              showFilters 
+                ? "bg-primary text-white border-primary" 
+                : "border-outline-variant bg-surface text-on-surface hover:bg-surface-container"
+            )}
+          >
+            <Filter className="w-4 h-4" />
+            {showFilters ? 'Hide' : 'Filters'}
           </button>
         </div>
       </div>
 
-      {/* Filters */}
       <AnimatePresence>
         {showFilters && (
           <motion.div
@@ -696,35 +635,47 @@ const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, 
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="bg-white rounded-xl border border-gray-200 p-5 grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Search</label>
+            <div className="ledger-card p-6 bg-surface-container-low grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="space-y-2">
+                <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Local Search Override</label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
                     type="text"
                     value={localSearch}
                     onChange={e => setLocalSearch(e.target.value)}
-                    placeholder="Filter items..."
-                    className="input pl-10"
+                    placeholder="Filter by name..."
+                    className="w-full pl-10 pr-4 py-2 bg-surface border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm transition-all"
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Category</label>
-                <select value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})} className="input">
+              <div className="space-y-2">
+                <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Category</label>
+                <select 
+                  value={filters.category}
+                  onChange={e => setFilters({...filters, category: e.target.value})}
+                  className="w-full px-4 py-2 bg-surface border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm appearance-none"
+                >
                   {categories.map(c => <option key={c}>{c}</option>)}
                 </select>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Language</label>
-                <select value={filters.language} onChange={e => setFilters({...filters, language: e.target.value})} className="input">
+              <div className="space-y-2">
+                <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Language</label>
+                <select 
+                  value={filters.language}
+                  onChange={e => setFilters({...filters, language: e.target.value})}
+                  className="w-full px-4 py-2 bg-surface border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm appearance-none"
+                >
                   {languages.map(l => <option key={l}>{l}</option>)}
                 </select>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Status</label>
-                <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} className="input">
+              <div className="space-y-2">
+                <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Status</label>
+                <select 
+                  value={filters.status}
+                  onChange={e => setFilters({...filters, status: e.target.value})}
+                  className="w-full px-4 py-2 bg-surface border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm appearance-none"
+                >
                   {statuses.map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
@@ -733,118 +684,826 @@ const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, 
         )}
       </AnimatePresence>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-secondary-100 flex items-center justify-center">
-              <Package className="w-5 h-5 text-secondary-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Total Units</p>
-              <p className="text-xl font-display font-bold text-gray-900">{totalUnits.toLocaleString()}</p>
-            </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="ledger-card p-5">
+          <div className="indicator-secondary" />
+          <p className="text-[11px] font-headline font-bold text-on-surface-variant uppercase tracking-wider">Filtered Units</p>
+          <p className="text-3xl font-mono font-bold text-primary mt-1">{totalUnits.toLocaleString()}</p>
+          <div className="flex items-center gap-1 mt-2 text-[11px] text-secondary">
+            <TrendingUp className="w-3 h-3" />
+            <span>MATCHED TOTAL</span>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-warning-100 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-warning-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Low Stock Items</p>
-              <p className="text-xl font-display font-bold text-gray-900">{lowStockCount}</p>
-            </div>
+        <div className="ledger-card p-5">
+          <div className="indicator-tertiary" />
+          <p className="text-[11px] font-headline font-bold text-on-surface-variant uppercase tracking-wider">Low Stock (Filtered)</p>
+          <p className="text-3xl font-mono font-bold text-primary mt-1">{lowStockCount}</p>
+          <div className="flex items-center gap-1 mt-2 text-[11px] text-tertiary">
+            <AlertTriangle className="w-3 h-3" />
+            <span>Requires Attention</span>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
-              <Database className="w-5 h-5 text-primary-600" />
+        <div className="col-span-1 sm:col-span-2 lg:col-span-2 bg-primary p-5 rounded-sharp relative overflow-hidden">
+          <div className="relative z-10">
+            <p className="text-[11px] font-headline font-bold text-slate-400 uppercase tracking-wider">Active Distributions</p>
+            <p className="text-3xl font-mono font-bold text-white mt-1">942 <span className="text-sm font-normal text-slate-400">vols</span></p>
+            <div className="w-full bg-slate-700 h-[2px] mt-4">
+              <div className="bg-secondary h-full w-[65%]" />
             </div>
-            <div>
-              <p className="text-sm text-gray-500">SKU Types</p>
-              <p className="text-xl font-display font-bold text-gray-900">{filteredInventory.length}</p>
-            </div>
+            <p className="text-[11px] text-slate-400 mt-2">65% of monthly target reached</p>
           </div>
+          <Truck className="absolute right-[-20px] top-[-20px] w-32 h-32 text-white opacity-10 rotate-12" />
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div className="ledger-card">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">SKU</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Title</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Category</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Language</th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Stock</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-surface-container border-b border-outline-variant">
+                <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">SKU</th>
+                <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Title</th>
+                <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Category</th>
+                <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Language</th>
+                <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest text-right">Stock Level</th>
+                <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest">Status</th>
+                <th className="px-6 py-4 font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredInventory.map((item) => (
-                <tr
-                  key={item.id}
-                  onClick={() => onEdit(item)}
-                  className="hover:bg-gray-50 transition-colors cursor-pointer group"
+            <tbody className="divide-y divide-outline-variant">
+              {filteredInventory.map((row, index) => (
+                <tr 
+                  key={row.id || `inventory-row-${row.sku}-${index}`} 
+                  onClick={() => onEdit(row)}
+                  className="hover:bg-surface-container transition-colors cursor-pointer group"
                 >
+                  <td className="px-6 py-4 font-mono text-[12px] text-primary group-hover:text-secondary transition-colors">{row.sku}</td>
                   <td className="px-6 py-4">
-                    <span className="font-mono text-sm font-medium text-primary-600">{item.sku}</span>
+                    <div className="font-bold text-[13px] text-primary">{row.title}</div>
+                    <div className="text-[11px] text-on-surface-variant">{row.subtitle}</div>
                   </td>
+                  <td className="px-6 py-4 text-[12px] text-on-surface">{row.category}</td>
+                  <td className="px-6 py-4 text-[12px] text-on-surface">{row.language}</td>
+                  <td className="px-6 py-4 font-mono text-[13px] text-right">{row.stockLevel?.toLocaleString()}</td>
                   <td className="px-6 py-4">
-                    <p className="font-medium text-gray-900">{item.title}</p>
-                    {item.subtitle && <p className="text-sm text-gray-400">{item.subtitle}</p>}
+                    <div className="flex items-center gap-2">
+                      <div className={cn(
+                        "w-2 h-2 rounded-full", 
+                        row.status === 'Healthy' ? "bg-secondary" : 
+                        row.status === 'Low' ? "bg-amber-400" : "bg-tertiary"
+                      )} />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface">
+                        {row.status === 'Out' ? 'Out of Stock' : row.status}
+                      </span>
+                    </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{item.category}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{item.language}</td>
-                  <td className="px-6 py-4 text-right">
-                    <span className="font-mono font-semibold">{item.stockLevel?.toLocaleString()}</span>
-                  </td>
-                  <td className="px-6 py-4">{getStatusBadge(item.status)}</td>
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onShowHistory(item); }}
-                      className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                    >
-                      <History className="w-4 h-4" />
-                    </button>
+                   <td className="px-6 py-4 text-right">
+                    <div className="flex justify-end gap-1">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onShowHistory(row);
+                        }}
+                        title="View Stock History"
+                        className="text-slate-400 hover:text-secondary transition-colors p-2 hover:bg-surface-container rounded-sharp"
+                      >
+                        <History className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
+              {filteredInventory.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-6 py-12 text-center text-on-surface-variant text-xs font-mono uppercase tracking-widest">No matching items found</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
-        {filteredInventory.length === 0 && (
-          <div className="px-6 py-12 text-center">
-            <Package className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-            <p className="text-gray-500">No items found</p>
+      <div className="flex justify-between items-center px-6 py-4 bg-surface-container border-t border-outline-variant">
+        <div className="text-[11px] text-on-surface-variant font-medium">
+          Showing <span className="font-bold text-primary">{filteredInventory.length}</span> of <span className="font-bold text-primary">{inventory.length}</span> entries
+        </div>
+        <div className="flex gap-1">
+          <button className="px-3 py-1 border border-outline-variant bg-surface text-[11px] font-bold text-on-surface-variant opacity-50 cursor-not-allowed rounded-sharp">Previous</button>
+          <button className="px-3 py-1 border border-primary bg-primary text-white text-[11px] font-bold rounded-sharp">1</button>
+          <button className="px-3 py-1 border border-outline-variant bg-surface text-[11px] font-bold text-on-surface-variant hover:border-primary transition-colors rounded-sharp">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  );
+};
+
+const UsersView = ({ users }: { users: any[] }) => {
+  const { updateUserRole, currentUserProfile, authorizedEmails } = useFirebase();
+  const isAdmin = currentUserProfile?.role === 'admin';
+  const [newEmail, setNewEmail] = useState('');
+  const [isAuthorizing, setIsAuthorizing] = useState(false);
+
+  const handleRoleChange = async (userId: string, newRole: 'admin' | 'user' | 'guest') => {
+    if (!isAdmin) return;
+    try {
+      await updateUserRole(userId, newRole);
+    } catch (error) {
+      console.error("Failed to update role", error);
+    }
+  };
+
+  const handleAuthorize = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmail || !isAdmin) return;
+    setIsAuthorizing(true);
+    try {
+      const { authorizeEmail } = await import('./services/firestoreService');
+      await authorizeEmail(newEmail.toLowerCase().trim());
+      setNewEmail('');
+    } catch (error) {
+      console.error("Failed to authorize email", error);
+    } finally {
+      setIsAuthorizing(false);
+    }
+  };
+
+  const handleRemoveAuth = async (email: string) => {
+    if (!isAdmin) return;
+    try {
+      const { removeAuthorizedEmail } = await import('./services/firestoreService');
+      await removeAuthorizedEmail(email);
+    } catch (error) {
+      console.error("Failed to remove authorized email", error);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+        <div>
+          <span className="font-headline font-bold text-[12px] uppercase tracking-[2px] text-on-surface-variant">Access Control</span>
+          <h1 className="font-headline font-extrabold text-2xl sm:text-[32px] text-primary tracking-tight leading-none mt-1 uppercase">User Management</h1>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-8">
+        <div className="col-span-12 lg:col-span-8 space-y-8">
+          <div className="ledger-card">
+            <div className="px-6 py-4 border-b border-outline-variant flex items-center justify-between">
+              <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1px] text-primary">System Users</h2>
+              <div className="px-3 py-1 bg-primary/10 text-primary font-mono text-[10px] font-bold rounded-sharp uppercase">
+                {users.length} Active Profiles
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-surface-container border-b border-outline-variant">
+                    <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">User</th>
+                    <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Email</th>
+                    <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold text-center">Role</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant">
+                  {users.map((u) => (
+                    <tr key={u.id} className={cn("hover:bg-surface-container transition-colors", u.role === 'guest' && "bg-secondary/5")}>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <img 
+                              src={u.photoURL || `https://picsum.photos/seed/${u.id}/100/100`} 
+                              alt={u.displayName} 
+                              className="w-8 h-8 rounded-full border border-outline-variant"
+                              referrerPolicy="no-referrer"
+                            />
+                            {u.role === 'guest' && (
+                              <div className="absolute -top-1 -right-1 w-3 h-3 bg-secondary rounded-full border-2 border-white animate-pulse" />
+                            )}
+                          </div>
+                          <div>
+                            <span className="font-headline font-bold text-primary text-[14px] block">{u.displayName || 'Anonymous'}</span>
+                            {u.role === 'guest' && <span className="text-[9px] font-mono text-secondary font-bold uppercase tracking-widest">Pending Approval</span>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 font-mono text-[13px] text-on-surface">{u.email}</td>
+                      <td className="px-6 py-4 text-center">
+                        <select
+                          disabled={!isAdmin || u.id === currentUserProfile?.id}
+                          value={u.role}
+                          onChange={(e) => handleRoleChange(u.id, e.target.value as 'admin' | 'user' | 'guest')}
+                          className={cn(
+                            "px-3 py-1 rounded-sharp text-[10px] font-bold uppercase tracking-wider border-0 focus:ring-1 focus:ring-primary appearance-none text-center cursor-pointer disabled:cursor-not-allowed",
+                            u.role === 'admin' ? "bg-primary text-white" : 
+                            u.role === 'guest' ? "bg-secondary text-primary" :
+                            "bg-surface-container text-on-surface-variant"
+                          )}
+                        >
+                          <option value="guest">Guest</option>
+                          <option value="user">User</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        )}
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
-          <p className="text-sm text-gray-500">
-            Showing <span className="font-semibold text-gray-700">{filteredInventory.length}</span> of {inventory.length} items
-          </p>
+        </div>
+
+        <div className="col-span-12 lg:col-span-4 space-y-8">
+          <div className="ledger-card p-6">
+            <div className="indicator-secondary" />
+            <h3 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px] text-primary mb-6">Authorize New Email</h3>
+            <form onSubmit={handleAuthorize} className="space-y-4">
+              <div className="space-y-2">
+                <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Email Address</label>
+                <input 
+                  type="email" 
+                  placeholder="user@example.com"
+                  value={newEmail}
+                  onChange={e => setNewEmail(e.target.value)}
+                  className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all"
+                />
+              </div>
+              <button 
+                type="submit"
+                disabled={isAuthorizing || !newEmail}
+                className="w-full bg-primary text-white py-3 rounded-sharp font-headline font-bold text-[12px] uppercase tracking-widest hover:bg-primary-container transition-all disabled:opacity-50"
+              >
+                {isAuthorizing ? 'Authorizing...' : 'Add to Allowlist'}
+              </button>
+            </form>
+            <p className="mt-4 text-[10px] text-on-surface-variant leading-relaxed italic">
+              * Only authorized emails can create a profile. Random sign-ins will be blocked.
+            </p>
+          </div>
+
+          <div className="ledger-card p-6">
+            <h3 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px] text-on-surface-variant mb-6">Authorized Emails</h3>
+            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              {authorizedEmails.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-outline-variant rounded-sharp">
+                  <p className="text-[11px] font-mono text-slate-400 uppercase">No emails authorized</p>
+                </div>
+              ) : (
+                authorizedEmails.sort().map(email => (
+                  <div key={email} className="flex items-center justify-between p-3 bg-surface-container rounded-sharp border border-outline-variant group">
+                    <span className="font-mono text-[12px] text-on-surface truncate mr-2">{email}</span>
+                    <button 
+                      onClick={() => handleRemoveAuth(email)}
+                      className="text-slate-400 hover:text-tertiary transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <Plus className="w-4 h-4 rotate-45" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-// --- Events View ---
-const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: {
-  events: any[],
-  onAdd: () => void,
-  onEdit: (event: any) => void,
-  onBulkImport: () => void,
-  settings: any,
-  isAdmin: boolean
-}) => {
-  const totalDistributed = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
+const LogMetadata = ({ log }: { log: any }) => {
+  if (!log.metadata) return null;
 
+  const renderValue = (val: any) => {
+    if (val === null || val === undefined) return 'N/A';
+    if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
+    if (val instanceof Timestamp) return formatDate(val);
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+  };
+
+  const renderChanges = (changes: any) => {
+    return Object.entries(changes).map(([key, val]: [string, any]) => (
+      <div key={key} className="flex items-center gap-2 text-[10px]">
+        <span className="font-bold text-on-surface-variant uppercase w-20 truncate">{key}:</span>
+        <span className="font-mono bg-surface-container px-1 py-0.5 rounded">{renderValue(val)}</span>
+      </div>
+    ));
+  };
+
+  switch (log.action) {
+    case 'STOCK_UPDATE':
+      if (log.metadata.item) {
+        const delta = (log.metadata.newStock ?? log.metadata.item.stockLevel) - (log.metadata.previousStock ?? 0);
+        return (
+          <div className="mt-2 p-3 bg-surface-container-low rounded-sharp border border-outline-variant">
+            <p className="text-[10px] font-bold text-primary uppercase mb-2 tracking-widest">Inventory Adjustment</p>
+            <div className="flex items-center gap-6">
+              <div className="flex flex-col">
+                <span className="text-[9px] text-on-surface-variant uppercase font-bold">Previous</span>
+                <span className="font-mono text-[14px]">{log.metadata.previousStock ?? 'N/A'}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[9px] text-on-surface-variant uppercase font-bold">Change</span>
+                <span className={cn(
+                  "font-mono text-[14px] font-bold",
+                  delta > 0 ? "text-secondary" : delta < 0 ? "text-tertiary" : "text-slate-400"
+                )}>
+                  {delta > 0 ? `+${delta}` : delta}
+                </span>
+              </div>
+              <div className="flex flex-col items-end ml-auto">
+                <span className="text-[9px] text-on-surface-variant uppercase font-bold">New Balance</span>
+                <span className="font-mono text-[14px] font-bold text-primary">{log.metadata.newStock ?? log.metadata.item.stockLevel}</span>
+              </div>
+            </div>
+          </div>
+        );
+      }
+      break;
+
+    case 'DISTRIBUTION':
+      if (log.metadata.items && Array.isArray(log.metadata.items)) {
+        return (
+          <div className="mt-2 p-3 bg-surface-container-low rounded-sharp border border-outline-variant space-y-3">
+            <div className="flex justify-between items-center border-b border-outline-variant pb-2">
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Distributed Resources</p>
+              <span className="font-mono text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">{log.metadata.items.length} items</span>
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              {log.metadata.items.map((item: any, idx: number) => (
+                <div key={idx} className="flex justify-between items-center text-[11px] font-mono hover:bg-black/5 p-1 rounded transition-colors group">
+                  <div className="flex flex-col">
+                    <span className="font-bold text-on-surface truncate max-w-[150px]">{item.title}</span>
+                    <span className="text-[9px] text-slate-400">{item.sku}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <ArrowRight className="w-3 h-3 text-tertiary opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <span className="text-tertiary font-bold">-{item.quantity}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
+      break;
+
+    case 'ROLE_UPDATE':
+      return (
+        <div className="mt-2 p-3 bg-surface-container-low rounded-sharp border border-outline-variant">
+          <p className="text-[10px] font-bold text-primary uppercase mb-2 tracking-widest">Permission Change</p>
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col">
+              <span className="text-[9px] text-on-surface-variant uppercase font-bold">From</span>
+              <span className="font-mono text-[12px] bg-slate-100 px-2 py-0.5 rounded uppercase">{log.metadata?.previousRole || 'Guest'}</span>
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-300" />
+            <div className="flex flex-col">
+              <span className="text-[9px] text-on-surface-variant uppercase font-bold">To</span>
+              <span className="font-mono text-[12px] bg-secondary/10 text-secondary border border-secondary/20 px-2 py-0.5 rounded uppercase font-bold">{log.metadata?.newRole || 'User'}</span>
+            </div>
+          </div>
+        </div>
+      );
+
+    case 'EMAIL_AUTHORIZED':
+    case 'EMAIL_DEAUTHORIZED':
+      return (
+        <div className="mt-2 p-3 bg-surface-container-low rounded-sharp border border-outline-variant">
+           <div className="flex items-center gap-2 text-[11px]">
+            <span className="text-on-surface-variant uppercase font-bold text-[9px]">Target Account:</span>
+            <span className="font-mono text-primary font-bold">{log.targetId}</span>
+          </div>
+        </div>
+      );
+
+    case 'EVENT_CREATED':
+    case 'EVENT_UPDATED':
+      if (log.metadata.materialCount) {
+        return (
+          <div className="mt-2 p-2 bg-surface-container-low rounded-sharp border border-outline-variant">
+            <p className="text-[10px] text-primary font-bold uppercase">Includes {log.metadata.materialCount} resources</p>
+          </div>
+        );
+      }
+      break;
+  }
+
+  // Fallback for unknown metadata formats
+  return (
+    <div className="mt-2 hidden group-hover:block">
+      <div className="text-[9px] font-mono bg-surface-container-low p-2 rounded-sharp border border-outline-variant overflow-x-auto max-w-xs">
+        <p className="text-[8px] uppercase tracking-widest text-slate-400 mb-1">Extended Metadata</p>
+        <pre>{JSON.stringify(log.metadata, null, 2)}</pre>
+      </div>
+    </div>
+  );
+};
+
+const LogsView = ({ logs, settings }: { logs: any[], settings: any }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [actionFilter, setActionFilter] = useState('ALL');
+
+  const filteredLogs = logs.filter(log => {
+    const matchesSearch = 
+      log.details?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.userEmail?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesAction = actionFilter === 'ALL' || log.action === actionFilter;
+    
+    return matchesSearch && matchesAction;
+  });
+
+  const actions = ['ALL', ...new Set(logs.map(l => l.action))];
+
+  const getActionColor = (action: string) => {
+    if (action.includes('CREATED') || action.includes('AUTHORIZED')) return 'text-secondary bg-secondary/10';
+    if (action.includes('DELETED') || action.includes('DEAUTHORIZED')) return 'text-tertiary bg-tertiary/10';
+    if (action.includes('STOCK') || action.includes('DISTRIBUTION')) return 'text-primary bg-primary/10';
+    return 'text-on-surface-variant bg-surface-container';
+  };
+
+  const getActionIcon = (action: string) => {
+    if (action.includes('STOCK') || action.includes('DISTRIBUTION')) return <Package className="w-3 h-3" />;
+    if (action.includes('EVENT')) return <Calendar className="w-3 h-3" />;
+    if (action.includes('USER') || action.includes('ROLE') || action.includes('EMAIL')) return <Users className="w-3 h-3" />;
+    return <History className="w-3 h-3" />;
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+        <div>
+          <span className="font-headline font-bold text-[12px] uppercase tracking-[2px] text-on-surface-variant">Audit Trail</span>
+          <h1 className="font-headline font-extrabold text-2xl sm:text-[32px] text-primary tracking-tight leading-none mt-1 uppercase">System Logs</h1>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input 
+              type="text"
+              placeholder="Search logs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 bg-surface-container border border-outline-variant text-xs font-mono rounded-sharp focus:ring-1 focus:ring-primary w-64"
+            />
+          </div>
+          <select 
+            value={actionFilter}
+            onChange={(e) => setActionFilter(e.target.value)}
+            className="px-4 py-2 bg-surface-container border border-outline-variant text-[10px] font-headline font-bold uppercase tracking-wider rounded-sharp focus:ring-1 focus:ring-primary appearance-none pr-10 relative"
+            style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%230A2540\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'%3E%3C/path%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '12px' }}
+          >
+            {actions.map(action => (
+              <option key={action} value={action}>{action.replace('_', ' ')}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="ledger-card">
+        <div className="px-6 py-4 border-b border-outline-variant flex items-center justify-between">
+          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1px] text-primary">Activity Stream</h2>
+          <span className="font-mono text-[10px] text-slate-400 uppercase">Showing {filteredLogs.length} matching events</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-surface-container border-b border-outline-variant">
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Timestamp</th>
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">User</th>
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Action</th>
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Details</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-outline-variant">
+              {filteredLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3 opacity-40">
+                      <History className="w-8 h-8" />
+                      <p className="font-mono text-[11px] uppercase tracking-widest">No activity matches your filters</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-surface-container transition-colors group">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className="font-mono text-[12px] text-on-surface font-bold">
+                          {formatTime(log.timestamp, settings?.timezone)}
+                        </span>
+                        <span className="font-mono text-[10px] text-slate-400">
+                          {formatDate(log.timestamp, settings?.timezone)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-[10px] font-bold text-primary">
+                          {log.userName?.charAt(0) || 'U'}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-headline font-bold text-[13px] text-primary">{log.userName}</span>
+                          <span className="font-mono text-[10px] text-on-surface-variant">{log.userEmail}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className={cn("inline-flex items-center gap-2 px-2 py-1 rounded-sharp font-mono text-[10px] font-bold uppercase tracking-wider", getActionColor(log.action))}>
+                        {getActionIcon(log.action)}
+                        {log.action.replace('_', ' ')}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-[13px] text-on-surface leading-relaxed max-w-md">
+                        {log.details}
+                      </p>
+                      <LogMetadata log={log} />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: any[], events: any[], auditLogs: any[], settings: any }) => {
+  const totalDistributions = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
+  
+  const categoryCounts = inventory.reduce((acc: any, item) => {
+    acc[item.category] = (acc[item.category] || 0) + 1;
+    return acc;
+  }, {});
+
+  const dynamicPieData = Object.keys(categoryCounts).map((cat, i) => ({
+    name: cat,
+    value: Math.round((categoryCounts[cat] / (inventory.length || 1)) * 100) || 0,
+    color: i === 0 ? '#0A2540' : i === 1 ? '#00D4B6' : i === 2 ? '#FF7369' : `hsl(${i * 60}, 70%, 50%)`
+  }));
+
+  // Dynamic Line Data calculation
+  const skuToCategory = inventory.reduce((acc: any, item) => {
+    acc[item.sku] = item.category;
+    return acc;
+  }, {});
+
+  const skuToLanguage = inventory.reduce((acc: any, item) => {
+    acc[item.sku] = item.language || 'English';
+    return acc;
+  }, {});
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthlyMap: any = {};
+  
+  // Initialize current year's months
+  months.forEach(m => {
+    monthlyMap[m] = { 
+      name: m, 
+      bibles: 0, bibles_en: 0, bibles_es: 0,
+      tracts: 0, tracts_en: 0, tracts_es: 0,
+      booklets: 0, booklets_en: 0, booklets_es: 0
+    };
+  });
+
+  const monthsMap = {
+    '0': 'Jan', '1': 'Feb', '2': 'Mar', '3': 'Apr', '4': 'May', '5': 'Jun',
+    '6': 'Jul', '7': 'Aug', '8': 'Sep', '9': 'Oct', '10': 'Nov', '11': 'Dec'
+  };
+
+  events.forEach(event => {
+    try {
+      const date = event.date?.toDate ? event.date.toDate() : new Date(event.date);
+      if (isNaN(date.getTime())) return;
+      
+      // Use Intl to get month name in the desired timezone
+      const monthLabel = new Intl.DateTimeFormat('en-US', { 
+        month: 'short', 
+        timeZone: settings?.timezone || 'UTC' 
+      }).format(date);
+      
+      if (!monthlyMap[monthLabel]) return; // Skip if month unexpected
+      
+      if (event.materials && Array.isArray(event.materials)) {
+        event.materials.forEach((m: any) => {
+          const category = (skuToCategory[m.sku] || '').toLowerCase();
+          const language = (skuToLanguage[m.sku] || '').toLowerCase();
+          const qty = m.quantity || 0;
+
+          if (category.includes('bible')) {
+            monthlyMap[monthLabel].bibles += qty;
+            if (language.includes('spanish') || language === 'es') monthlyMap[monthLabel].bibles_es += qty;
+            else if (language.includes('english') || language === 'en') monthlyMap[monthLabel].bibles_en += qty;
+          } else if (category.includes('tract')) {
+            monthlyMap[monthLabel].tracts += qty;
+            if (language.includes('spanish') || language === 'es') monthlyMap[monthLabel].tracts_es += qty;
+            else if (language.includes('english') || language === 'en') monthlyMap[monthLabel].tracts_en += qty;
+          } else if (category.includes('booklet')) {
+            monthlyMap[monthLabel].booklets += qty;
+            if (language.includes('spanish') || language === 'es') monthlyMap[monthLabel].booklets_es += qty;
+            else if (language.includes('english') || language === 'en') monthlyMap[monthLabel].booklets_en += qty;
+          } else {
+            // Default fallback
+            monthlyMap[monthLabel].tracts += qty;
+          }
+        });
+      } else if (event.categoryStats) {
+        // Handle categorized stats (e.g. from bulk import or manual distribution)
+        const s = event.categoryStats;
+        monthlyMap[monthLabel].bibles += (s.bibles || 0);
+        monthlyMap[monthLabel].bibles_en += (s.bibles_en || 0);
+        monthlyMap[monthLabel].bibles_es += (s.bibles_es || 0);
+        
+        monthlyMap[monthLabel].tracts += (s.tracts || 0);
+        monthlyMap[monthLabel].tracts_en += (s.tracts_en || 0);
+        monthlyMap[monthLabel].tracts_es += (s.tracts_es || 0);
+        
+        monthlyMap[monthLabel].booklets += (s.booklets || 0);
+        monthlyMap[monthLabel].booklets_en += (s.booklets_en || 0);
+        monthlyMap[monthLabel].booklets_es += (s.booklets_es || 0);
+      } else {
+        // Fallback for legacy events
+        monthlyMap[monthLabel].tracts += (event.materialsDistributed || 0);
+      }
+    } catch (e) {
+      console.warn("Skipping malformed event date in reports", e);
+    }
+  });
+
+  const dynamicLineData = Object.values(monthlyMap);
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+        <div>
+          <h2 className="font-headline text-2xl sm:text-3xl font-bold tracking-tight text-primary">Distribution Reports</h2>
+          <p className="text-on-surface-variant text-sm mt-1">Analyzing literature outflow and metrics.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center bg-surface border border-outline-variant p-1 rounded-sharp">
+            <button className="px-2 py-1 text-[11px] font-headline font-bold uppercase tracking-wider text-primary border-r border-outline-variant">30D</button>
+            <button className="px-2 py-1 text-[11px] font-headline font-bold uppercase tracking-wider text-on-surface-variant hover:text-primary border-r border-outline-variant">Q4</button>
+            <button className="px-2 py-1 text-on-surface-variant"><Calendar className="w-3 h-3" /></button>
+          </div>
+          <button 
+            onClick={() => exportToCSV(inventory, 'lit_ledger_full_report')}
+            className="border border-outline-variant text-primary px-3 py-1.5 rounded-sharp font-headline font-bold text-[11px] uppercase tracking-wider flex items-center gap-2 hover:bg-surface-container transition-all"
+          >
+            <Download className="w-3 h-3" />
+            CSV
+          </button>
+          <button 
+            onClick={() => generateMonthlyReport(inventory, events, auditLogs, settings)}
+            className="bg-primary text-white px-3 py-1.5 rounded-sharp font-headline font-bold text-[11px] uppercase tracking-wider flex items-center gap-2 hover:bg-primary-container transition-all shadow-md"
+          >
+            <FileText className="w-3 h-3" />
+            PDF
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          { label: 'Total Distributions', val: totalDistributions.toLocaleString(), trend: 'LIFETIME VOLUME', color: 'indicator-secondary', trendColor: 'text-secondary', icon: TrendingUp },
+          { label: 'Active Events', val: events.length.toString().padStart(2, '0'), trend: 'Stabilized distribution flow', color: 'indicator-tertiary', trendColor: 'text-on-surface-variant', icon: null },
+          { label: 'Inventory Velocity', val: '82%', trend: '-2.4% below target', color: 'indicator-primary', trendColor: 'text-tertiary', icon: TrendingDown },
+          { label: 'Unique Resources', val: inventory.length.toString(), trend: 'Catalog diversity', color: 'bg-slate-400', trendColor: 'text-on-surface-variant', icon: null },
+        ].map((stat, i) => (
+          <div key={i} className="ledger-card p-6">
+            <div className={cn("absolute top-0 left-0 h-full w-1", stat.color)} />
+            <p className="text-[11px] font-headline font-bold text-on-surface-variant uppercase tracking-[1px] mb-2">{stat.label}</p>
+            <div className="font-mono text-3xl text-primary">{stat.val}</div>
+            <div className={cn("mt-4 flex items-center gap-2 text-[12px]", stat.trendColor)}>
+              {stat.icon && <stat.icon className="w-4 h-4" />}
+              <span>{stat.trend}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 ledger-card p-8">
+          <div className="flex items-center justify-between mb-10">
+            <div>
+              <h3 className="font-headline text-[14px] font-bold uppercase tracking-wider text-primary">Volume Trends Over Time</h3>
+              <p className="text-on-surface-variant text-[12px]">Daily distribution counts aggregated monthly</p>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-primary rounded-full" />
+                <span className="text-[11px] font-headline uppercase font-bold text-on-surface-variant">Bibles</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-secondary rounded-full" />
+                <span className="text-[11px] font-headline uppercase font-bold text-on-surface-variant">Tracts</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-tertiary rounded-full" />
+                <span className="text-[11px] font-headline uppercase font-bold text-on-surface-variant">Booklets</span>
+              </div>
+            </div>
+          </div>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={dynamicLineData}>
+                <defs>
+                  <linearGradient id="colorBibles" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0A2540" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#0A2540" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E6EBEE" />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fill: '#8898AA', fontWeight: 'bold' }}
+                />
+                <YAxis hide />
+                <Tooltip />
+                <Area type="monotone" dataKey="bibles" stroke="#0A2540" strokeWidth={3} fillOpacity={1} fill="url(#colorBibles)" />
+                <Line type="monotone" dataKey="tracts" stroke="#00D4B6" strokeWidth={3} dot={false} />
+                <Line type="monotone" dataKey="booklets" stroke="#FF7369" strokeWidth={3} strokeDasharray="8 4" dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="ledger-card p-8 flex flex-col items-center">
+          <h3 className="font-headline text-[14px] font-bold uppercase tracking-wider text-primary self-start mb-1">Category Breakdown</h3>
+          <p className="text-on-surface-variant text-[12px] self-start mb-8">Stock allocation by type</p>
+          <div className="relative w-48 h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={dynamicPieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {dynamicPieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="font-mono text-2xl text-primary font-bold">{inventory.length > 0 ? '100%' : '0%'}</span>
+              <span className="text-[9px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Audited</span>
+            </div>
+          </div>
+          <div className="w-full mt-10 space-y-3">
+            {dynamicPieData.map((item) => (
+              <div key={item.name} className="flex items-center justify-between text-[12px]">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-sharp" style={{ backgroundColor: item.color }} />
+                  <span className="text-on-surface">{item.name}</span>
+                </div>
+                <span className="font-mono font-bold">{item.value}%</span>
+              </div>
+            ))}
+          </div>
+          
+          <div className="w-full mt-8 pt-8 border-t border-outline-variant space-y-4">
+            <h4 className="font-headline text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">Language Matrix</h4>
+            <div className="space-y-4">
+              {[
+                { label: 'Bibles', en: (dynamicLineData as any[]).reduce((acc: number, curr: any) => acc + (curr.bibles_en || 0), 0), es: (dynamicLineData as any[]).reduce((acc: number, curr: any) => acc + (curr.bibles_es || 0), 0) },
+                { label: 'Tracts', en: (dynamicLineData as any[]).reduce((acc: number, curr: any) => acc + (curr.tracts_en || 0), 0), es: (dynamicLineData as any[]).reduce((acc: number, curr: any) => acc + (curr.tracts_es || 0), 0) },
+                { label: 'Booklets', en: (dynamicLineData as any[]).reduce((acc: number, curr: any) => acc + (curr.booklets_en || 0), 0), es: (dynamicLineData as any[]).reduce((acc: number, curr: any) => acc + (curr.booklets_es || 0), 0) },
+              ].map((cat: any) => (
+                <div key={cat.label} className="space-y-1.5">
+                  <div className="flex justify-between text-[11px] font-bold uppercase text-primary">
+                    <span>{cat.label}</span>
+                    <span className="font-mono">{cat.en + cat.es}</span>
+                  </div>
+                  <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-surface-container">
+                    <div className="bg-primary h-full transition-all" style={{ width: `${(cat.en / (cat.en + cat.es || 1)) * 100}%` }} />
+                    <div className="bg-secondary h-full transition-all" style={{ width: `${(cat.es / (cat.en + cat.es || 1)) * 100}%` }} />
+                  </div>
+                  <div className="flex justify-between text-[9px] font-mono font-bold uppercase text-on-surface-variant">
+                    <span>EN: {cat.en}</span>
+                    <span>ES: {cat.es}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: { events: any[], onAdd: () => void, onEdit: (event: any) => void, onBulkImport: () => void, settings: any, isAdmin: boolean }) => {
+  const totalDistributed = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
+  
   const nextEvent = events
     .filter(e => {
       const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
@@ -856,302 +1515,246 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: 
       return da.getTime() - db.getTime();
     })[0];
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'Scheduled':
-        return <span className="badge badge-secondary">Scheduled</span>;
-      case 'Stock Alert':
-        return <span className="badge badge-warning">Stock Alert</span>;
-      case 'Completed':
-        return <span className="badge">Completed</span>;
-      default:
-        return <span className="badge">{status}</span>;
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+    <div className="space-y-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
         <div>
-          <h1 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 tracking-tight">Events</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage distribution events</p>
+          <span className="font-headline font-bold text-[12px] uppercase tracking-[2px] text-on-surface-variant">Management Ledger</span>
+          <h1 className="font-headline font-extrabold text-2xl sm:text-[32px] text-primary tracking-tight leading-none mt-1 uppercase">Events Manager</h1>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           {isAdmin && (
-            <button onClick={onBulkImport} className="btn btn-outline btn-sm">
-              <Upload className="w-4 h-4" /> Bulk Import
+            <button 
+              onClick={onBulkImport}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 border border-outline-variant bg-surface text-[12px] font-medium text-on-surface hover:bg-surface-container transition-colors rounded-sharp"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="sm:inline">Bulk</span>
             </button>
           )}
-          <button onClick={() => exportToCSV(events, 'events')} className="btn btn-outline btn-sm">
-            <Download className="w-4 h-4" /> Export
+          <button 
+            onClick={() => exportToCSV(events, 'lit_ledger_events')}
+            className="flex-1 sm:flex-none px-4 py-2 border border-outline-variant text-primary font-headline font-bold text-[11px] uppercase tracking-wider rounded-sharp hover:bg-surface-container transition-colors"
+          >
+            Export
           </button>
           {isAdmin && (
-            <button onClick={onAdd} className="btn btn-primary btn-sm">
-              <PlusCircle className="w-4 h-4" /> New Event
+            <button 
+              onClick={onAdd}
+              className="flex-1 sm:flex-none px-4 py-2 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-colors shadow-sm whitespace-nowrap"
+            >
+              New Event
             </button>
           )}
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-gradient-to-br from-primary-600 to-primary-700 rounded-2xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <Calendar className="w-10 h-10 opacity-20" />
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-              <Zap className="w-5 h-5" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="ledger-card p-6 h-auto min-h-40 flex flex-col justify-between">
+          <div className="indicator-secondary" />
+          <div>
+            <span className="font-headline text-[11px] uppercase tracking-[1px] text-on-surface-variant font-bold">Total Active Events</span>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="font-mono text-[40px] text-primary font-bold leading-none">{events.length}</span>
+              <span className="text-secondary font-bold text-[13px]">SYSTEM TOTAL</span>
             </div>
           </div>
-          <p className="text-primary-100 text-sm mt-4">Total Events</p>
-          <p className="text-4xl font-display font-bold">{events.length}</p>
+          <div className="mt-6 h-[2px] bg-surface-container relative">
+            <div className="absolute inset-0 bg-secondary w-3/4" />
+          </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          {nextEvent ? (
-            <div onClick={() => onEdit(nextEvent)} className="cursor-pointer">
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Next Event</p>
-              <p className="font-display font-bold text-gray-900">{nextEvent.name}</p>
-              <p className="text-sm text-gray-500 mt-1">{formatDateTime(nextEvent.date, settings?.timezone)}</p>
-              <button className="mt-4 text-xs text-primary-600 font-medium hover:text-primary-700">
-                View details →
-              </button>
-            </div>
-          ) : (
-            <div className="h-full flex flex-col justify-between">
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Next Event</p>
-              <p className="font-display font-semibold text-gray-400">No upcoming events</p>
-              {isAdmin && (
-                <button onClick={onAdd} className="btn btn-secondary btn-sm mt-4">
-                  <Plus className="w-4 h-4" /> Schedule Event
-                </button>
-              )}
-            </div>
-          )}
+        <div className="bg-primary text-white p-6 rounded-sharp relative overflow-hidden group h-auto">
+          <div className="relative z-10 h-full flex flex-col justify-between">
+            {nextEvent ? (
+              <div onClick={() => onEdit(nextEvent)} className="cursor-pointer">
+                <span className="font-headline text-[11px] uppercase tracking-[1px] text-secondary font-bold">Next Scheduled Event</span>
+                <h3 className="font-headline font-bold text-[18px] mt-2 line-clamp-1">{nextEvent.name}</h3>
+                <p className="font-mono text-[13px] mt-1 text-slate-300">
+                  {formatDateTime(nextEvent.date, settings?.timezone)}
+                </p>
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="flex -space-x-2">
+                    {[1, 2].map(i => (
+                      <img 
+                        key={i}
+                        src={`https://picsum.photos/seed/event-${nextEvent.id}-${i}/100/100`} 
+                        alt="User" 
+                        className="w-7 h-7 rounded-full border-2 border-primary"
+                        referrerPolicy="no-referrer"
+                      />
+                    ))}
+                    <div className="w-7 h-7 rounded-full border-2 border-primary bg-primary-container flex items-center justify-center text-[8px] font-bold">+2</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col h-full justify-between py-2">
+                <div>
+                  <span className="font-headline text-[11px] uppercase tracking-[1px] text-slate-400 font-bold">Next Regional Sync</span>
+                  <p className="font-headline font-bold text-[15px] mt-2 text-slate-300">NO UPCOMING EVENTS SCHEDULED</p>
+                </div>
+                {isAdmin && (
+                  <button 
+                    onClick={onAdd}
+                    className="w-full bg-secondary text-primary font-headline font-bold text-[11px] py-2 rounded-sharp flex items-center justify-center gap-2 hover:bg-white transition-colors uppercase tracking-widest mt-4"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Next Event
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <RefreshCw className="absolute right-[-20px] bottom-[-20px] w-32 h-32 text-white opacity-5 group-hover:rotate-45 transition-transform duration-700" />
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <Truck className="w-10 h-10 text-gray-200" />
-            <div className="w-10 h-10 rounded-xl bg-success-100 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-success-600" />
+        <div className="ledger-card p-6 h-auto min-h-40 flex flex-col md:col-span-2 lg:col-span-3">
+          <div className="indicator-primary" />
+          <div className="flex flex-col justify-between h-full">
+            <div>
+              <span className="font-headline text-[11px] uppercase tracking-[1px] text-on-surface-variant font-bold">Items Distributed (LIFETIME)</span>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="font-mono text-[40px] text-primary font-bold leading-none">{totalDistributed.toLocaleString()}</span>
+              </div>
+              <p className="mt-2 text-[12px] text-slate-500 font-medium">System distribution tracking</p>
             </div>
           </div>
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mt-4">Total Distributed</p>
-          <p className="text-3xl font-display font-bold text-gray-900">{totalDistributed.toLocaleString()}</p>
         </div>
       </div>
 
-      {/* Events Table */}
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div className="ledger-card">
+        <div className="px-6 py-4 border-b border-outline-variant flex justify-between items-center">
+          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1px] text-primary">Distribution Ledger</h2>
+          <div className="flex gap-2">
+            <button className="p-2 hover:bg-surface-container rounded-sharp transition-colors text-on-surface-variant">
+              <Filter className="w-5 h-5" />
+            </button>
+            <button className="p-2 hover:bg-surface-container rounded-sharp transition-colors text-on-surface-variant">
+              <MoreVertical className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Event</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Location</th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Materials</th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-surface-container border-b border-outline-variant">
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Event Name</th>
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Date</th>
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold">Location</th>
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold text-right">Materials</th>
+                <th className="px-6 py-4 font-headline text-[11px] uppercase tracking-[1.5px] text-on-surface-variant font-bold text-center">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {events.map((event) => (
-                <tr
-                  key={event.id}
-                  onClick={() => onEdit(event)}
-                  className="hover:bg-gray-50 transition-colors cursor-pointer group"
+            <tbody className="divide-y divide-outline-variant">
+              {events.map((row) => (
+                <tr 
+                  key={row.id} 
+                  onClick={() => onEdit(row)}
+                  className="hover:bg-surface-container transition-colors group cursor-pointer"
                 >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className={cn(
-                        "w-1.5 h-10 rounded-full",
-                        event.status === 'Scheduled' ? 'bg-secondary-500' :
-                        event.status === 'Stock Alert' ? 'bg-warning-500' : 'bg-gray-300'
+                        "w-1.5 h-8 rounded-full", 
+                        row.status === 'Scheduled' ? "bg-secondary" : 
+                        row.status === 'Stock Alert' ? "bg-tertiary" : "bg-slate-200"
                       )} />
                       <div>
-                        <p className="font-medium text-gray-900">{event.name}</p>
-                        <p className="text-xs text-gray-400 font-mono">{event.id}</p>
+                        <p className="font-headline font-bold text-primary text-[14px]">{row.name}</p>
+                        <p className="text-[11px] font-mono text-on-surface-variant">{row.id}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-mono text-sm text-gray-600">{formatDate(event.date, settings?.timezone)}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{event.location}</td>
-                  <td className="px-6 py-4 text-right">
-                    <span className="font-mono font-semibold">{event.materialsDistributed?.toLocaleString()}</span>
+                  <td className="px-6 py-4 font-mono text-[13px] text-on-surface">
+                    {formatDate(row.date, settings?.timezone)}
                   </td>
-                  <td className="px-6 py-4 text-center">{getStatusBadge(event.status)}</td>
+                  <td className="px-6 py-4 text-[13px] text-on-surface">{row.location}</td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex flex-col items-end">
+                      <span className="font-mono font-bold text-primary text-[13px]">{row.materialsDistributed?.toLocaleString()} items</span>
+                      {row.categoryStats && (
+                        <div className="flex flex-wrap justify-end gap-x-2 gap-y-1 mt-1 max-w-[150px]">
+                          {row.categoryStats.bibles_en > 0 && (
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-secondary/10 px-1 rounded-sharp">B-English: {row.categoryStats.bibles_en}</span>
+                          )}
+                          {row.categoryStats.bibles_es > 0 && (
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-secondary/10 px-1 rounded-sharp">B-Spanish: {row.categoryStats.bibles_es}</span>
+                          )}
+                          {(row.categoryStats.bibles > 0 && !(row.categoryStats.bibles_en > 0 || row.categoryStats.bibles_es > 0)) && (
+                            <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-secondary/10 px-1 rounded-sharp">B: {row.categoryStats.bibles}</span>
+                          )}
+                          
+                          {row.categoryStats.tracts_en > 0 && (
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-primary/10 px-1 rounded-sharp">T-English: {row.categoryStats.tracts_en}</span>
+                          )}
+                          {row.categoryStats.tracts_es > 0 && (
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-primary/10 px-1 rounded-sharp">T-Spanish: {row.categoryStats.tracts_es}</span>
+                          )}
+                          {(row.categoryStats.tracts > 0 && !(row.categoryStats.tracts_en > 0 || row.categoryStats.tracts_es > 0)) && (
+                            <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-primary/10 px-1 rounded-sharp">T: {row.categoryStats.tracts}</span>
+                          )}
+
+                          {row.categoryStats.booklets_en > 0 && (
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-tertiary/10 px-1 rounded-sharp">BK-English: {row.categoryStats.booklets_en}</span>
+                          )}
+                          {row.categoryStats.booklets_es > 0 && (
+                            <span className="text-[8px] font-bold text-on-surface-variant uppercase bg-tertiary/10 px-1 rounded-sharp">BK-Spanish: {row.categoryStats.booklets_es}</span>
+                          )}
+                          {(row.categoryStats.booklets > 0 && !(row.categoryStats.booklets_en > 0 || row.categoryStats.booklets_es > 0)) && (
+                            <span className="text-[9px] font-bold text-on-surface-variant uppercase bg-tertiary/10 px-1 rounded-sharp">BK: {row.categoryStats.booklets}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className={cn(
+                      "inline-flex items-center px-2 py-0.5 rounded-sharp text-[10px] font-bold uppercase tracking-wider",
+                      row.status === 'Scheduled' ? "bg-secondary/10 text-secondary" : 
+                      row.status === 'Stock Alert' ? "bg-tertiary/10 text-tertiary" : "bg-surface-container text-on-surface-variant"
+                    )}>
+                      {row.status}
+                    </span>
+                  </td>
                 </tr>
               ))}
+              {events.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-on-surface-variant text-xs font-mono uppercase tracking-widest">No events found</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
-        {events.length === 0 && (
-          <div className="px-6 py-12 text-center">
-            <Calendar className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-            <p className="text-gray-500">No events found</p>
-          </div>
-        )}
       </div>
     </div>
   );
 };
 
-// --- Reports View ---
-const ReportsView = ({ inventory, events, auditLogs, settings }: {
-  inventory: any[],
-  events: any[],
-  auditLogs: any[],
-  settings: any
-}) => {
-  const totalDistributions = events.reduce((acc, event) => acc + (event.materialsDistributed || 0), 0);
-
-  const categoryCounts = inventory.reduce((acc: any, item) => {
-    acc[item.category] = (acc[item.category] || 0) + 1;
-    return acc;
-  }, {});
-
-  const pieData = Object.keys(categoryCounts).map((cat, i) => ({
-    name: cat,
-    value: Math.round((categoryCounts[cat] / (inventory.length || 1)) * 100) || 0,
-    color: i === 0 ? '#2f4a7a' : i === 1 ? '#14b8a6' : i === 2 ? '#f96b5b' : '#9ca3af'
-  }));
-
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const monthlyMap: any = {};
-  months.forEach(m => {
-    monthlyMap[m] = {
-      name: m,
-      bibles: 0, bibles_en: 0, bibles_es: 0,
-      tracts: 0, tracts_en: 0, tracts_es: 0,
-      booklets: 0, booklets_en: 0, booklets_es: 0
-    };
-  });
-
-  events.forEach(event => {
-    try {
-      const date = event.date?.toDate ? event.date.toDate() : new Date(event.date);
-      if (isNaN(date.getTime())) return;
-      const monthLabel = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
-      if (!monthlyMap[monthLabel]) return;
-
-      if (event.categoryStats) {
-        const s = event.categoryStats;
-        monthlyMap[monthLabel].bibles += (s.bibles || 0);
-        monthlyMap[monthLabel].tracts += (s.tracts || 0);
-        monthlyMap[monthLabel].booklets += (s.booklets || 0);
-      } else {
-        monthlyMap[monthLabel].tracts += (event.materialsDistributed || 0);
-      }
-    } catch (e) {
-      console.warn("Skipping malformed event date");
-    }
-  });
-
-  const lineData = Object.values(monthlyMap);
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
-        <div>
-          <h1 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 tracking-tight">Reports</h1>
-          <p className="text-gray-500 text-sm mt-1">Distribution analytics and insights</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => exportToCSV(inventory, 'report')} className="btn btn-outline btn-sm">
-            <Download className="w-4 h-4" /> CSV
-          </button>
-          <button onClick={() => generateMonthlyReport(inventory, events, auditLogs, settings)} className="btn btn-primary btn-sm">
-            <FileText className="w-4 h-4" /> PDF Report
-          </button>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <StatCard title="Total Distributions" value={totalDistributions.toLocaleString()} icon={TrendingUp} color="secondary" trend="up" />
-        <StatCard title="Active Events" value={events.length} icon={Calendar} color="primary" trend="neutral" />
-        <StatCard title="Unique SKUs" value={inventory.length} icon={Package} color="accent" trend="neutral" />
-        <StatCard title="Stock Health" value="82%" icon={Activity} color="success" trend="up" />
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-200 p-6">
-          <h2 className="font-display font-semibold text-gray-900 mb-6">Distribution Trends</h2>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={lineData}>
-                <defs>
-                  <linearGradient id="colorBibles" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2f4a7a" stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor="#2f4a7a" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6b7280' }} />
-                <YAxis hide />
-                <Tooltip />
-                <Area type="monotone" dataKey="bibles" stroke="#2f4a7a" strokeWidth={2} fill="url(#colorBibles)" />
-                <Line type="monotone" dataKey="tracts" stroke="#14b8a6" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="booklets" stroke="#f96b5b" strokeWidth={2} strokeDasharray="4 4" dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex justify-center gap-6 mt-4">
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-primary-600" /><span className="text-xs text-gray-500">Bibles</span></div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-secondary-500" /><span className="text-xs text-gray-500">Tracts</span></div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-accent-500" /><span className="text-xs text-gray-500">Booklets</span></div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <h2 className="font-display font-semibold text-gray-900 mb-6">Category Breakdown</h2>
-          <div className="flex justify-center">
-            <div className="relative w-40 h-40">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={3} dataKey="value">
-                    {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-xl font-display font-bold text-gray-900">100%</span>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-3 mt-6">
-            {pieData.map((item) => (
-              <div key={item.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded" style={{ backgroundColor: item.color }} />
-                  <span className="text-sm text-gray-600">{item.name}</span>
-                </div>
-                <span className="font-mono text-sm font-semibold">{item.value}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// --- Settings View ---
 const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }) => {
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     orgName: '',
     taxId: '',
     timezone: 'UTC',
+    updateFrequency: '',
     warningThreshold: 250,
     criticalThreshold: 75,
     categories: [] as string[]
   });
 
-  const timezones = ['UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'Europe/London', 'Asia/Tokyo'];
+  const timezones = [
+    'UTC',
+    'America/New_York',
+    'America/Chicago',
+    'America/Denver',
+    'America/Los_Angeles',
+    'Europe/London',
+    'Europe/Paris',
+    'Asia/Tokyo',
+    'Australia/Sydney'
+  ];
 
   useEffect(() => {
     if (settings) {
@@ -1159,6 +1762,7 @@ const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }
         orgName: settings.orgName || '',
         taxId: settings.taxId || '',
         timezone: settings.timezone || 'UTC',
+        updateFrequency: settings.updateFrequency || 'Real-time (Atomic)',
         warningThreshold: settings.warningThreshold || 250,
         criticalThreshold: settings.criticalThreshold || 75,
         categories: settings.categories || ['Bibles', 'Tracts', 'Booklets']
@@ -1167,336 +1771,286 @@ const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }
   }, [settings]);
 
   const handleSave = async () => {
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      alert("Only administrators can update system settings.");
+      return;
+    }
     setSaving(true);
     try {
       await updateSettings(formData);
+      alert("Settings updated successfully!");
     } catch (error) {
-      console.error("Failed to save settings", error);
+      console.error("Failed to update settings", error);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-end">
+    <div className="space-y-8">
+      <div className="flex items-end justify-between">
         <div>
-          <h1 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 tracking-tight">Settings</h1>
-          <p className="text-gray-500 text-sm mt-1">Configure your inventory system</p>
+          <div className="font-mono text-[11px] text-on-surface-variant uppercase tracking-widest mb-1">Configuration Ledger</div>
+          <h1 className="font-headline font-bold text-3xl text-primary tracking-tight">System Settings</h1>
         </div>
-        {isAdmin && (
-          <button onClick={handleSave} disabled={saving} className="btn btn-primary btn-sm">
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
-        )}
+        <div className="flex gap-3">
+          {isAdmin && (
+            <button 
+              onClick={handleSave}
+              disabled={saving}
+              className="px-6 py-2 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Organization */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-primary-600" />
-            </div>
-            <h2 className="font-display font-semibold text-gray-900">Organization</h2>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <section className="col-span-1 md:col-span-2 lg:col-span-1 ledger-card p-8 flex flex-col">
+        <div className="indicator-primary" />
+        <div className="flex items-center gap-3 mb-8">
+          <Building2 className="w-5 h-5 text-primary" />
+          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px]">Organization</h2>
+        </div>
+        <div className="space-y-6 flex-1">
+          <div className="space-y-2">
+            <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Org Name</label>
+            <input 
+              type="text" 
+              disabled={!isAdmin}
+              value={formData.orgName || ''}
+              onChange={e => setFormData({...formData, orgName: e.target.value})}
+              className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all disabled:opacity-70"
+            />
           </div>
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1.5">Organization Name</label>
-              <input type="text" disabled={!isAdmin} value={formData.orgName} onChange={e => setFormData({...formData, orgName: e.target.value})} className="input" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1.5">Tax ID</label>
-              <input type="text" disabled={!isAdmin} value={formData.taxId} onChange={e => setFormData({...formData, taxId: e.target.value})} className="input" />
-            </div>
+          <div className="space-y-2">
+            <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Tax ID / Registration</label>
+            <input 
+              type="text" 
+              disabled={!isAdmin}
+              value={formData.taxId || ''}
+              onChange={e => setFormData({...formData, taxId: e.target.value})}
+              className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary transition-all disabled:opacity-70"
+            />
           </div>
         </div>
+      </section>
 
-        {/* Categories */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-secondary-100 flex items-center justify-center">
-              <Package className="w-5 h-5 text-secondary-600" />
-            </div>
-            <h2 className="font-display font-semibold text-gray-900">Categories</h2>
-          </div>
-          <div className="space-y-3">
+      <section className="col-span-1 md:col-span-1 lg:col-span-1 ledger-card p-8">
+        <div className="indicator-tertiary" />
+        <div className="flex items-center gap-3 mb-8">
+          <Database className="w-5 h-5 text-primary" />
+          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px]">Taxonomies</h2>
+        </div>
+        <div className="space-y-6">
+          <div className="space-y-4">
+            <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Material Categories</label>
             <div className="flex flex-wrap gap-2">
               {formData.categories.map((cat, i) => (
-                <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-lg">
-                  <span className="text-sm font-medium text-gray-700">{cat}</span>
+                <div key={i} className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 rounded-sharp">
+                  <span className="font-headline font-bold text-[11px] uppercase tracking-wider">{cat}</span>
                   {isAdmin && (
-                    <button onClick={() => setFormData({...formData, categories: formData.categories.filter((_, idx) => idx !== i)})} className="text-gray-400 hover:text-danger-500">
-                      <X className="w-3.5 h-3.5" />
+                    <button 
+                      onClick={() => setFormData({...formData, categories: formData.categories.filter((_, idx) => idx !== i)})}
+                      className="hover:text-tertiary transition-colors"
+                    >
+                      <X className="w-4 h-4" />
                     </button>
                   )}
                 </div>
               ))}
             </div>
             {isAdmin && (
-              <input
-                type="text"
-                placeholder="Add category..."
-                className="input"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    const val = e.currentTarget.value.trim();
+              <div className="mt-4 flex gap-2">
+                <input 
+                  type="text" 
+                  placeholder="New type..."
+                  className="flex-1 border-0 border-b-2 border-surface-container bg-surface-container-low px-3 py-2 font-headline font-medium text-[12px] focus:ring-0 focus:border-primary transition-all"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const val = e.currentTarget.value.trim();
+                      if (val && !formData.categories.includes(val)) {
+                        setFormData({...formData, categories: [...formData.categories, val]});
+                        e.currentTarget.value = '';
+                      }
+                    }
+                  }}
+                />
+                <button 
+                  className="p-2 bg-surface-container hover:bg-surface-container-high text-primary transition-colors rounded-sharp"
+                  onClick={(e) => {
+                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                    const val = input.value.trim();
                     if (val && !formData.categories.includes(val)) {
                       setFormData({...formData, categories: [...formData.categories, val]});
-                      e.currentTarget.value = '';
+                      input.value = '';
                     }
-                  }
-                }}
-              />
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
             )}
           </div>
         </div>
+      </section>
 
-        {/* System */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-accent-100 flex items-center justify-center">
-              <RefreshCw className="w-5 h-5 text-accent-600" />
-            </div>
-            <h2 className="font-display font-semibold text-gray-900">System</h2>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1.5">Timezone</label>
-              <select disabled={!isAdmin} value={formData.timezone} onChange={e => setFormData({...formData, timezone: e.target.value})} className="input">
-                {timezones.map(tz => <option key={tz}>{tz}</option>)}
-              </select>
-            </div>
-          </div>
+      <section className="col-span-1 md:col-span-1 lg:col-span-1 ledger-card p-8">
+        <div className="indicator-secondary" />
+        <div className="flex items-center gap-3 mb-8">
+          <RefreshCw className="w-5 h-5 text-secondary" />
+          <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px]">System Sync</h2>
         </div>
-
-        {/* Thresholds */}
-        <div className="md:col-span-2 lg:col-span-3 bg-white rounded-2xl border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-warning-100 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-warning-600" />
-            </div>
-            <div>
-              <h2 className="font-display font-semibold text-gray-900">Stock Thresholds</h2>
-              <p className="text-sm text-gray-400">Configure alert triggers</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-3">Low Stock Warning</label>
-              <div className="flex items-center gap-3">
-                <input type="number" value={formData.warningThreshold} onChange={e => setFormData({...formData, warningThreshold: parseInt(e.target.value) || 0})} className="input font-mono text-lg font-semibold w-28" />
-                <span className="text-gray-500">units</span>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">Items below this quantity show a "Low" status.</p>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-3">Critical Stock Level</label>
-              <div className="flex items-center gap-3">
-                <input type="number" value={formData.criticalThreshold} onChange={e => setFormData({...formData, criticalThreshold: parseInt(e.target.value) || 0})} className="input font-mono text-lg font-semibold w-28" />
-                <span className="text-gray-500">units</span>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">Items below this quantity show "Out" status.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// --- Users View ---
-const UsersView = ({ users }: { users: any[] }) => {
-  const { updateUserRole, currentUserProfile, authorizedEmails } = useFirebase();
-  const isAdmin = currentUserProfile?.role === 'admin';
-  const [newEmail, setNewEmail] = useState('');
-
-  const handleAuthorize = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newEmail || !isAdmin) return;
-    try {
-      const { authorizeEmail } = await import('./services/firestoreService');
-      await authorizeEmail(newEmail.toLowerCase().trim());
-      setNewEmail('');
-    } catch (error) {
-      console.error("Failed to authorize email", error);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 tracking-tight">Users</h1>
-        <p className="text-gray-500 text-sm mt-1">Manage user access and roles</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-            <h2 className="font-display font-semibold text-gray-900">System Users</h2>
-            <span className="badge badge-primary">{users.length} users</span>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {users.map((user) => (
-              <div key={user.id} className="px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <img src={user.photoURL || `https://images.pexels.com/photos/1043474/pexels-photo-1043474.jpeg?auto=compress&cs=tinysrgb&w=80`} alt={user.displayName} className="w-10 h-10 rounded-full" />
-                  <div>
-                    <p className="font-medium text-gray-900">{user.displayName || 'User'}</p>
-                    <p className="text-sm text-gray-400">{user.email}</p>
-                  </div>
-                </div>
-                <select
-                  disabled={!isAdmin || user.id === currentUserProfile?.id}
-                  value={user.role}
-                  onChange={(e) => updateUserRole(user.id, e.target.value as 'admin' | 'user' | 'guest')}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-semibold uppercase border-0",
-                    user.role === 'admin' ? 'bg-primary-100 text-primary-700' :
-                    user.role === 'user' ? 'bg-secondary-100 text-secondary-700' :
-                    'bg-gray-100 text-gray-600'
-                  )}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-4 bg-surface-container border border-outline-variant rounded-sharp">
+              <div>
+                <div className="font-headline font-bold text-[12px] text-primary">Timezone</div>
+                <select 
+                  disabled={!isAdmin}
+                  value={formData.timezone}
+                  onChange={e => setFormData({...formData, timezone: e.target.value})}
+                  className="bg-transparent border-0 p-0 font-mono text-[10px] text-on-surface-variant focus:ring-0 w-full cursor-pointer disabled:cursor-not-allowed"
                 >
-                  <option value="guest">Guest</option>
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
+                  {timezones.map(tz => (
+                    <option key={tz} value={tz}>{tz}</option>
+                  ))}
                 </select>
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
-            <h3 className="font-display font-semibold text-gray-900 mb-4">Authorize Email</h3>
-            <form onSubmit={handleAuthorize} className="space-y-3">
-              <input type="email" placeholder="email@example.com" value={newEmail} onChange={e => setNewEmail(e.target.value)} className="input" />
-              <button type="submit" className="btn btn-primary w-full">Add to Allowlist</button>
-            </form>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
-            <h3 className="font-display font-semibold text-gray-900 mb-4">Authorized Emails</h3>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {authorizedEmails.sort().map(email => (
-                <div key={email} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg">
-                  <span className="text-sm font-mono text-gray-600">{email}</span>
-                  <button onClick={() => import('./services/firestoreService').then(({ removeAuthorizedEmail }) => removeAuthorizedEmail(email))} className="text-gray-400 hover:text-danger-500">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+              <Clock3 className="w-5 h-5 text-secondary opacity-50" />
+            </div>
+            <div className="space-y-4">
+              <label className="font-headline font-bold text-[11px] text-on-surface-variant uppercase tracking-widest block">Update Frequency</label>
+              <select 
+                disabled={!isAdmin}
+                value={formData.updateFrequency}
+                onChange={e => setFormData({...formData, updateFrequency: e.target.value})}
+                className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-3 font-sans text-[14px] focus:ring-0 focus:border-primary appearance-none disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                <option>Real-time (Atomic)</option>
+                <option>Every 15 Minutes</option>
+                <option>Hourly Batch</option>
+                <option>Daily Records</option>
+              </select>
+            </div>
+          <div className="pt-4 border-t border-outline-variant">
+            <div className="flex justify-between items-center mb-2">
+              <span className="font-headline font-bold text-[11px] uppercase tracking-widest text-on-surface-variant">Database Link</span>
+              <span className="font-mono text-[11px] text-secondary font-bold">STABLE</span>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  );
-};
+      </section>
 
-// --- Logs View ---
-const LogsView = ({ logs, settings }: { logs: any[], settings: any }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [actionFilter, setActionFilter] = useState('ALL');
-
-  const filteredLogs = logs.filter(log => {
-    const matchesSearch = log.details?.toLowerCase().includes(searchTerm.toLowerCase()) || log.userName?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesAction = actionFilter === 'ALL' || log.action === actionFilter;
-    return matchesSearch && matchesAction;
-  });
-
-  const actions = ['ALL', ...new Set(logs.map(l => l.action))];
-  const getActionBadge = (action: string) => {
-    if (action.includes('CREATED')) return <span className="badge badge-success">{action.replace('_', ' ')}</span>;
-    if (action.includes('DELETED')) return <span className="badge badge-danger">{action.replace('_', ' ')}</span>;
-    return <span className="badge">{action.replace('_', ' ')}</span>;
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
-        <div>
-          <h1 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 tracking-tight">Activity Log</h1>
-          <p className="text-gray-500 text-sm mt-1">System audit trail</p>
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:flex-none">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input type="text" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="input pl-10 w-full sm:w-56" />
+      <section className="col-span-1 md:col-span-2 lg:col-span-3 ledger-card p-8">
+        <div className="indicator-tertiary" />
+        <div className="flex items-center justify-between mb-10">
+          <div className="flex items-center gap-3">
+            <BarChart3 className="w-5 h-5 text-tertiary" />
+            <h2 className="font-headline font-bold text-[14px] uppercase tracking-[1.5px]">Stock Thresholds & Intelligence</h2>
           </div>
-          <select value={actionFilter} onChange={e => setActionFilter(e.target.value)} className="input w-auto">
-            {actions.map(action => <option key={action} value={action}>{action === 'ALL' ? 'All Actions' : action.replace('_', ' ')}</option>)}
-          </select>
+          <div className="px-4 py-1 bg-tertiary/10 text-tertiary font-mono text-[10px] font-bold rounded-sharp">ALGORITHMIC SCALING ACTIVE</div>
         </div>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Time</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">User</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Action</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Details</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <span className="font-mono text-sm text-gray-600">{formatTime(log.timestamp, settings?.timezone)}</span>
-                    <p className="text-xs text-gray-400">{formatDate(log.timestamp, settings?.timezone)}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="font-medium text-gray-900">{log.userName}</p>
-                    <p className="text-xs text-gray-400">{log.userEmail}</p>
-                  </td>
-                  <td className="px-6 py-4">{getActionBadge(log.action)}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{log.details}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <div className="flex justify-between items-end">
+                  <label className="font-headline font-bold text-[12px] text-primary uppercase">Low Stock Threshold (Amber)</label>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="number"
+                      value={formData.warningThreshold}
+                      onChange={e => setFormData({...formData, warningThreshold: parseInt(e.target.value) || 0})}
+                      className="w-20 bg-transparent border-0 border-b border-primary font-mono text-2xl font-bold text-primary text-right focus:ring-0"
+                    />
+                    <span className="text-[14px] text-on-surface-variant uppercase">units</span>
+                  </div>
+                </div>
+                <div className="relative py-4">
+                  <div className="h-1 w-full bg-surface-container rounded-full" />
+                  <div className="absolute top-1/2 -translate-y-1/2 left-0 h-1 bg-primary" style={{ width: `${Math.min(100, (formData.warningThreshold / 1000) * 100)}%` }} />
+                </div>
+                <p className="text-[11px] text-on-surface-variant leading-relaxed">Status becomes "Low" when stock falls below this number. Healthy stock is anything above this.</p>
+              </div>
+            </div>
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <div className="flex justify-between items-end">
+                  <label className="font-headline font-bold text-[12px] text-tertiary uppercase">Out-of-Stock Threshold (Red)</label>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="number"
+                      value={formData.criticalThreshold}
+                      onChange={e => setFormData({...formData, criticalThreshold: parseInt(e.target.value) || 0})}
+                      className="w-20 bg-transparent border-0 border-b border-tertiary font-mono text-2xl font-bold text-tertiary text-right focus:ring-0"
+                    />
+                    <span className="text-[14px] text-on-surface-variant uppercase">units</span>
+                  </div>
+                </div>
+                <div className="relative py-4">
+                  <div className="h-1 w-full bg-surface-container rounded-full" />
+                  <div className="absolute top-1/2 -translate-y-1/2 left-0 h-1 bg-tertiary" style={{ width: `${Math.min(100, (formData.criticalThreshold / 1000) * 100)}%` }} />
+                </div>
+                <p className="text-[11px] text-on-surface-variant leading-relaxed">Status becomes "Out" when stock falls below this floor. Set to 0 for literal out-of-stock.</p>
+              </div>
+            </div>
         </div>
-        {filteredLogs.length === 0 && (
-          <div className="px-6 py-12 text-center">
-            <History className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-            <p className="text-gray-500">No activity found</p>
-          </div>
-        )}
-      </div>
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { label: 'Email Alerts', desc: 'Daily summary of low-stock items sent to procurement.', icon: BellRing, active: true },
+            { label: 'Auto-Replenish', desc: 'Automatically draft POs when items hit critical levels.', icon: Package, active: false },
+            { label: 'Safety Buffer', desc: 'Add 5% extra margin to all calculated thresholds.', icon: Shield, active: true },
+          ].map((item, i) => (
+            <div key={i} className="p-6 bg-surface-container flex gap-4 items-start border border-outline-variant rounded-sharp">
+              <item.icon className="w-5 h-5 text-primary" />
+              <div>
+                <div className="font-headline font-bold text-[12px] uppercase tracking-wide mb-1">{item.label}</div>
+                <div className="text-[11px] text-on-surface-variant">{item.desc}</div>
+                <div className="mt-4 flex items-center gap-2">
+                  <div className={cn("w-8 h-4 relative rounded-full transition-colors", item.active ? "bg-primary" : "bg-slate-300")}>
+                    <div className={cn("absolute top-1 w-2 h-2 bg-white rounded-full transition-all", item.active ? "right-1" : "left-1")} />
+                  </div>
+                  <span className={cn("font-mono text-[9px] uppercase font-bold", item.active ? "text-primary" : "text-slate-400")}>
+                    {item.active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
+  </div>
   );
 };
 
 // --- Login View ---
+
 const LoginView = () => {
   const { login } = useFirebase();
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 via-gray-50 to-white p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-3xl shadow-xl border border-gray-200 p-8 sm:p-10 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary-500 via-secondary-500 to-accent-500" />
-
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-primary-600 to-primary-700 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-primary-500/25">
-              <Database className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 mt-6">LitTrack</h1>
-            <p className="text-gray-500 text-sm mt-2">Literature Inventory Management</p>
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="ledger-card p-6 sm:p-12 max-w-md w-full text-center relative overflow-hidden">
+        <div className="indicator-primary" />
+        <div className="flex justify-center mb-6 sm:mb-8">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-primary flex items-center justify-center rounded-sharp shadow-xl">
+            <Database className="w-6 h-6 sm:w-8 sm:h-8 text-secondary" />
           </div>
-
-          <button onClick={login} className="btn btn-primary btn-lg w-full">
-            <LogIn className="w-5 h-5" /> Sign in with Google
-          </button>
-
-          <p className="text-center text-xs text-gray-400 mt-8">
-            Authorized personnel only
-          </p>
+        </div>
+        <h1 className="font-headline font-extrabold text-2xl sm:text-4xl text-primary tracking-tighter mb-2">INVENTORY SYSTEM</h1>
+        <p className="text-on-surface-variant font-medium text-xs sm:text-sm mb-8 sm:mb-10 uppercase tracking-widest leading-relaxed">Internal Outreach Literature Management</p>
+        
+        <button 
+          onClick={login}
+          className="w-full bg-primary text-white py-3 sm:py-4 rounded-sharp font-headline font-bold text-xs sm:text-sm tracking-widest flex items-center justify-center gap-3 hover:bg-primary-container transition-all active:scale-95 shadow-lg"
+        >
+          <LogIn className="w-4 h-4 sm:w-5 sm:h-5" />
+          AUTHENTICATE WITH GOOGLE
+        </button>
+        
+        <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-outline-variant">
+          <p className="text-[9px] sm:text-[10px] font-mono text-slate-400 uppercase tracking-widest leading-relaxed">Authorized Personnel Only • Secure Data Hub</p>
         </div>
       </div>
     </div>
@@ -1504,43 +2058,50 @@ const LoginView = () => {
 };
 
 // --- Pending Access View ---
+
 const PendingAccessView = ({ isAuthorized }: { isAuthorized: boolean }) => {
   const { logout, user } = useFirebase();
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 via-gray-50 to-white p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-3xl shadow-xl border border-gray-200 p-8 sm:p-10 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-warning-400 to-warning-500" />
-
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-warning-100 rounded-2xl flex items-center justify-center mx-auto">
-              {isAuthorized ? <Clock3 className="w-8 h-8 text-warning-600" /> : <ShieldAlert className="w-8 h-8 text-warning-600" />}
-            </div>
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="ledger-card p-12 max-w-md w-full text-center relative overflow-hidden">
+        <div className="indicator-secondary" />
+        <div className="flex justify-center mb-8">
+          <div className="w-16 h-16 bg-secondary/20 flex items-center justify-center rounded-sharp border-2 border-secondary">
+            {isAuthorized ? <Clock3 className="w-8 h-8 text-secondary" /> : <ShieldAlert className="w-8 h-8 text-secondary" />}
           </div>
-
-          <h1 className="font-display font-bold text-2xl text-gray-900 text-center mb-2">
-            {isAuthorized ? 'Access Pending' : 'Access Denied'}
-          </h1>
-          <p className="text-gray-500 text-center">Hello, {user?.displayName}.</p>
-          <p className="text-gray-400 text-sm text-center mt-3 leading-relaxed">
-            {isAuthorized
-              ? "Your account is awaiting administrator approval."
-              : "Your email is not authorized for this system."}
-          </p>
-
-          <div className="mt-6 p-4 bg-warning-50 rounded-xl border border-warning-100 flex items-start gap-3">
-            <ShieldAlert className="w-5 h-5 text-warning-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-warning-700 leading-relaxed">
-              {isAuthorized
-                ? "Please contact your administrator to approve your account."
-                : "Access is restricted to invited personnel only."}
+        </div>
+        <h1 className="font-headline font-extrabold text-3xl text-primary tracking-tighter mb-4 uppercase">
+          {isAuthorized ? 'Access Pending' : 'Access Denied'}
+        </h1>
+        <p className="text-on-surface-variant font-medium text-sm mb-2">Hello, <span className="text-primary font-bold">{user?.displayName}</span>.</p>
+        <p className="text-on-surface-variant text-sm mb-10 leading-relaxed">
+          {isAuthorized 
+            ? "Your account has been successfully created, but it is currently restricted. Please contact a system administrator to approve your access."
+            : "Your email is not on the authorized list for this system. Access is restricted to invited personnel only."}
+        </p>
+        
+        <div className="space-y-4">
+          <div className="p-4 bg-surface-container rounded-sharp border border-outline-variant flex items-center gap-3 text-left">
+            <ShieldAlert className="w-5 h-5 text-secondary shrink-0" />
+            <p className="text-[11px] font-mono text-on-surface-variant leading-tight uppercase tracking-wider">
+              {isAuthorized 
+                ? "Security Protocol: Data access is disabled until role verification is complete."
+                : "Security Protocol: Unauthorized login attempt logged. Please sign out."}
             </p>
           </div>
 
-          <button onClick={logout} className="btn btn-outline btn-lg w-full mt-6">
-            <LogOut className="w-5 h-5" /> Sign Out
+          <button 
+            onClick={logout}
+            className="w-full border-2 border-outline-variant text-on-surface-variant py-4 rounded-sharp font-headline font-bold text-sm tracking-widest flex items-center justify-center gap-3 hover:bg-surface-container transition-all active:scale-95"
+          >
+            <LogOut className="w-5 h-5" />
+            SIGN OUT
           </button>
+        </div>
+        
+        <div className="mt-12 pt-8 border-t border-outline-variant">
+          <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">System ID: {user?.uid.slice(0, 8)}</p>
         </div>
       </div>
     </div>
@@ -1548,6 +2109,7 @@ const PendingAccessView = ({ isAuthorized }: { isAuthorized: boolean }) => {
 };
 
 // --- Main App ---
+
 export default function App() {
   const { user, currentUserProfile, loading, inventory, events, users, settings, isAuthorized, auditLogs } = useFirebase();
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -1566,55 +2128,185 @@ export default function App() {
 
   const isAdmin = currentUserProfile?.role === 'admin';
 
+  const handleAdd = () => {
+    setSelectedItem(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEdit = (item: any) => {
+    setSelectedItem(item);
+    setIsModalOpen(true);
+  };
+
+  const handleAddEvent = () => {
+    setSelectedEvent(null);
+    setIsEventModalOpen(true);
+  };
+
+  const handleEditEvent = (event: any) => {
+    setSelectedEvent(event);
+    setIsEventModalOpen(true);
+  };
+
+  const handleShowHistory = (item: any) => {
+    setSelectedHistoryItem(item);
+    setIsHistoryOpen(true);
+  };
+
+  const handleScanSuccess = (decodedText: string) => {
+    // Try to find the item by SKU
+    const item = inventory.find(i => i.sku === decodedText || i.id === decodedText);
+    if (item) {
+      setSelectedItem(item);
+      setIsModalOpen(true);
+    } else {
+      alert(`No item found with SKU/ID: ${decodedText}`);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
-          <p className="text-sm text-gray-500 font-medium">Loading...</p>
+          <RefreshCw className="w-8 h-8 text-primary animate-spin" />
+          <p className="font-mono text-xs text-primary font-bold tracking-widest">INITIALIZING LEDGER...</p>
         </div>
       </div>
     );
   }
 
-  // Temporarily disabled auth for development
-  // if (!user) return <LoginView />;
-  // if (currentUserProfile?.role === 'guest' || !isAuthorized) return <PendingAccessView isAuthorized={isAuthorized} />;
+  if (!user) {
+    return <LoginView />;
+  }
+
+  if (currentUserProfile?.role === 'guest' || !isAuthorized) {
+    return <PendingAccessView isAuthorized={isAuthorized} />;
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onDistribute={() => setIsDistributionOpen(true)} isAdmin={isAdmin} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+    <div className="min-h-screen bg-background">
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        onDistribute={() => setIsDistributionOpen(true)} 
+        isAdmin={isAdmin} 
+        isOpen={isSidebarOpen} 
+        onClose={() => setIsSidebarOpen(false)} 
+      />
       <Topbar searchQuery={globalSearch} setSearchQuery={setGlobalSearch} onScan={() => setIsScannerOpen(true)} onMenuClick={() => setIsSidebarOpen(true)} />
-
+      
       <main className="lg:ml-64 pt-20 lg:pt-24 pb-12 px-4 sm:px-6 lg:px-8 xl:px-12 w-auto transition-all duration-300">
         <div className="max-w-7xl mx-auto w-full">
           <AnimatePresence mode="wait">
-            <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-              {activeTab === 'dashboard' && <DashboardView inventory={inventory} events={events} onEdit={(item) => { setSelectedItem(item); setIsModalOpen(true); }} auditLogs={auditLogs} setActiveTab={setActiveTab} isAdmin={isAdmin} settings={settings} />}
-              {activeTab === 'inventory' && <InventoryView inventory={inventory} onAdd={() => { setSelectedItem(null); setIsModalOpen(true); }} onEdit={(item) => { setSelectedItem(item); setIsModalOpen(true); }} onShowHistory={(item) => { setSelectedHistoryItem(item); setIsHistoryOpen(true); }} onBulkImport={() => { setBulkImportInitialType('inventory'); setIsBulkImportOpen(true); }} globalSearch={globalSearch} isAdmin={isAdmin} />}
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              {activeTab === 'dashboard' && (
+                <DashboardView 
+                  inventory={inventory} 
+                  events={events} 
+                  onEdit={handleEdit} 
+                  auditLogs={auditLogs} 
+                  setActiveTab={setActiveTab} 
+                  isAdmin={isAdmin} 
+                  settings={settings} 
+                />
+              )}
+            {activeTab === 'inventory' && (
+              <InventoryView 
+                inventory={inventory} 
+                onAdd={handleAdd} 
+                onEdit={handleEdit} 
+                onShowHistory={handleShowHistory}
+                onBulkImport={() => {
+                  setBulkImportInitialType('inventory');
+                  setIsBulkImportOpen(true);
+                }}
+                globalSearch={globalSearch} 
+                isAdmin={isAdmin}
+              />
+            )}
               {activeTab === 'reports' && <ReportsView inventory={inventory} events={events} auditLogs={auditLogs} settings={settings} />}
-              {activeTab === 'events' && <EventsView events={events} onAdd={() => { setSelectedEvent(null); setIsEventModalOpen(true); }} onEdit={(event) => { setSelectedEvent(event); setIsEventModalOpen(true); }} onBulkImport={() => { setBulkImportInitialType('events'); setIsBulkImportOpen(true); }} settings={settings} isAdmin={isAdmin} />}
+              {activeTab === 'events' && (
+                <EventsView 
+                  events={events} 
+                  onAdd={handleAddEvent} 
+                  onEdit={handleEditEvent} 
+                  onBulkImport={() => {
+                    setBulkImportInitialType('events');
+                    setIsBulkImportOpen(true);
+                  }} 
+                  settings={settings}
+                  isAdmin={isAdmin}
+                />
+              )}
               {activeTab === 'users' && <UsersView users={users} />}
               {activeTab === 'logs' && <LogsView logs={auditLogs} settings={settings} />}
               {activeTab === 'settings' && <SettingsView settings={settings} isAdmin={isAdmin} />}
             </motion.div>
           </AnimatePresence>
 
-          <InventoryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} item={selectedItem} settings={settings} isAdmin={isAdmin} />
-          <EventModal isOpen={isEventModalOpen} onClose={() => setIsEventModalOpen(false)} event={selectedEvent} settings={settings} isAdmin={isAdmin} inventory={inventory} />
-          <DistributionModal isOpen={isDistributionOpen} onClose={() => setIsDistributionOpen(false)} events={events} inventory={inventory} settings={settings} />
-          <BulkImportModal isOpen={isBulkImportOpen} onClose={() => setIsBulkImportOpen(false)} initialType={bulkImportInitialType} isAdmin={isAdmin} />
-          <QRScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} onScanSuccess={(text) => { const item = inventory.find(i => i.sku === text || i.id === text); if (item) { setSelectedItem(item); setIsModalOpen(true); } else { alert(`No item found: ${text}`); }}} />
-          <StockHistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} item={selectedHistoryItem} settings={settings} />
+          <InventoryModal 
+            isOpen={isModalOpen} 
+            onClose={() => setIsModalOpen(false)} 
+            item={selectedItem} 
+            settings={settings}
+            isAdmin={isAdmin}
+          />
 
-          <footer className="mt-12 flex items-center justify-between pt-8 border-t border-gray-200">
-            <div className="flex items-center gap-4">
+          <EventModal 
+            isOpen={isEventModalOpen} 
+            onClose={() => setIsEventModalOpen(false)} 
+            event={selectedEvent} 
+            settings={settings}
+            isAdmin={isAdmin}
+            inventory={inventory}
+          />
+
+          <DistributionModal 
+            isOpen={isDistributionOpen} 
+            onClose={() => setIsDistributionOpen(false)} 
+            events={events} 
+            inventory={inventory} 
+            settings={settings}
+          />
+
+          <BulkImportModal 
+            isOpen={isBulkImportOpen}
+            onClose={() => setIsBulkImportOpen(false)}
+            initialType={bulkImportInitialType}
+            isAdmin={isAdmin}
+          />
+
+          <QRScannerModal 
+            isOpen={isScannerOpen}
+            onClose={() => setIsScannerOpen(false)}
+            onScanSuccess={handleScanSuccess}
+          />
+
+          <StockHistoryModal 
+            isOpen={isHistoryOpen}
+            onClose={() => setIsHistoryOpen(false)}
+            item={selectedHistoryItem}
+            settings={settings}
+          />
+
+          <footer className="mt-12 flex items-center justify-between pt-8 border-t border-outline-variant">
+            <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-success-500 rounded-full animate-pulse" />
-                <span className="text-xs text-gray-500">System operational</span>
+                <div className="w-2 h-2 bg-secondary rounded-full" />
+                <span className="font-mono text-[10px] text-on-surface-variant uppercase font-bold">All Systems Operational</span>
               </div>
+              <div className="font-mono text-[10px] text-slate-400">Node: NY-DATA-04</div>
             </div>
-            <p className="text-xs text-gray-400">LitTrack Inventory System</p>
+            <div className="flex gap-6">
+              <a href="#" className="font-headline font-bold text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-primary transition-colors">Privacy Protocol</a>
+              <a href="#" className="font-headline font-bold text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-primary transition-colors">Terms of Ledger</a>
+            </div>
           </footer>
         </div>
       </main>

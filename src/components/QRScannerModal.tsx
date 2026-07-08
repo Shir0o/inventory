@@ -69,46 +69,47 @@ const QRScannerModal = ({ isOpen, onClose, onScanSuccess }: QRScannerModalProps)
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <motion.div
+          <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-primary/40 backdrop-blur-sm"
           />
-          <motion.div
+          <motion.div 
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]"
+            className="relative w-full max-w-md bg-background ledger-card overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[90vh]"
           >
-            <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+            <div className="indicator-primary" />
+            <div className="px-6 sm:px-8 py-4 sm:py-6 border-b border-outline-variant flex justify-between items-center bg-surface-container shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
-                  <Camera className="w-5 h-5 text-primary-600" />
-                </div>
-                <h2 className="font-display font-semibold text-lg text-gray-900">Scanner</h2>
+                <Camera className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                <h2 className="font-headline font-bold text-base sm:text-lg text-primary uppercase tracking-wider">
+                  Inventory Scanner
+                </h2>
               </div>
-              <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
-                <X className="w-5 h-5" />
+              <button onClick={onClose} className="text-on-surface-variant hover:text-primary transition-colors p-2">
+                <X className="w-6 h-6" />
               </button>
             </div>
 
-            <div className="p-6 flex flex-col gap-6 overflow-y-auto">
-              <div className="flex bg-gray-100 p-1 rounded-xl shrink-0">
-                <button
+            <div className="p-6 sm:p-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
+              <div className="flex bg-surface-container p-1 rounded-sharp border border-outline-variant shrink-0">
+                <button 
                   onClick={() => setMode('camera')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all ${
-                    mode === 'camera' ? 'bg-primary-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-sharp transition-all ${
+                    mode === 'camera' ? 'bg-primary text-white shadow-md' : 'text-on-surface-variant hover:bg-surface'
                   }`}
                 >
                   <Camera className="w-3.5 h-3.5" />
                   Camera
                 </button>
-                <button
+                <button 
                   onClick={() => setMode('manual')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all ${
-                    mode === 'manual' ? 'bg-primary-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-sharp transition-all ${
+                    mode === 'manual' ? 'bg-primary text-white shadow-md' : 'text-on-surface-variant hover:bg-surface'
                   }`}
                 >
                   <Keyboard className="w-3.5 h-3.5" />
@@ -118,38 +119,38 @@ const QRScannerModal = ({ isOpen, onClose, onScanSuccess }: QRScannerModalProps)
 
               {mode === 'camera' ? (
                 <div className="space-y-4">
-                  <div className="overflow-hidden rounded-xl border-2 border-gray-200 bg-black min-h-[250px] sm:min-h-[300px]">
+                  <div className="overflow-hidden rounded-sharp border-2 border-outline-variant bg-black min-h-[250px] sm:min-h-[300px]">
                     <div id="qr-reader" className="w-full" />
                   </div>
                   {error && (
-                    <div className="p-4 bg-accent-50 border border-accent-200 rounded-xl flex items-center gap-3">
-                      <AlertCircle className="w-5 h-5 text-accent-600" />
-                      <p className="text-xs sm:text-sm font-bold text-accent-700">{error}</p>
+                    <div className="p-4 bg-tertiary/10 border border-tertiary/20 rounded-sharp flex items-center gap-3">
+                      <AlertCircle className="w-5 h-5 text-tertiary" />
+                      <p className="text-xs sm:text-sm font-bold text-tertiary">{error}</p>
                     </div>
                   )}
-                  <p className="text-center text-[10px] sm:text-[11px] font-mono text-gray-500 uppercase tracking-widest">
+                  <p className="text-center text-[10px] sm:text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">
                     Position QR / Barcode in frame
                   </p>
                 </div>
               ) : (
                 <form onSubmit={handleManualSubmit} className="space-y-6">
                   <div className="space-y-2">
-                    <label className="font-display font-bold text-[10px] sm:text-[11px] text-gray-500 uppercase tracking-widest block">SKU / QR Value</label>
+                    <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">SKU / QR Value</label>
                     <div className="relative">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
                         autoFocus
-                        type="text"
+                        type="text" 
                         value={manualValue}
                         onChange={e => setManualValue(e.target.value)}
-                        className="w-full border-0 border-b-2 border-gray-200 bg-gray-50 pl-12 pr-4 py-3 sm:py-4 font-mono text-base focus:ring-0 focus:border-primary-500 transition-all rounded-t-none"
+                        className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low pl-12 pr-4 py-3 sm:py-4 font-mono text-base focus:ring-0 focus:border-primary transition-all rounded-t-none"
                         placeholder="Enter SKU..."
                       />
                     </div>
                   </div>
-                  <button
+                  <button 
                     type="submit"
-                    className="w-full py-3 sm:py-4 bg-primary-600 text-white font-display font-bold text-[11px] sm:text-[12px] uppercase tracking-wider hover:bg-primary-700 transition-all rounded-xl shadow-lg flex items-center justify-center gap-2"
+                    className="w-full py-3 sm:py-4 bg-primary text-white font-headline font-bold text-[11px] sm:text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg flex items-center justify-center gap-2"
                   >
                     <Search className="w-4 h-4" />
                     Lookup Resource
