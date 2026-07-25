@@ -67,7 +67,7 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings }: StockHistoryModa
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-2xl bg-background ledger-card overflow-hidden flex flex-col max-h-[85vh]"
+            className="relative w-full max-w-2xl bg-surface m3-elevated-card rounded-[28px] overflow-hidden flex flex-col max-h-[85vh] border border-outline-variant/40"
           >
             <div className="indicator-secondary" />
             <div className="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container shrink-0">
@@ -87,9 +87,17 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings }: StockHistoryModa
 
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
               {loading ? (
-                <div className="flex flex-col items-center justify-center py-12 space-y-3">
-                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-                  <p className="text-[11px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Loading Audit Trail...</p>
+                <div className="space-y-4 py-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="m3-filled-card p-4 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <div className="skeleton-box h-4 w-24 rounded-full" />
+                        <div className="skeleton-box h-3 w-32 rounded-full" />
+                      </div>
+                      <div className="skeleton-box h-4 w-3/4 rounded-lg" />
+                      <div className="skeleton-box h-3 w-1/2 rounded-lg" />
+                    </div>
+                  ))}
                 </div>
               ) : logs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">

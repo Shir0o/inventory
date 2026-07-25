@@ -159,25 +159,28 @@ const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin, isOpen, onClo
       </AnimatePresence>
 
       <aside className={cn(
-        "fixed left-0 top-0 h-screen w-64 bg-primary flex flex-col z-[70] transition-transform duration-300 lg:translate-x-0",
+        "fixed left-0 top-0 bottom-0 w-64 bg-surface border-r border-outline-variant/40 flex flex-col z-[70] transition-transform duration-300 lg:translate-x-0 shadow-sm",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="p-6 flex items-center justify-between">
+        <div className="p-6 flex items-center justify-between border-b border-outline-variant/30">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-secondary flex items-center justify-center rounded-sharp">
-              <Database className="w-5 h-5 text-primary" />
+            <div className="w-10 h-10 bg-primary text-on-primary flex items-center justify-center rounded-2xl shadow-sm">
+              <Database className="w-5 h-5" />
             </div>
             <div>
-              <div className="font-mono font-bold text-lg tracking-tighter text-white uppercase leading-none">Invo</div>
-              <div className="font-headline font-medium text-[8px] text-slate-400 tracking-widest uppercase opacity-60">System v1</div>
+              <div className="font-headline font-extrabold text-lg text-primary tracking-tight leading-tight">Invo Ledger</div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
+                <span className="font-mono text-[9px] text-on-surface-variant font-bold tracking-widest uppercase">M3 Expressive</span>
+              </div>
             </div>
           </div>
-          <button onClick={onClose} className="lg:hidden text-white hover:text-secondary transition-colors">
-            <X className="w-6 h-6" />
+          <button onClick={onClose} className="lg:hidden text-on-surface-variant hover:text-primary transition-colors p-1.5 rounded-full hover:bg-surface-container">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <nav className="flex-1 mt-4 space-y-1 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => (
             <button
               key={item.id}
@@ -186,28 +189,28 @@ const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin, isOpen, onClo
                 if (window.innerWidth < 1024) onClose();
               }}
               className={cn(
-                "w-full px-6 py-3 flex items-center gap-3 font-headline text-[13px] tracking-tight transition-all duration-150",
+                "w-full px-4 py-3 flex items-center gap-3.5 font-headline text-xs font-bold uppercase tracking-wider rounded-full transition-all duration-200",
                 activeTab === item.id 
-                  ? "text-secondary border-l-4 border-secondary bg-primary-container font-bold" 
-                  : "text-slate-300 hover:text-white hover:bg-primary-container"
+                  ? "bg-primary-container text-on-primary-container shadow-xs" 
+                  : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
               )}
             >
-              <item.icon className={cn("w-5 h-5", activeTab === item.id ? "fill-secondary/10" : "")} />
+              <item.icon className={cn("w-4 h-4", activeTab === item.id ? "text-primary stroke-[2.5]" : "opacity-75")} />
               <span>{item.label}</span>
             </button>
           ))}
         </nav>
 
-        <div className="p-6 mt-auto space-y-3">
+        <div className="p-4 border-t border-outline-variant/30 space-y-3">
           <button 
             onClick={() => {
               onDistribute();
               if (window.innerWidth < 1024) onClose();
             }}
-            className="w-full bg-secondary text-primary font-headline font-bold text-xs py-3 rounded-sharp flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg"
+            className="w-full bg-primary hover:bg-primary-container text-white font-headline font-bold text-xs py-3.5 rounded-full flex items-center justify-center gap-2.5 active:scale-95 transition-all shadow-md uppercase tracking-wider"
           >
             <ShoppingCart className="w-4 h-4" />
-            DISTRIBUTE
+            Quick Distribute
           </button>
         </div>
       </aside>
@@ -230,28 +233,28 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: { searchQu
   };
 
   return (
-    <header className="fixed top-0 right-0 h-16 left-0 lg:left-64 bg-surface border-b border-outline-variant flex items-center justify-between px-4 lg:px-8 z-50">
+    <header className="fixed top-0 right-0 left-0 lg:left-64 h-16 bg-surface/90 backdrop-blur-md border-b border-outline-variant/30 flex items-center justify-between px-4 lg:px-8 z-50 shadow-xs">
       <div className="flex items-center gap-4 lg:gap-8 flex-1">
-        <button onClick={onMenuClick} className="lg:hidden p-2 text-primary hover:bg-surface-container rounded-sharp transition-colors">
+        <button onClick={onMenuClick} className="lg:hidden p-2 text-primary hover:bg-surface-container rounded-full transition-colors">
           <Menu className="w-6 h-6" />
         </button>
 
-        <div className="relative group w-48 lg:w-64 hidden sm:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <div className="relative group w-48 lg:w-72 hidden sm:block">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
           <input 
             type="text" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="SEARCH..." 
-            className="w-full pl-10 pr-4 py-1.5 bg-surface-container border-none text-[12px] font-mono tracking-tight focus:ring-1 focus:ring-primary rounded-sharp"
+            placeholder="Search resources, events..." 
+            className="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant/30 text-xs font-sans text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary rounded-full transition-all"
           />
         </div>
 
-        <div className="hidden lg:flex items-center gap-6">
+        <div className="hidden lg:flex items-center gap-2">
           {['Bibles', 'Tracts', 'Booklets'].map((link) => (
-            <a key={link} href="#" className="text-slate-500 hover:text-primary font-headline font-bold text-[11px] uppercase tracking-[1px] transition-all whitespace-nowrap">
+            <span key={link} className="px-3 py-1 bg-surface-container/60 hover:bg-surface-container text-on-surface-variant font-headline font-bold text-[10px] uppercase tracking-widest rounded-full transition-all cursor-pointer">
               {link}
-            </a>
+            </span>
           ))}
         </div>
       </div>
@@ -386,46 +389,49 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="ledger-card p-6 h-40 flex flex-col justify-between">
-          <div className="indicator-primary" />
+        <div className="m3-filled-card p-6 rounded-[24px] flex flex-col justify-between h-auto min-h-40 border border-outline-variant/30 hover:shadow-md transition-all">
           <div className="flex justify-between items-start">
-            <span className="font-headline text-[12px] font-bold uppercase tracking-[1px] text-on-surface-variant">Total Catalog Items</span>
-            <Database className="w-5 h-5 text-primary/20" />
+            <span className="font-headline text-[11px] font-bold uppercase tracking-[1px] text-on-surface-variant">Total Catalog Items</span>
+            <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+              <Database className="w-5 h-5" />
+            </div>
           </div>
-          <div>
-            <div className="font-mono text-4xl font-bold text-primary">{inventory.length}</div>
-            <div className="flex items-center gap-1 text-[11px] text-secondary font-bold mt-1">
-              <TrendingUp className="w-3 h-3" />
-              SYSTEM ASSETS
+          <div className="mt-4">
+            <div className="font-headline text-4xl font-extrabold text-primary">{inventory.length}</div>
+            <div className="flex items-center gap-1.5 text-xs text-secondary font-bold mt-2">
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>Cataloged Literature</span>
             </div>
           </div>
         </div>
 
-        <div className="ledger-card p-6 h-40 flex flex-col justify-between">
-          <div className="indicator-tertiary" />
+        <div className="m3-filled-card p-6 rounded-[24px] flex flex-col justify-between h-auto min-h-40 border border-outline-variant/30 hover:shadow-md transition-all">
           <div className="flex justify-between items-start">
-            <span className="font-headline text-[12px] font-bold uppercase tracking-[1px] text-on-surface-variant">Critical Stock Alerts</span>
-            <AlertTriangle className="w-5 h-5 text-tertiary/20" />
+            <span className="font-headline text-[11px] font-bold uppercase tracking-[1px] text-on-surface-variant">Low Stock Alerts</span>
+            <div className="w-10 h-10 rounded-2xl bg-tertiary/10 text-tertiary flex items-center justify-center">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
           </div>
-          <div>
-            <div className="font-mono text-4xl font-bold text-tertiary">{lowStockItems.length}</div>
-            <div className="flex items-center gap-1 text-[11px] text-tertiary font-bold mt-1">
-              <AlertTriangle className="w-3 h-3" />
-              REQUIRES IMMEDIATE REORDER
+          <div className="mt-4">
+            <div className="font-headline text-4xl font-extrabold text-tertiary">{lowStockItems.length}</div>
+            <div className="flex items-center gap-1.5 text-xs text-tertiary font-bold mt-2">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>Requires Attention</span>
             </div>
           </div>
         </div>
 
-        <div className="ledger-card p-6 h-40 flex flex-col justify-between">
-          <div className="indicator-secondary" />
+        <div className="m3-filled-card p-6 rounded-[24px] flex flex-col justify-between h-auto min-h-40 border border-outline-variant/30 hover:shadow-md transition-all">
           <div className="flex justify-between items-start">
-            <span className="font-headline text-[12px] font-bold uppercase tracking-[1px] text-on-surface-variant">Distributed MTD</span>
-            <Truck className="w-5 h-5 text-secondary/20" />
+            <span className="font-headline text-[11px] font-bold uppercase tracking-[1px] text-on-surface-variant">Distributed (MTD)</span>
+            <div className="w-10 h-10 rounded-2xl bg-secondary/20 text-secondary flex items-center justify-center">
+              <Truck className="w-5 h-5" />
+            </div>
           </div>
-          <div>
-            <div className="font-mono text-4xl font-bold text-primary">{distributedMTD.toLocaleString()}</div>
-            <div className="text-[11px] text-on-surface-variant font-bold mt-1 uppercase">
-              Active distribution channels: {events.length.toString().padStart(2, '0')}
+          <div className="mt-4">
+            <div className="font-headline text-4xl font-extrabold text-primary">{distributedMTD.toLocaleString()}</div>
+            <div className="text-xs text-on-surface-variant font-medium mt-2">
+              Active Events: <span className="font-bold text-primary">{events.length.toString().padStart(2, '0')}</span>
             </div>
           </div>
         </div>
@@ -2195,7 +2201,7 @@ export default function App() {
       />
       <Topbar searchQuery={globalSearch} setSearchQuery={setGlobalSearch} onScan={() => setIsScannerOpen(true)} onMenuClick={() => setIsSidebarOpen(true)} />
       
-      <main className="lg:ml-64 pt-20 lg:pt-24 pb-12 px-4 sm:px-6 lg:px-8 xl:px-12 w-auto transition-all duration-300">
+      <main className="lg:ml-64 pt-20 pb-12 px-4 sm:px-6 lg:px-8 xl:px-12 w-auto transition-all duration-300">
         <div className="max-w-7xl mx-auto w-full">
           <AnimatePresence mode="wait">
             <motion.div

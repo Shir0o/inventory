@@ -80,7 +80,7 @@ const QRScannerModal = ({ isOpen, onClose, onScanSuccess }: QRScannerModalProps)
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-md bg-background ledger-card overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[90vh]"
+            className="relative w-full max-w-md bg-surface m3-elevated-card rounded-[28px] overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[90vh] border border-outline-variant/40"
           >
             <div className="indicator-primary" />
             <div className="px-6 sm:px-8 py-4 sm:py-6 border-b border-outline-variant flex justify-between items-center bg-surface-container shrink-0">

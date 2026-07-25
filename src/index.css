@@ -1,44 +1,57 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-headline: "Plus Jakarta Sans", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "Roboto", system-ui, -apple-system, sans-serif;
+  --font-headline: "Plus Jakarta Sans", "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  --color-primary: #0A2540;
-  --color-primary-container: #1A365D;
-  --color-secondary: #00D4B6;
-  --color-tertiary: #FF7369;
-  --color-background: #F6F9FC;
-  --color-surface: #FFFFFF;
-  --color-on-surface: #32325D;
-  --color-on-surface-variant: #8898AA;
-  --color-outline: #E6EBEE;
-  --color-outline-variant: #D1D9E0;
-  --color-surface-container: #F1F4F8;
-  --color-surface-container-low: #F6F9FC;
+  --color-primary: #00639b;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #c2e7ff;
+  --color-on-primary-container: #001d33;
+
+  --color-secondary: #006a6a;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #6ff7f6;
+  --color-on-secondary-container: #002020;
+
+  --color-tertiary: #b3261e;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #f9dedc;
+  --color-on-tertiary-container: #410e0b;
+
+  --color-background: #f8f9ff;
+  --color-on-background: #191c20;
+
+  --color-surface: #ffffff;
+  --color-on-surface: #191c20;
+  --color-on-surface-variant: #44474e;
+
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f3f4fa;
+  --color-surface-container: #edeef4;
+  --color-surface-container-high: #e7e8ee;
+  --color-surface-container-highest: #e1e2e8;
+
+  --color-outline: #74777f;
+  --color-outline-variant: #c4c6cf;
   
-  --radius-sharp: 2px;
+  --radius-sharp: 12px;
+  --radius-expressive: 28px;
+  --radius-m3-card: 20px;
 }
 
 @layer base {
   body {
-    @apply bg-background text-on-surface font-sans antialiased;
+    @apply bg-background text-on-surface font-sans antialiased selection:bg-primary-container selection:text-on-primary-container;
   }
 }
 
-/* Custom scrollbar for the blueprint aesthetic */
+/* Custom scrollbar for Material 3 design */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-
-@media (min-width: 640px) {
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -46,35 +59,59 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1A365D;
-  border-radius: 2px;
+  background: #c4c6cf;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #00D4B6;
+  background: #00639b;
 }
 
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #1A365D transparent;
+  scrollbar-color: #c4c6cf transparent;
 }
 
+/* Material 3 Expressive Card Styling */
 .ledger-card {
-  @apply bg-surface border border-outline-variant rounded-sharp relative overflow-hidden transition-shadow duration-300;
+  @apply bg-surface border border-outline-variant/60 rounded-[22px] relative overflow-hidden transition-all duration-200 shadow-sm hover:shadow-md hover:border-primary/30;
 }
 
-.ledger-card:hover {
-  @apply shadow-lg shadow-primary/5;
+.m3-filled-card {
+  @apply bg-surface-container-low rounded-[22px] relative overflow-hidden transition-all duration-200 hover:bg-surface-container;
 }
 
-.indicator-primary { @apply absolute top-0 left-0 w-1 sm:w-1.5 h-full bg-primary; }
-.indicator-secondary { @apply absolute top-0 left-0 w-1 sm:w-1.5 h-full bg-secondary; }
-.indicator-tertiary { @apply absolute top-0 left-0 w-1 sm:w-1.5 h-full bg-tertiary; }
+.m3-elevated-card {
+  @apply bg-surface rounded-[22px] shadow-md relative overflow-hidden transition-all duration-200 hover:shadow-lg;
+}
 
-/* Prevent zoom on mobile inputs */
+.indicator-primary { @apply absolute top-0 left-0 w-1.5 h-full bg-primary rounded-r-full; }
+.indicator-secondary { @apply absolute top-0 left-0 w-1.5 h-full bg-secondary rounded-r-full; }
+.indicator-tertiary { @apply absolute top-0 left-0 w-1.5 h-full bg-tertiary rounded-r-full; }
+
+/* Skeleton Loading Pulses */
+@keyframes skeleton-shimmer {
+  0% {
+    background-color: #edeef4;
+  }
+  50% {
+    background-color: #e1e2e8;
+  }
+  100% {
+    background-color: #edeef4;
+  }
+}
+
+.skeleton-box {
+  animation: skeleton-shimmer 1.5s infinite ease-in-out;
+  @apply rounded-xl bg-surface-container-high;
+}
+
+/* Mobile Input Zoom Prevention */
 @media screen and (max-width: 768px) {
   input, select, textarea {
     font-size: 16px !important;
   }
 }
+
 
