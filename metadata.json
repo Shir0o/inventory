@@ -1,8 +1,8 @@
 {
   "name": "Inventory System",
   "description": "An internal inventory and distribution management system for tracking Bibles, tracts, and study guides.",
-  "requestFramePermissions": [],
-  "majorCapabilities": [],
-  "y7": [],
-  "Yp": []
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

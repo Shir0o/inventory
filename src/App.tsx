@@ -484,25 +484,7 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
               </div>
             )}
           </div>
-
-        <div className="ledger-card h-[200px] sm:h-[320px] relative">
-          <div className="absolute top-0 left-0 w-full z-10 px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-b from-white/90 to-transparent">
-            <h2 className="font-headline font-bold text-xs sm:text-sm uppercase tracking-wider text-primary">Regional Hubs</h2>
-          </div>
-          <img 
-            src="https://picsum.photos/seed/map/1200/600?grayscale&blur=2" 
-            alt="Map" 
-            className="w-full h-full object-cover opacity-60"
-            referrerPolicy="no-referrer"
-          />
-          <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6">
-            <div className="bg-primary text-white p-2 sm:p-3 rounded-sharp flex items-center gap-2 sm:gap-3 shadow-lg">
-              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-secondary animate-pulse" />
-              <span className="text-[9px] sm:text-[11px] font-mono font-bold uppercase">Central: Online</span>
-            </div>
-          </div>
         </div>
-      </div>
 
       {isAdmin && (
         <div className="space-y-6">
