@@ -259,7 +259,12 @@ export async function addInventoryItem(item: any, thresholds?: { warning: number
   }
 }
 
-export async function updateInventoryItem(id: string, item: any, thresholds?: { warning: number, critical: number }) {
+export async function updateInventoryItem(
+  id: string, 
+  item: any, 
+  thresholds?: { warning: number, critical: number },
+  note?: string
+) {
   const path = `inventory/${id}`;
   try {
     // Determine system status
@@ -321,12 +326,216 @@ export async function updateInventoryItem(id: string, item: any, thresholds?: { 
       await createNotification('LOW_STOCK', 'Low Stock Warning', `${item.title} is running low (${item.stockLevel} units).`, { itemId: id, sku: item.sku });
     }
 
-    await createAuditLog('STOCK_UPDATE', id, 'inventory', `Updated item: ${item.title}`, { 
+    const delta = Number(item.stockLevel) - currentStock;
+    const logDetails = note?.trim() 
+      ? `Updated ${item.title} • Note: ${note.trim()}`
+      : (delta !== 0 
+          ? `Stock adjusted for ${item.title}: ${currentStock} -> ${item.stockLevel} (${delta > 0 ? '+' : ''}${delta})`
+          : `Updated item: ${item.title}`);
+
+    await createAuditLog('STOCK_UPDATE', id, 'inventory', logDetails, { 
       item,
       previousStock: currentStock,
-      newStock: item.stockLevel
+      newStock: Number(item.stockLevel),
+      delta,
+      note: note?.trim() || undefined
     });
     return;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export interface DirectStockMovement {
+  type: 'SUBTRACT' | 'ADD';
+  quantity: number;
+  reasonCategory?: string;
+  recipient?: string;
+  occurredAt?: string;
+  note?: string;
+}
+
+export async function recordDirectStockMovement(
+  itemId: string,
+  movement: DirectStockMovement,
+  thresholds?: { warning: number, critical: number }
+) {
+  const path = `inventory/${itemId}`;
+  try {
+    const itemRef = doc(db, 'inventory', itemId);
+    let updatedItemData: any = null;
+    let delta = 0;
+    let prevStock = 0;
+    let nextStock = 0;
+
+    await runTransaction(db, async (transaction) => {
+      const itemDoc = await transaction.get(itemRef);
+      if (!itemDoc.exists()) {
+        throw new Error('Inventory item not found');
+      }
+
+      const currentData = itemDoc.data();
+      prevStock = currentData.stockLevel || 0;
+      const qty = Math.max(1, Number(movement.quantity) || 1);
+      
+      if (movement.type === 'SUBTRACT') {
+        delta = -qty;
+        if (prevStock < qty) {
+          throw new Error(`Insufficient stock for ${currentData.title}. Available: ${prevStock}, requested: ${qty}`);
+        }
+        nextStock = prevStock - qty;
+      } else {
+        delta = qty;
+        nextStock = prevStock + qty;
+      }
+
+      let status = 'Healthy';
+      const warningLimit = thresholds?.warning || 250;
+      const criticalLimit = thresholds?.critical || 75;
+
+      if (nextStock <= criticalLimit) status = 'Out';
+      else if (nextStock <= warningLimit) status = 'Low';
+
+      transaction.update(itemRef, {
+        stockLevel: nextStock,
+        status,
+        updatedAt: serverTimestamp()
+      });
+
+      updatedItemData = { ...currentData, stockLevel: nextStock, status };
+    });
+
+    // Check thresholds for notifications
+    const criticalLimit = thresholds?.critical || 75;
+    const warningLimit = thresholds?.warning || 250;
+    if (nextStock <= criticalLimit) {
+      await createNotification('CRITICAL_STOCK', 'Critical Stock Level', `${updatedItemData?.title} is at critical level (${nextStock} units).`, { itemId, sku: updatedItemData?.sku });
+    } else if (nextStock <= warningLimit) {
+      await createNotification('LOW_STOCK', 'Low Stock Warning', `${updatedItemData?.title} is running low (${nextStock} units).`, { itemId, sku: updatedItemData?.sku });
+    }
+
+    const noteText = movement.note?.trim() || '';
+    const recipientText = movement.recipient?.trim();
+    const categoryText = movement.reasonCategory?.trim() || (movement.type === 'SUBTRACT' ? 'Personal / Ad-hoc Giving' : 'Direct Inflow');
+    
+    // Construct readable audit details
+    const actionDesc = movement.type === 'SUBTRACT' ? 'Direct outflow / gave out' : 'Direct inflow / restocked';
+    let details = `${actionDesc} ${Math.abs(delta)} unit(s) of ${updatedItemData?.title}`;
+    if (recipientText) {
+      details += ` • To/By: ${recipientText}`;
+    }
+    if (noteText) {
+      details += ` • "${noteText}"`;
+    }
+
+    await createAuditLog('STOCK_UPDATE', itemId, 'inventory', details, {
+      isDirectMovement: true,
+      movementType: movement.type,
+      category: categoryText,
+      recipient: recipientText || undefined,
+      occurredAt: movement.occurredAt || new Date().toISOString().split('T')[0],
+      note: noteText || undefined,
+      delta,
+      previousStock: prevStock,
+      newStock: nextStock,
+      item: {
+        id: itemId,
+        title: updatedItemData?.title,
+        sku: updatedItemData?.sku,
+        category: updatedItemData?.category
+      }
+    });
+
+    return updatedItemData;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function recordBatchDirectDistribution(
+  items: { itemId: string, quantity: number, title: string, sku: string, language?: string }[],
+  details: { recipient?: string, note?: string, category?: string, occurredAt?: string },
+  thresholds?: { warning: number, critical: number }
+) {
+  const path = 'inventory';
+  try {
+    const updatedItems: any[] = [];
+    await runTransaction(db, async (transaction) => {
+      // 1. ALL READS FIRST
+      const itemDocs = [];
+      for (const item of items) {
+        const itemRef = doc(db, 'inventory', item.itemId);
+        const itemDoc = await transaction.get(itemRef);
+        if (!itemDoc.exists()) {
+          throw new Error(`Item ${item.title} does not exist!`);
+        }
+        itemDocs.push({ item, doc: itemDoc });
+      }
+
+      // 2. ALL WRITES
+      for (const { item, doc: itemDoc } of itemDocs) {
+        const itemRef = doc(db, 'inventory', item.itemId);
+        const data = itemDoc.data();
+        const currentStock = data.stockLevel || 0;
+        if (currentStock < item.quantity) {
+          throw new Error(`Insufficient stock for ${item.title}. Available: ${currentStock}`);
+        }
+
+        const newStock = currentStock - item.quantity;
+        let status = 'Healthy';
+        const warningLimit = thresholds?.warning || 250;
+        const criticalLimit = thresholds?.critical || 75;
+        
+        if (newStock <= criticalLimit) status = 'Out';
+        else if (newStock <= warningLimit) status = 'Low';
+
+        transaction.update(itemRef, {
+          stockLevel: newStock,
+          status,
+          updatedAt: serverTimestamp()
+        });
+
+        updatedItems.push({
+          itemId: item.itemId,
+          title: item.title,
+          sku: item.sku,
+          quantity: item.quantity,
+          previousStock: currentStock,
+          newStock,
+          status
+        });
+      }
+    });
+
+    // Notify thresholds if needed
+    if (thresholds) {
+      for (const item of updatedItems) {
+        if (item.newStock <= thresholds.critical) {
+          await createNotification('CRITICAL_STOCK', 'Critical Stock Level', `${item.title} is at critical level (${item.newStock} units).`, { itemId: item.itemId, sku: item.sku });
+        } else if (item.newStock <= thresholds.warning) {
+          await createNotification('LOW_STOCK', 'Low Stock Warning', `${item.title} is running low (${item.newStock} units).`, { itemId: item.itemId, sku: item.sku });
+        }
+      }
+    }
+
+    const recipientText = details.recipient?.trim();
+    const noteText = details.note?.trim();
+    const categoryText = details.category || 'Direct / Personal Distribution';
+    const totalQty = items.reduce((sum, i) => sum + i.quantity, 0);
+
+    const logDetails = `Direct distribution of ${totalQty} items (${items.map(i => `${i.quantity}x ${i.title}`).join(', ')})${recipientText ? ` • To: ${recipientText}` : ''}${noteText ? ` • "${noteText}"` : ''}`;
+
+    await createAuditLog('DISTRIBUTION', 'direct', 'inventory', logDetails, {
+      isDirectDistribution: true,
+      items,
+      itemIds: items.map(i => i.itemId),
+      recipient: recipientText || undefined,
+      note: noteText || undefined,
+      category: categoryText,
+      occurredAt: details.occurredAt || new Date().toISOString().split('T')[0]
+    });
+
+    return true;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }

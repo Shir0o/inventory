@@ -21,15 +21,27 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
     language: 'English',
     stockLevel: 0
   });
+  const [editNote, setEditNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [skuError, setSkuError] = useState<string | null>(null);
   
   const [showItemDeleteConfirm, setShowItemDeleteConfirm] = useState(false);
   const [modalFeedback, setModalFeedback] = useState<{ type: 'error' | 'success', message: string } | null>(null);
 
+  const NOTE_PRESETS = [
+    'Gave one to someone to pass to a friend',
+    'Personal one-on-one outreach / evangelism',
+    'Visitor / Info desk direct copy handed out',
+    'Care package / Hospital visit',
+    'Damaged / Lost copy removed',
+    'Shelf inventory recount reconciliation',
+    'Direct restock / shipment unboxed'
+  ];
+
   useEffect(() => {
     setShowItemDeleteConfirm(false);
     setModalFeedback(null);
+    setEditNote('');
     if (item) {
       setFormData({
         sku: item.sku || '',
@@ -65,7 +77,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
       };
 
       if (item?.id) {
-        await updateInventoryItem(item.id, formData, thresholds);
+        await updateInventoryItem(item.id, formData, thresholds, editNote.trim() || undefined);
       } else {
         await addInventoryItem(formData, thresholds);
       }
@@ -243,7 +255,14 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Stock Level</label>
+                  <div className="flex justify-between items-center">
+                    <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">Stock Level</label>
+                    {item && item.stockLevel !== undefined && (
+                      <span className="font-mono text-[10px] text-on-surface-variant">
+                        Current: <strong className="text-primary">{item.stockLevel}</strong>
+                      </span>
+                    )}
+                  </div>
                   <input 
                     required
                     type="number" 
@@ -251,6 +270,59 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
                     onChange={e => setFormData({...formData, stockLevel: parseInt(e.target.value) || 0})}
                     className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-mono text-sm focus:ring-0 focus:border-primary transition-all"
                   />
+                  {item && item.stockLevel !== undefined && formData.stockLevel !== item.stockLevel && (
+                    <div className="flex items-center gap-1.5 pt-1 text-[11px] font-mono">
+                      <span className="text-on-surface-variant">Adjustment:</span>
+                      <span className={cn(
+                        "font-bold px-1.5 py-0.5 rounded",
+                        formData.stockLevel > item.stockLevel 
+                          ? "bg-secondary/15 text-secondary" 
+                          : "bg-tertiary/15 text-tertiary"
+                      )}>
+                        {formData.stockLevel > item.stockLevel ? `+${formData.stockLevel - item.stockLevel}` : formData.stockLevel - item.stockLevel} units
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="sm:col-span-2 space-y-2 pt-2 border-t border-dashed border-outline-variant/60">
+                  <div className="flex justify-between items-center">
+                    <label className="font-headline font-bold text-[10px] sm:text-[11px] text-on-surface-variant uppercase tracking-widest block">
+                      Retrospective Context / Log Note
+                    </label>
+                    <span className="text-[9px] font-mono text-slate-400 uppercase">Optional • Saved to History</span>
+                  </div>
+                  
+                  <input 
+                    type="text" 
+                    value={editNote}
+                    onChange={e => setEditNote(e.target.value)}
+                    className="w-full border-0 border-b-2 border-surface-container bg-surface-container-low px-4 py-2 sm:py-3 font-sans text-sm focus:ring-0 focus:border-primary transition-all"
+                    placeholder="e.g. Gave one bible to someone to give to friend, shelf recount, outreach gift..."
+                  />
+
+                  <div className="space-y-1 pt-1">
+                    <span className="text-[9px] font-headline font-bold uppercase tracking-wider text-on-surface-variant block">Quick suggestions:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {NOTE_PRESETS.map(preset => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => {
+                            setEditNote(preset);
+                          }}
+                          className={cn(
+                            "text-[10px] px-2 py-1 rounded-sharp border transition-all text-left font-medium",
+                            editNote === preset
+                              ? "bg-primary text-white border-primary shadow-sm"
+                              : "bg-surface-container hover:bg-surface-container-high border-outline-variant text-on-surface-variant hover:text-primary"
+                          )}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
 

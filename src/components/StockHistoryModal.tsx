@@ -9,9 +9,10 @@ interface StockHistoryModalProps {
   onClose: () => void;
   item: any;
   settings?: any;
+  onLogMovement?: (item: any) => void;
 }
 
-const StockHistoryModal = ({ isOpen, onClose, item, settings }: StockHistoryModalProps) => {
+const StockHistoryModal = ({ isOpen, onClose, item, settings, onLogMovement }: StockHistoryModalProps) => {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -40,13 +41,22 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings }: StockHistoryModa
   };
 
   const getLogTypeInfo = (log: any) => {
+    if (log.metadata?.isDirectMovement) {
+      if (log.metadata.movementType === 'SUBTRACT') {
+        return { label: 'Direct Outflow / Giving', color: 'bg-amber-100 text-amber-800 border-amber-300' };
+      }
+      return { label: 'Direct Inflow / Restock', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
+    }
+    if (log.metadata?.isDirectDistribution) {
+      return { label: 'Direct Distribution', color: 'bg-amber-100 text-amber-800 border-amber-300' };
+    }
     switch (log.action) {
       case 'ITEM_CREATED':
         return { label: 'Created', color: 'bg-green-100 text-green-700 border-green-200' };
       case 'STOCK_UPDATE':
-        return { label: 'Manual Update', color: 'bg-blue-100 text-blue-700 border-blue-200' };
+        return { label: 'Manual Adjustment', color: 'bg-blue-100 text-blue-700 border-blue-200' };
       case 'DISTRIBUTION':
-        return { label: 'Distribution', color: 'bg-orange-100 text-orange-700 border-orange-200' };
+        return { label: 'Event Distribution', color: 'bg-purple-100 text-purple-700 border-purple-200' };
       default:
         return { label: log.action, color: 'bg-slate-100 text-slate-700 border-slate-200' };
     }
@@ -75,14 +85,27 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings }: StockHistoryModa
                 <History className="w-5 h-5 text-secondary" />
                 <div>
                   <h2 className="font-headline font-bold text-base text-primary uppercase tracking-wider">
-                    Stock History
+                    Stock History & Outflow Log
                   </h2>
                   <p className="text-[10px] font-mono text-on-surface-variant uppercase tracking-widest">{item?.sku} • {item?.title}</p>
                 </div>
               </div>
-              <button onClick={onClose} className="text-on-surface-variant hover:text-primary transition-colors p-2">
-                <X className="w-6 h-6" />
-              </button>
+              <div className="flex items-center gap-2">
+                {onLogMovement && (
+                  <button
+                    onClick={() => {
+                      onLogMovement(item);
+                      onClose();
+                    }}
+                    className="px-3 py-1.5 bg-primary text-white text-[10px] font-headline font-bold uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-all"
+                  >
+                    + Log Movement
+                  </button>
+                )}
+                <button onClick={onClose} className="text-on-surface-variant hover:text-primary transition-colors p-1.5">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
@@ -104,64 +127,135 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings }: StockHistoryModa
                   <Package className="w-12 h-12 text-outline-variant" />
                   <div>
                     <p className="font-headline font-bold text-on-surface-variant uppercase tracking-widest text-[11px]">No history found</p>
-                    <p className="text-[12px] text-slate-400 mt-1 max-w-[250px]">Distributions and manual updates will appear here once recorded.</p>
+                    <p className="text-[12px] text-slate-400 mt-1 max-w-[250px]">Direct giving, retrospective movement, and distributions will appear here.</p>
                   </div>
+                  {onLogMovement && (
+                    <button
+                      onClick={() => {
+                        onLogMovement(item);
+                        onClose();
+                      }}
+                      className="px-4 py-2 bg-primary text-white text-xs font-headline font-bold uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-all"
+                    >
+                      Record First Movement
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
                   {logs.map((log) => {
                     const info = getLogTypeInfo(log);
                     let changeAmount = null;
+                    let isPositive = false;
+                    let isNegative = false;
                     
                     if (log.action === 'DISTRIBUTION') {
                       const itemData = log.metadata?.items?.find((i: any) => i.itemId === item.id);
                       if (itemData) {
-                        changeAmount = `-${itemData.quantity}`;
+                        changeAmount = `-${itemData.quantity} units`;
+                        isNegative = true;
                       }
-                    } else if (log.action === 'STOCK_UPDATE' && log.metadata?.item) {
-                      // Note: This assumes we logged the NEW stock level.
-                      // For more precise history, we'd need to log the PREVIOUS stock level too.
-                      changeAmount = `New: ${log.metadata.item.stockLevel}`;
+                    } else if (log.action === 'STOCK_UPDATE' && log.metadata) {
+                      const prev = log.metadata.previousStock;
+                      const next = log.metadata.newStock ?? log.metadata.item?.stockLevel;
+                      const delta = log.metadata.delta !== undefined 
+                        ? log.metadata.delta 
+                        : (next !== undefined && prev !== undefined ? next - prev : null);
+
+                      if (delta !== null && delta !== undefined) {
+                        if (delta > 0) {
+                          changeAmount = `+${delta} units (${prev ?? '?'} → ${next ?? '?'})`;
+                          isPositive = true;
+                        } else if (delta < 0) {
+                          changeAmount = `${delta} units (${prev ?? '?'} → ${next ?? '?'})`;
+                          isNegative = true;
+                        } else {
+                          changeAmount = `Stock balance confirmed (${next ?? '?'})`;
+                        }
+                      } else if (next !== undefined) {
+                        changeAmount = `New balance: ${next}`;
+                      }
                     }
+
+                    const note = log.metadata?.note;
+                    const recipient = log.metadata?.recipient;
+                    const occurredAt = log.metadata?.occurredAt;
+                    const category = log.metadata?.category;
 
                     return (
                       <div key={log.id} className="relative pl-6 pb-6 border-l border-outline-variant last:pb-0">
                         <div className="absolute left-[-5px] top-1.5 w-2.5 h-2.5 rounded-full bg-outline-variant border-2 border-background" />
-                        <div className="ledger-card p-4 bg-surface hover:border-primary/30 transition-colors">
-                          <div className="flex justify-between items-start gap-4 mb-2">
-                            <span className={cn(
-                              "px-2 py-0.5 rounded-sharp border text-[9px] font-bold uppercase tracking-wider",
-                              info.color
-                            )}>
-                              {info.label}
-                            </span>
+                        <div className="ledger-card p-4 bg-surface hover:border-primary/30 transition-colors space-y-2.5">
+                          <div className="flex flex-wrap justify-between items-start gap-2">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className={cn(
+                                "px-2 py-0.5 rounded-sharp border text-[9px] font-bold uppercase tracking-wider",
+                                info.color
+                              )}>
+                                {info.label}
+                              </span>
+                              {category && (
+                                <span className="px-1.5 py-0.5 rounded-sharp bg-surface-container text-on-surface-variant text-[9px] font-mono border border-outline-variant/60">
+                                  {category}
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-1.5 text-on-surface-variant">
                               <Calendar className="w-3 h-3" />
                               <span className="text-[10px] font-mono leading-none">{formatDate(log.timestamp)}</span>
                             </div>
                           </div>
                           
-                          <p className="text-[13px] text-primary font-medium">{log.details}</p>
+                          <p className="text-[13px] text-primary font-medium leading-snug">{log.details}</p>
+
+                          {/* Retrospective Context Card */}
+                          {(note || recipient || occurredAt) && (
+                            <div className="p-3 bg-surface-container-low rounded-sharp border border-outline-variant/70 space-y-1.5">
+                              {note && (
+                                <div className="text-[12px] text-on-surface leading-normal flex items-start gap-2">
+                                  <span className="text-xs select-none mt-0.5">💬</span>
+                                  <div className="italic text-on-surface-variant">
+                                    "{note}"
+                                  </div>
+                                </div>
+                              )}
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-mono text-on-surface-variant pt-1 border-t border-outline-variant/40">
+                                {recipient && (
+                                  <div>
+                                    <strong className="text-primary font-sans">Recipient / Handled by:</strong> {recipient}
+                                  </div>
+                                )}
+                                {occurredAt && (
+                                  <div>
+                                    <strong className="text-primary font-sans">Occurred:</strong> {occurredAt}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                           
                           {changeAmount && (
-                            <div className="mt-2 flex items-center gap-2">
+                            <div className="flex items-center gap-2">
                               {log.action === 'DISTRIBUTION' ? (
                                 <div className="flex items-center gap-1 text-tertiary font-mono font-bold text-[12px]">
                                   <ArrowRight className="w-3 h-3 rotate-45" />
-                                  <span>{changeAmount} units</span>
+                                  <span>{changeAmount}</span>
                                 </div>
                               ) : (
-                                <div className="text-secondary font-mono font-bold text-[12px]">
+                                <div className={cn(
+                                  "font-mono font-bold text-[12px]",
+                                  isPositive ? "text-secondary" : isNegative ? "text-tertiary" : "text-primary"
+                                )}>
                                   {changeAmount}
                                 </div>
                               )}
                             </div>
                           )}
 
-                          <div className="mt-3 pt-3 border-t border-outline-variant flex items-center gap-2 text-on-surface-variant">
+                          <div className="pt-2 border-t border-outline-variant/60 flex items-center gap-2 text-on-surface-variant text-[9px]">
                             <User className="w-3 h-3" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">
-                              {log.userName || 'System'} {log.userEmail ? `(${log.userEmail})` : ''}
+                            <span className="font-bold uppercase tracking-widest">
+                              Logged by {log.userName || 'Admin'} {log.userEmail ? `(${log.userEmail})` : ''}
                             </span>
                           </div>
                         </div>
@@ -172,12 +266,15 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings }: StockHistoryModa
               )}
             </div>
 
-            <div className="px-6 py-4 bg-surface-container border-t border-outline-variant flex justify-center shrink-0">
+            <div className="px-6 py-4 bg-surface-container border-t border-outline-variant flex justify-between items-center shrink-0">
+              <span className="text-[10px] font-mono text-on-surface-variant">
+                {logs.length} logged records
+              </span>
               <button 
                 onClick={onClose}
-                className="px-8 py-2 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-all"
+                className="px-6 py-2 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-all"
               >
-                Close Trail
+                Close History
               </button>
             </div>
           </motion.div>

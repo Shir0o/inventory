@@ -25,6 +25,9 @@ import {
   Camera,
   Filter,
   ArrowRight,
+  ArrowDownRight,
+  ArrowUpRight,
+  ArrowUpDown,
   History,
   Shield,
   BellRing,
@@ -41,10 +44,13 @@ import {
   Plus,
   FileText,
   Menu,
-  X
+  Edit2,
+  X,
+  Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { seedData, updateSettings } from './services/firestoreService';
+import { StockAdjustmentModal } from './components/StockAdjustmentModal';
 import { 
   LineChart, 
   Line, 
@@ -62,7 +68,7 @@ import {
 import { cn } from './lib/utils';
 import { useFirebase } from './context/FirebaseContext';
 import InventoryModal from './components/InventoryModal';
-import EventModal from './components/EventModal';
+import { EventEditorView } from './components/EventEditorView';
 import DistributionModal from './components/DistributionModal';
 import BulkImportModal from './components/BulkImportModal';
 import QRScannerModal from './components/QRScannerModal';
@@ -126,7 +132,7 @@ const formatTime = (date: any, timezone: string = 'UTC') => {
 
 // --- Types ---
 
-type Tab = 'dashboard' | 'inventory' | 'events' | 'reports' | 'settings' | 'users' | 'logs';
+type Tab = 'dashboard' | 'inventory' | 'events' | 'event-editor' | 'reports' | 'settings' | 'users' | 'logs';
 
 // --- Components ---
 
@@ -181,24 +187,27 @@ const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin, isOpen, onClo
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto custom-scrollbar">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveTab(item.id as Tab);
-                if (window.innerWidth < 1024) onClose();
-              }}
-              className={cn(
-                "w-full px-4 py-3 flex items-center gap-3.5 font-headline text-xs font-bold uppercase tracking-wider rounded-full transition-all duration-200",
-                activeTab === item.id 
-                  ? "bg-primary-container text-on-primary-container shadow-xs" 
-                  : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
-              )}
-            >
-              <item.icon className={cn("w-4 h-4", activeTab === item.id ? "text-primary stroke-[2.5]" : "opacity-75")} />
-              <span>{item.label}</span>
-            </button>
-          ))}
+          {navItems.map((item) => {
+            const isItemActive = activeTab === item.id || (item.id === 'events' && activeTab === 'event-editor');
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id as Tab);
+                  if (window.innerWidth < 1024) onClose();
+                }}
+                className={cn(
+                  "w-full px-4 py-3 flex items-center gap-3.5 font-headline text-xs font-bold uppercase tracking-wider rounded-full transition-all duration-200",
+                  isItemActive 
+                    ? "bg-primary-container text-on-primary-container shadow-xs" 
+                    : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+                )}
+              >
+                <item.icon className={cn("w-4 h-4", isItemActive ? "text-primary stroke-[2.5]" : "opacity-75")} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
 
         <div className="p-4 border-t border-outline-variant/30 space-y-3">
@@ -535,7 +544,25 @@ const DashboardView = ({ inventory, events, onEdit, auditLogs, setActiveTab, isA
   );
 };
 
-const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, globalSearch, isAdmin }: { inventory: any[], onAdd: () => void, onEdit: (item: any) => void, onShowHistory: (item: any) => void, onBulkImport: () => void, globalSearch: string, isAdmin: boolean }) => {
+const InventoryView = ({ 
+  inventory, 
+  onAdd, 
+  onEdit, 
+  onShowHistory, 
+  onLogMovement,
+  onBulkImport, 
+  globalSearch, 
+  isAdmin 
+}: { 
+  inventory: any[], 
+  onAdd: () => void, 
+  onEdit: (item: any) => void, 
+  onShowHistory: (item: any) => void, 
+  onLogMovement: (item: any) => void,
+  onBulkImport: () => void, 
+  globalSearch: string, 
+  isAdmin: boolean 
+}) => {
   const [showFilters, setShowFilters] = useState(false);
   const [localSearch, setLocalSearch] = useState('');
   const [filters, setFilters] = useState({
@@ -572,7 +599,7 @@ const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, 
         <div>
           <span className="font-mono text-[11px] text-secondary bg-primary px-2 py-0.5 rounded-sharp mb-2 inline-block">INV-MTX-PRIME</span>
           <h2 className="text-[24px] sm:text-[32px] font-headline font-bold text-primary tracking-tight leading-loose sm:leading-none">Literature Matrix</h2>
-          <p className="text-on-surface-variant text-sm mt-1 sm:mt-2">Tracking outreach literature and resources.</p>
+          <p className="text-on-surface-variant text-sm mt-1 sm:mt-2">Tracking outreach literature, manual adjustments, and direct giving.</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           {isAdmin && (
@@ -750,10 +777,30 @@ const InventoryView = ({ inventory, onAdd, onEdit, onShowHistory, onBulkImport, 
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
+                          onLogMovement(row);
+                        }}
+                        title="Log Direct Movement / Giving (No Event Required)"
+                        className="text-slate-400 hover:text-secondary transition-colors p-2 hover:bg-surface-container rounded-sharp group/btn"
+                      >
+                        <ArrowDownRight className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEdit(row);
+                        }}
+                        title="Edit Resource & Stock Note"
+                        className="text-slate-400 hover:text-primary transition-colors p-2 hover:bg-surface-container rounded-sharp"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
                           onShowHistory(row);
                         }}
-                        title="View Stock History"
-                        className="text-slate-400 hover:text-secondary transition-colors p-2 hover:bg-surface-container rounded-sharp"
+                        title="View Stock History & Trail"
+                        className="text-slate-400 hover:text-primary transition-colors p-2 hover:bg-surface-container rounded-sharp"
                       >
                         <History className="w-4 h-4" />
                       </button>
@@ -977,11 +1024,34 @@ const LogMetadata = ({ log }: { log: any }) => {
 
   switch (log.action) {
     case 'STOCK_UPDATE':
-      if (log.metadata.item) {
-        const delta = (log.metadata.newStock ?? log.metadata.item.stockLevel) - (log.metadata.previousStock ?? 0);
+      if (log.metadata.item || log.metadata.previousStock !== undefined || log.metadata.newStock !== undefined) {
+        const delta = log.metadata.delta !== undefined 
+          ? log.metadata.delta 
+          : ((log.metadata.newStock ?? log.metadata.item?.stockLevel ?? 0) - (log.metadata.previousStock ?? 0));
         return (
-          <div className="mt-2 p-3 bg-surface-container-low rounded-sharp border border-outline-variant">
-            <p className="text-[10px] font-bold text-primary uppercase mb-2 tracking-widest">Inventory Adjustment</p>
+          <div className="mt-2 p-3 bg-surface-container-low rounded-sharp border border-outline-variant space-y-2">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[10px] font-bold text-primary uppercase tracking-widest">
+                  {log.metadata.isDirectMovement ? (
+                    log.metadata.movementType === 'SUBTRACT' ? 'Direct Outflow / Giving' : 'Direct Inflow / Restock'
+                  ) : 'Inventory Adjustment'}
+                </p>
+                {log.metadata.category && (
+                  <span className="text-[9px] font-mono px-1 py-0.2 bg-surface-container rounded border border-outline-variant/60">
+                    {log.metadata.category}
+                  </span>
+                )}
+              </div>
+              {delta !== 0 && (
+                <span className={cn(
+                  "font-mono text-[10px] font-bold px-1.5 py-0.5 rounded",
+                  delta > 0 ? "bg-secondary/10 text-secondary" : "bg-tertiary/10 text-tertiary"
+                )}>
+                  {delta > 0 ? `+${delta}` : delta} units
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-6">
               <div className="flex flex-col">
                 <span className="text-[9px] text-on-surface-variant uppercase font-bold">Previous</span>
@@ -998,9 +1068,29 @@ const LogMetadata = ({ log }: { log: any }) => {
               </div>
               <div className="flex flex-col items-end ml-auto">
                 <span className="text-[9px] text-on-surface-variant uppercase font-bold">New Balance</span>
-                <span className="font-mono text-[14px] font-bold text-primary">{log.metadata.newStock ?? log.metadata.item.stockLevel}</span>
+                <span className="font-mono text-[14px] font-bold text-primary">{log.metadata.newStock ?? log.metadata.item?.stockLevel}</span>
               </div>
             </div>
+
+            {/* Note & Context */}
+            {log.metadata.note && (
+              <div className="pt-2 border-t border-outline-variant/60 text-[11px] text-on-surface flex items-start gap-1.5">
+                <span className="font-bold text-primary uppercase text-[9px] tracking-wider shrink-0 mt-0.5">Note:</span>
+                <span className="italic text-on-surface-variant">"{log.metadata.note}"</span>
+              </div>
+            )}
+
+            {/* Recipient & Occurred date if present */}
+            {(log.metadata.recipient || log.metadata.occurredAt) && (
+              <div className="flex flex-wrap items-center gap-3 pt-1 text-[10px] font-mono text-on-surface-variant">
+                {log.metadata.recipient && (
+                  <div><strong className="text-primary font-sans font-medium">To/By:</strong> {log.metadata.recipient}</div>
+                )}
+                {log.metadata.occurredAt && (
+                  <div><strong className="text-primary font-sans font-medium">Date:</strong> {log.metadata.occurredAt}</div>
+                )}
+              </div>
+            )}
           </div>
         );
       }
@@ -1011,7 +1101,16 @@ const LogMetadata = ({ log }: { log: any }) => {
         return (
           <div className="mt-2 p-3 bg-surface-container-low rounded-sharp border border-outline-variant space-y-3">
             <div className="flex justify-between items-center border-b border-outline-variant pb-2">
-              <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Distributed Resources</p>
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] font-bold text-primary uppercase tracking-widest">
+                  {log.metadata.isDirectDistribution ? 'Direct Personal Distribution' : 'Event Distribution'}
+                </p>
+                {log.metadata.recipient && (
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 bg-surface-container rounded border border-outline-variant">
+                    To: {log.metadata.recipient}
+                  </span>
+                )}
+              </div>
               <span className="font-mono text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">{log.metadata.items.length} items</span>
             </div>
             <div className="grid grid-cols-1 gap-2">
@@ -1028,6 +1127,12 @@ const LogMetadata = ({ log }: { log: any }) => {
                 </div>
               ))}
             </div>
+            {log.metadata.note && (
+              <div className="pt-2 border-t border-outline-variant/60 text-[11px] text-on-surface flex items-start gap-1.5">
+                <span className="font-bold text-primary uppercase text-[9px] tracking-wider shrink-0 mt-0.5">Note:</span>
+                <span className="italic text-on-surface-variant">"{log.metadata.note}"</span>
+              </div>
+            )}
           </div>
         );
       }
@@ -2104,7 +2209,6 @@ export default function App() {
   const [globalSearch, setGlobalSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [isDistributionOpen, setIsDistributionOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
@@ -2113,6 +2217,8 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any>(null);
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
+  const [selectedAdjustmentItem, setSelectedAdjustmentItem] = useState<any>(null);
 
   const isAdmin = currentUserProfile?.role === 'admin';
 
@@ -2126,14 +2232,19 @@ export default function App() {
     setIsModalOpen(true);
   };
 
+  const handleLogMovement = (item: any) => {
+    setSelectedAdjustmentItem(item);
+    setIsAdjustmentModalOpen(true);
+  };
+
   const handleAddEvent = () => {
     setSelectedEvent(null);
-    setIsEventModalOpen(true);
+    setActiveTab('event-editor');
   };
 
   const handleEditEvent = (event: any) => {
     setSelectedEvent(event);
-    setIsEventModalOpen(true);
+    setActiveTab('event-editor');
   };
 
   const handleShowHistory = (item: any) => {
@@ -2210,6 +2321,7 @@ export default function App() {
                 onAdd={handleAdd} 
                 onEdit={handleEdit} 
                 onShowHistory={handleShowHistory}
+                onLogMovement={handleLogMovement}
                 onBulkImport={() => {
                   setBulkImportInitialType('inventory');
                   setIsBulkImportOpen(true);
@@ -2232,6 +2344,15 @@ export default function App() {
                   isAdmin={isAdmin}
                 />
               )}
+              {activeTab === 'event-editor' && (
+                <EventEditorView 
+                  event={selectedEvent} 
+                  onBack={() => setActiveTab('events')} 
+                  settings={settings}
+                  isAdmin={isAdmin}
+                  inventory={inventory}
+                />
+              )}
               {activeTab === 'users' && <UsersView users={users} />}
               {activeTab === 'logs' && <LogsView logs={auditLogs} settings={settings} />}
               {activeTab === 'settings' && <SettingsView settings={settings} isAdmin={isAdmin} />}
@@ -2244,15 +2365,6 @@ export default function App() {
             item={selectedItem} 
             settings={settings}
             isAdmin={isAdmin}
-          />
-
-          <EventModal 
-            isOpen={isEventModalOpen} 
-            onClose={() => setIsEventModalOpen(false)} 
-            event={selectedEvent} 
-            settings={settings}
-            isAdmin={isAdmin}
-            inventory={inventory}
           />
 
           <DistributionModal 
@@ -2280,6 +2392,14 @@ export default function App() {
             isOpen={isHistoryOpen}
             onClose={() => setIsHistoryOpen(false)}
             item={selectedHistoryItem}
+            settings={settings}
+            onLogMovement={handleLogMovement}
+          />
+
+          <StockAdjustmentModal
+            isOpen={isAdjustmentModalOpen}
+            onClose={() => setIsAdjustmentModalOpen(false)}
+            item={selectedAdjustmentItem}
             settings={settings}
           />
 
