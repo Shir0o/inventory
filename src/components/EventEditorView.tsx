@@ -417,7 +417,7 @@ export const EventEditorView: React.FC<EventEditorViewProps> = ({
             <div className="flex items-center gap-2">
               <span className={cn(
                 "px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider rounded-full border",
-                formData.status === 'Scheduled' ? "bg-secondary/15 text-primary border-secondary/30" :
+                formData.status === 'Scheduled' ? "bg-secondary/15 text-secondary border-secondary/30" :
                 formData.status === 'Stock Alert' ? "bg-tertiary/15 text-tertiary border-tertiary/30" :
                 "bg-surface-container text-on-surface-variant border-outline-variant"
               )}>
@@ -452,7 +452,7 @@ export const EventEditorView: React.FC<EventEditorViewProps> = ({
                 type="button"
                 onClick={() => handleSubmit()}
                 disabled={loading}
-                className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white font-headline font-bold text-xs uppercase tracking-wider rounded-full hover:bg-primary-container transition-all shadow-md active:scale-95 disabled:opacity-50"
+                className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white font-headline font-bold text-xs uppercase tracking-wider rounded-full hover:bg-primary/90 transition-all shadow-md active:scale-95 disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
                 <span>{loading ? 'Saving...' : (isEditing ? 'Save Changes' : 'Schedule Event')}</span>
@@ -474,14 +474,14 @@ export const EventEditorView: React.FC<EventEditorViewProps> = ({
               "p-4 rounded-2xl border flex items-center justify-between gap-3 cursor-pointer shadow-xs",
               feedback.type === 'error'
                 ? "bg-tertiary/10 border-tertiary/20 text-tertiary font-medium text-xs"
-                : "bg-secondary/15 border-secondary/30 text-primary font-medium text-xs"
+                : "bg-secondary/15 border-secondary/30 text-secondary font-medium text-xs"
             )}
           >
             <div className="flex items-center gap-2.5">
               {feedback.type === 'error' ? (
                 <AlertTriangle className="w-4 h-4 shrink-0 text-tertiary" />
               ) : (
-                <CheckCircle2 className="w-4 h-4 shrink-0 text-primary" />
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-secondary" />
               )}
               <span>{feedback.message}</span>
             </div>
@@ -570,7 +570,7 @@ export const EventEditorView: React.FC<EventEditorViewProps> = ({
                       className={cn(
                         "py-2.5 px-2 text-[10px] font-bold uppercase tracking-wider rounded-xl border transition-all text-center",
                         formData.status === s
-                          ? "bg-secondary text-primary border-secondary shadow-xs"
+                          ? "bg-secondary text-white border-secondary shadow-xs"
                           : "border-outline-variant/40 bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
                       )}
                     >
@@ -641,7 +641,7 @@ export const EventEditorView: React.FC<EventEditorViewProps> = ({
                     type="button"
                     onClick={handleDelete}
                     disabled={loading}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-tertiary text-white font-headline font-bold text-xs uppercase tracking-wider hover:bg-tertiary-container transition-all rounded-full shadow-sm"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-tertiary text-white font-headline font-bold text-xs uppercase tracking-wider hover:bg-tertiary/90 transition-all rounded-full shadow-sm"
                   >
                     <Trash2 className="w-4 h-4" />
                     Confirm Permanent Delete
@@ -816,7 +816,7 @@ export const EventEditorView: React.FC<EventEditorViewProps> = ({
                                 type="button"
                                 onClick={() => handleAdjustAndAdd(i)}
                                 disabled={loading}
-                                className="px-4 py-1.5 bg-tertiary hover:bg-tertiary-container text-white font-headline font-bold text-[10px] uppercase tracking-widest rounded-full transition-all shadow-xs"
+                                className="px-4 py-1.5 bg-tertiary hover:bg-tertiary/90 text-white font-headline font-bold text-[10px] uppercase tracking-widest rounded-full transition-all shadow-xs"
                               >
                                 {loading ? "Updating..." : "Verify & Add"}
                               </button>
@@ -992,7 +992,7 @@ export const EventEditorView: React.FC<EventEditorViewProps> = ({
             {isEditing && (
               <div className="space-y-4">
                 <div className="p-4 bg-secondary/15 border border-secondary/30 rounded-2xl flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-secondary/30 flex items-center justify-center text-primary shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-secondary/30 flex items-center justify-center text-secondary shrink-0">
                     <Layers className="w-4 h-4" />
                   </div>
                   <div>
@@ -1169,7 +1169,7 @@ export const EventEditorView: React.FC<EventEditorViewProps> = ({
                                       type="button"
                                       onClick={() => handleUpdateMaterialCounts(m.id, editPreCount, editPostCount)}
                                       disabled={loading}
-                                      className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-primary text-white text-xs font-headline font-bold uppercase tracking-wider rounded-full hover:bg-primary-container transition-all shadow-xs"
+                                      className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-primary text-white text-xs font-headline font-bold uppercase tracking-wider rounded-full hover:bg-primary/90 transition-all shadow-xs"
                                     >
                                       <Check className="w-3.5 h-3.5" />
                                       <span>Save Count</span>

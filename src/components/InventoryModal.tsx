@@ -156,7 +156,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
                 "mx-6 sm:mx-8 mt-4 p-3 font-headline font-semibold text-xs rounded-sharp cursor-pointer border flex justify-between items-center transition-all animate-in fade-in slide-in-from-top-2 shrink-0",
                 modalFeedback.type === 'error' 
                   ? 'bg-tertiary/10 border-tertiary/20 text-tertiary font-bold' 
-                  : 'bg-secondary/10 border-secondary/20 text-primary font-bold'
+                  : 'bg-secondary/10 border-secondary/20 text-secondary font-bold'
               )}>
                 <span className="flex-1">{modalFeedback.message}</span>
                 <span className="text-[9px] font-mono font-bold uppercase tracking-widest opacity-60 ml-2 select-none">Dismiss</span>
@@ -334,7 +334,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
                         type="button"
                         onClick={handleDelete}
                         disabled={loading}
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-tertiary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-tertiary-container transition-all rounded-sharp shadow-md w-full sm:w-auto animate-in fade-in zoom-in-95 duration-150"
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-tertiary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-tertiary/90 transition-all rounded-sharp shadow-md w-full sm:w-auto animate-in fade-in zoom-in-95 duration-150"
                       >
                         <Trash2 className="w-4 h-4" />
                         Confirm Delete
@@ -371,7 +371,7 @@ const InventoryModal = ({ isOpen, onClose, item, settings, isAdmin = false }: In
                     <button
                       type="submit"
                       disabled={loading}
-                      className="flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+                      className="flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary/90 transition-all rounded-sharp shadow-lg disabled:opacity-50"
                     >
                       <Save className="w-4 h-4" />
                       {loading ? 'Saving...' : (item ? 'Save Edits' : 'Add to Matrix')}

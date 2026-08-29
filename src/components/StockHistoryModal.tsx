@@ -97,7 +97,7 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings, onLogMovement }: S
                       onLogMovement(item);
                       onClose();
                     }}
-                    className="px-3 py-1.5 bg-primary text-white text-[10px] font-headline font-bold uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-all"
+                    className="px-3 py-1.5 bg-primary text-white text-[10px] font-headline font-bold uppercase tracking-wider rounded-sharp hover:bg-primary/90 transition-all"
                   >
                     + Log Movement
                   </button>
@@ -135,7 +135,7 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings, onLogMovement }: S
                         onLogMovement(item);
                         onClose();
                       }}
-                      className="px-4 py-2 bg-primary text-white text-xs font-headline font-bold uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-all"
+                      className="px-4 py-2 bg-primary text-white text-xs font-headline font-bold uppercase tracking-wider rounded-sharp hover:bg-primary/90 transition-all"
                     >
                       Record First Movement
                     </button>
@@ -272,7 +272,7 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings, onLogMovement }: S
               </span>
               <button 
                 onClick={onClose}
-                className="px-6 py-2 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-all"
+                className="px-6 py-2 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider rounded-sharp hover:bg-primary/90 transition-all"
               >
                 Close History
               </button>

@@ -645,7 +645,7 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
                       <button
                         onClick={handleImport}
                         disabled={loading}
-                        className="flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+                        className="flex items-center justify-center gap-2 px-8 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary/90 transition-all rounded-sharp shadow-lg disabled:opacity-50"
                       >
                         {loading ? (
                           <>
@@ -682,7 +682,7 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
                     </button>
                     <button
                       onClick={reset}
-                      className="px-8 py-3 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg flex items-center justify-center gap-2"
+                      className="px-8 py-3 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary/90 transition-all rounded-sharp shadow-lg flex items-center justify-center gap-2"
                     >
                       <Upload className="w-4 h-4" />
                       Import Another Batch

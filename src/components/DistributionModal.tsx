@@ -314,7 +314,7 @@ const DistributionModal = ({ isOpen, onClose, events, inventory, settings }: Dis
                   <button
                     type="submit"
                     disabled={loading || (distributionMode === 'EVENT' && !selectedEventId) || cart.length === 0}
-                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider hover:bg-primary/90 transition-all rounded-sharp shadow-lg disabled:opacity-50"
                   >
                     {loading ? 'Processing...' : distributionMode === 'EVENT' ? 'Complete Event Distribution' : 'Record Direct Giving'}
                   </button>

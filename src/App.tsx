@@ -216,7 +216,7 @@ const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin, isOpen, onClo
               onDistribute();
               if (window.innerWidth < 1024) onClose();
             }}
-            className="w-full bg-primary hover:bg-primary-container text-white font-headline font-bold text-xs py-3.5 rounded-full flex items-center justify-center gap-2.5 active:scale-95 transition-all shadow-md uppercase tracking-wider"
+            className="w-full bg-primary hover:bg-primary/90 text-white font-headline font-bold text-xs py-3.5 rounded-full flex items-center justify-center gap-2.5 active:scale-95 transition-all shadow-md uppercase tracking-wider"
           >
             <ShoppingCart className="w-4 h-4" />
             Quick Distribute
@@ -597,7 +597,7 @@ const InventoryView = ({
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
-          <span className="font-mono text-[11px] text-secondary bg-primary px-2 py-0.5 rounded-sharp mb-2 inline-block">INV-MTX-PRIME</span>
+          <span className="font-mono text-[11px] text-white bg-primary px-2 py-0.5 rounded-sharp mb-2 inline-block">INV-MTX-PRIME</span>
           <h2 className="text-[24px] sm:text-[32px] font-headline font-bold text-primary tracking-tight leading-loose sm:leading-none">Literature Matrix</h2>
           <p className="text-on-surface-variant text-sm mt-1 sm:mt-2">Tracking outreach literature, manual adjustments, and direct giving.</p>
         </div>
@@ -929,7 +929,7 @@ const UsersView = ({ users }: { users: any[] }) => {
                           className={cn(
                             "px-3 py-1 rounded-sharp text-[10px] font-bold uppercase tracking-wider border-0 focus:ring-1 focus:ring-primary appearance-none text-center cursor-pointer disabled:cursor-not-allowed",
                             u.role === 'admin' ? "bg-primary text-white" : 
-                            u.role === 'guest' ? "bg-secondary text-primary" :
+                            u.role === 'guest' ? "bg-secondary text-white" :
                             "bg-surface-container text-on-surface-variant"
                           )}
                         >
@@ -964,7 +964,7 @@ const UsersView = ({ users }: { users: any[] }) => {
               <button 
                 type="submit"
                 disabled={isAuthorizing || !newEmail}
-                className="w-full bg-primary text-white py-3 rounded-sharp font-headline font-bold text-[12px] uppercase tracking-widest hover:bg-primary-container transition-all disabled:opacity-50"
+                className="w-full bg-primary text-white py-3 rounded-sharp font-headline font-bold text-[12px] uppercase tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50"
               >
                 {isAuthorizing ? 'Authorizing...' : 'Add to Allowlist'}
               </button>
@@ -1450,7 +1450,7 @@ const ReportsView = ({ inventory, events, auditLogs, settings }: { inventory: an
           </button>
           <button 
             onClick={() => generateMonthlyReport(inventory, events, auditLogs, settings)}
-            className="bg-primary text-white px-3 py-1.5 rounded-sharp font-headline font-bold text-[11px] uppercase tracking-wider flex items-center gap-2 hover:bg-primary-container transition-all shadow-md"
+            className="bg-primary text-white px-3 py-1.5 rounded-sharp font-headline font-bold text-[11px] uppercase tracking-wider flex items-center gap-2 hover:bg-primary/90 transition-all shadow-md"
           >
             <FileText className="w-3 h-3" />
             PDF
@@ -1634,7 +1634,7 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: 
           {isAdmin && (
             <button 
               onClick={onAdd}
-              className="flex-1 sm:flex-none px-4 py-2 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider rounded-sharp hover:bg-primary-container transition-colors shadow-sm whitespace-nowrap"
+              className="flex-1 sm:flex-none px-4 py-2 bg-primary text-white font-headline font-bold text-[11px] uppercase tracking-wider rounded-sharp hover:bg-primary/90 transition-colors shadow-sm whitespace-nowrap"
             >
               New Event
             </button>
@@ -1690,7 +1690,7 @@ const EventsView = ({ events, onAdd, onEdit, onBulkImport, settings, isAdmin }: 
                 {isAdmin && (
                   <button 
                     onClick={onAdd}
-                    className="w-full bg-secondary text-primary font-headline font-bold text-[11px] py-2 rounded-sharp flex items-center justify-center gap-2 hover:bg-white transition-colors uppercase tracking-widest mt-4"
+                    className="w-full bg-secondary text-white font-headline font-bold text-[11px] py-2 rounded-sharp flex items-center justify-center gap-2 hover:bg-secondary/90 transition-colors uppercase tracking-widest mt-4"
                   >
                     <Plus className="w-4 h-4" />
                     Add Next Event
@@ -1891,7 +1891,7 @@ const SettingsView = ({ settings, isAdmin }: { settings: any, isAdmin: boolean }
             <button 
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-2 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg disabled:opacity-50"
+              className="px-6 py-2 bg-primary text-white font-headline font-bold text-[12px] uppercase tracking-wider hover:bg-primary/90 transition-all rounded-sharp shadow-lg disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
@@ -2128,7 +2128,7 @@ const LoginView = () => {
         <div className="indicator-primary" />
         <div className="flex justify-center mb-6 sm:mb-8">
           <div className="w-12 h-12 sm:w-16 sm:h-16 bg-primary flex items-center justify-center rounded-sharp shadow-xl">
-            <Database className="w-6 h-6 sm:w-8 sm:h-8 text-secondary" />
+            <Database className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
           </div>
         </div>
         <h1 className="font-headline font-extrabold text-2xl sm:text-4xl text-primary tracking-tighter mb-2">INVENTORY SYSTEM</h1>
@@ -2136,7 +2136,7 @@ const LoginView = () => {
         
         <button 
           onClick={login}
-          className="w-full bg-primary text-white py-3 sm:py-4 rounded-sharp font-headline font-bold text-xs sm:text-sm tracking-widest flex items-center justify-center gap-3 hover:bg-primary-container transition-all active:scale-95 shadow-lg"
+          className="w-full bg-primary text-white py-3 sm:py-4 rounded-sharp font-headline font-bold text-xs sm:text-sm tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all active:scale-95 shadow-lg"
         >
           <LogIn className="w-4 h-4 sm:w-5 sm:h-5" />
           AUTHENTICATE WITH GOOGLE

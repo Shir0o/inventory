@@ -150,7 +150,7 @@ const QRScannerModal = ({ isOpen, onClose, onScanSuccess }: QRScannerModalProps)
                   </div>
                   <button 
                     type="submit"
-                    className="w-full py-3 sm:py-4 bg-primary text-white font-headline font-bold text-[11px] sm:text-[12px] uppercase tracking-wider hover:bg-primary-container transition-all rounded-sharp shadow-lg flex items-center justify-center gap-2"
+                    className="w-full py-3 sm:py-4 bg-primary text-white font-headline font-bold text-[11px] sm:text-[12px] uppercase tracking-wider hover:bg-primary/90 transition-all rounded-sharp shadow-lg flex items-center justify-center gap-2"
                   >
                     <Search className="w-4 h-4" />
                     Lookup Resource
