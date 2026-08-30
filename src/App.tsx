@@ -22,7 +22,6 @@ import {
   MoreVertical,
   Download,
   Upload,
-  Camera,
   Filter,
   ArrowRight,
   ArrowDownRight,
@@ -71,7 +70,6 @@ import InventoryModal from './components/InventoryModal';
 import { EventEditorView } from './components/EventEditorView';
 import DistributionModal from './components/DistributionModal';
 import BulkImportModal from './components/BulkImportModal';
-import QRScannerModal from './components/QRScannerModal';
 import StockHistoryModal from './components/StockHistoryModal';
 import { generateMonthlyReport } from './lib/pdfGenerator';
 import { exportToCSV } from './lib/csvExport';
@@ -227,7 +225,7 @@ const Sidebar = ({ activeTab, setActiveTab, onDistribute, isAdmin, isOpen, onClo
   );
 };
 
-const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: { searchQuery: string, setSearchQuery: (s: string) => void, onScan: () => void, onMenuClick: () => void }) => {
+const Topbar = ({ searchQuery, setSearchQuery, onMenuClick }: { searchQuery: string, setSearchQuery: (s: string) => void, onMenuClick: () => void }) => {
   const { user, logout, notifications } = useFirebase();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -269,15 +267,6 @@ const Topbar = ({ searchQuery, setSearchQuery, onScan, onMenuClick }: { searchQu
       </div>
 
       <div className="flex items-center gap-2 lg:gap-4">
-        <button 
-          onClick={onScan}
-          className="p-2 text-slate-500 hover:text-primary transition-colors flex items-center gap-2 group"
-          title="Scan QR Code"
-        >
-          <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          <span className="text-[10px] font-mono uppercase tracking-widest hidden xl:block">Scan</span>
-        </button>
-
         <div className="relative">
           <button 
             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
@@ -2213,7 +2202,6 @@ export default function App() {
   const [isDistributionOpen, setIsDistributionOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [bulkImportInitialType, setBulkImportInitialType] = useState<'inventory' | 'events'>('inventory');
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any>(null);
@@ -2252,17 +2240,6 @@ export default function App() {
     setIsHistoryOpen(true);
   };
 
-  const handleScanSuccess = (decodedText: string) => {
-    // Try to find the item by SKU
-    const item = inventory.find(i => i.sku === decodedText || i.id === decodedText);
-    if (item) {
-      setSelectedItem(item);
-      setIsModalOpen(true);
-    } else {
-      alert(`No item found with SKU/ID: ${decodedText}`);
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -2292,7 +2269,7 @@ export default function App() {
         isOpen={isSidebarOpen} 
         onClose={() => setIsSidebarOpen(false)} 
       />
-      <Topbar searchQuery={globalSearch} setSearchQuery={setGlobalSearch} onScan={() => setIsScannerOpen(true)} onMenuClick={() => setIsSidebarOpen(true)} />
+      <Topbar searchQuery={globalSearch} setSearchQuery={setGlobalSearch} onMenuClick={() => setIsSidebarOpen(true)} />
       
       <main className="lg:ml-64 pt-20 pb-12 px-4 sm:px-6 lg:px-8 xl:px-12 w-auto transition-all duration-300">
         <div className="max-w-7xl mx-auto w-full">
@@ -2380,12 +2357,6 @@ export default function App() {
             onClose={() => setIsBulkImportOpen(false)}
             initialType={bulkImportInitialType}
             isAdmin={isAdmin}
-          />
-
-          <QRScannerModal 
-            isOpen={isScannerOpen}
-            onClose={() => setIsScannerOpen(false)}
-            onScanSuccess={handleScanSuccess}
           />
 
           <StockHistoryModal 

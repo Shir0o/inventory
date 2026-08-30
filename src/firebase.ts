@@ -12,12 +12,14 @@ export const googleProvider = new GoogleAuthProvider();
 // Connection test
 async function testConnection() {
   try {
-    // Attempt to fetch a non-existent doc to test connectivity
+    // Attempt to fetch a connectivity test doc
     await getDocFromServer(doc(db, '_system_', 'connectivity_test'));
     console.log("Firebase connection established.");
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Firebase connection failed: The client is offline or configuration is incorrect.");
+  } catch (error: any) {
+    if (error instanceof Error) {
+      if (error.message.includes('the client is offline') || (error as any).code === 'unavailable') {
+        console.info("Firestore connection: Offline or connecting in background.", error.message);
+      }
     }
   }
 }
