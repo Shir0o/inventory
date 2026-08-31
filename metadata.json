@@ -1,6 +1,6 @@
 {
-  "name": "Inventory System",
-  "description": "An internal inventory and distribution management system for tracking Bibles, tracts, and study guides.",
+  "name": "Literature Inventory",
+  "description": "Literature inventory, count reconciliation, order tracking, and movements ledger for gospel tracts, Bibles, and booklets.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
