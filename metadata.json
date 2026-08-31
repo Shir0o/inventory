@@ -1,5 +1,5 @@
 {
-  "name": "Literature Inventory",
+  "name": "CISA Inventory",
   "description": "Literature inventory, count reconciliation, order tracking, and movements ledger for gospel tracts, Bibles, and booklets.",
   "requestFramePermissions": [],
   "majorCapabilities": [

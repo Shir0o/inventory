@@ -78,6 +78,19 @@ service cloud.firestore {
              data.role in ['admin', 'user', 'guest'];
     }
 
+    function isValidOrder(data) {
+      return data.keys().hasAll(['key', 'title', 'code', 'qty', 'orderedDate']) &&
+             data.key is string && data.key.size() <= 128 &&
+             data.title is string && data.title.size() <= 256 &&
+             data.code is string && data.code.size() <= 64 &&
+             data.qty is number && data.qty >= 0 &&
+             data.orderedDate is string &&
+             (data.packs is number || !('packs' in data)) &&
+             (data.status is string || !('status' in data)) &&
+             (data.bundle is string || !('bundle' in data)) &&
+             (data.lang is string || !('lang' in data));
+    }
+
     // ===============================================================
     // Collection Rules
     // ===============================================================
@@ -86,7 +99,7 @@ service cloud.firestore {
       allow read: if isMember();
       allow create: if isAdmin() && isValidId(itemId) && isValidInventoryItem(incoming()) &&
                     isServerTimestamp(incoming().createdAt) && isServerTimestamp(incoming().updatedAt);
-      allow update: if isAdmin() && isValidInventoryItem(incoming()) && 
+      allow update: if (isAdmin() || isMember()) && isValidInventoryItem(incoming()) && 
                     isServerTimestamp(incoming().updatedAt) && (
         // Identity Lock
         incoming().sku == existing().sku &&
@@ -94,9 +107,16 @@ service cloud.firestore {
         // Action: Stock Adjust
         (incoming().diff(existing()).affectedKeys().hasOnly(['stockLevel', 'status', 'updatedAt'])) ||
         // Action: Full Edit
-        (incoming().diff(existing()).affectedKeys().hasOnly(['title', 'subtitle', 'category', 'language', 'unitPrice', 'stockLevel', 'status', 'updatedAt']))
+        (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'subtitle', 'category', 'language', 'unitPrice', 'stockLevel', 'status', 'updatedAt', 'reorder', 'pack', 'aliases', 'editions', 'code', 'name', 'cat']))
       );
       allow delete: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isMember();
+      allow create: if isMember() && isValidId(orderId) && isValidOrder(incoming());
+      allow update: if isMember() && isValidOrder(incoming());
+      allow delete: if isAdmin() || isMember();
     }
 
     match /events/{eventId} {

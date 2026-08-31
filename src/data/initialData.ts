@@ -199,14 +199,14 @@ export const INITIAL_EVENTS: EventItem[] = [
   {
     id: 'ev-0912',
     date: '2026-09-12',
-    location: 'Riverside campus gate',
+    location: 'Campus gate',
     planned: true,
     lines: []
   },
   {
     id: 'ev-0816',
     date: '2026-08-16',
-    location: 'Riverside campus gate',
+    location: 'Campus gate',
     planned: false,
     lines: [
       { key: 'TR-FOOL-EN', lang: 'EN', title: 'Foolishness or the Power of God?', code: 'TR-FOOL-EN', before: 718, took: 120, back: 32 },
@@ -232,7 +232,7 @@ export const INITIAL_EVENTS: EventItem[] = [
   {
     id: 'ev-0719',
     date: '2026-07-19',
-    location: 'Riverside hall — open house',
+    location: 'CISA — open house',
     planned: false,
     lines: [
       { key: 'BKL-BE2-EN', lang: 'EN', title: 'Basic Elements of the Christian Life, vol. 2', code: 'BKL-BE2-EN', before: 120, took: 40, back: 18 },
@@ -262,10 +262,10 @@ export const INITIAL_EVENTS: EventItem[] = [
 ];
 
 export const INITIAL_MOVEMENTS: Movement[] = [
-  { iso: '2026-08-16', kind: 'count', date: '16 Aug', what: 'Count posted — Riverside campus gate', detail: '6 editions counted back', delta: -395 },
+  { iso: '2026-08-16', kind: 'count', date: '16 Aug', what: 'Count posted — Campus gate', detail: '6 editions counted back', delta: -395 },
   { iso: '2026-08-02', kind: 'receipt', date: '2 Aug', what: 'Stock received — order 26-07', detail: 'Tracts, 4 titles across both languages', delta: 1200 },
   { iso: '2026-07-29', kind: 'adjust', date: '29 Jul', what: 'Adjusted — You Can Know God (EN)', detail: 'Water damage in the storage closet', delta: -25 },
-  { iso: '2026-07-19', kind: 'count', date: '19 Jul', what: 'Count posted — Riverside hall open house', detail: '3 editions counted back', delta: -74 },
+  { iso: '2026-07-19', kind: 'count', date: '19 Jul', what: 'Count posted — CISA open house', detail: '3 editions counted back', delta: -74 },
   { iso: '2026-07-14', kind: 'count', date: '14 Jul', what: 'Correction filed — Eastside park', detail: 'Ya no somos enemigos: came back 11 → 14', delta: 3 },
   { iso: '2026-07-12', kind: 'count', date: '12 Jul', what: 'Count posted — Eastside park', detail: '2 editions counted back', delta: -75 },
   { iso: '2026-07-04', kind: 'receipt', date: '4 Jul', what: 'Stock received — order 26-06', detail: 'Basic elements, vols. 1–3, both languages', delta: 480 },
@@ -290,8 +290,8 @@ export const INITIAL_SETTINGS: SettingsData = {
   },
   people: [
     { id: 'p-you', name: 'Yilong Wang', email: 'YilongWang05@gmail.com', role: 'Admin', self: true },
-    { id: 'p-tim', name: 'Timothy Miller', email: 'timothy.m@riversidehall.org', role: 'Admin' },
-    { id: 'p-sarah', name: 'Sarah Chen', email: 'sarah.c@riversidehall.org', role: 'View only' }
+    { id: 'p-tim', name: 'Timothy Miller', email: 'timothy.m@cisa.org', role: 'Admin' },
+    { id: 'p-sarah', name: 'Sarah Chen', email: 'sarah.c@cisa.org', role: 'View only' }
   ],
-  hallName: 'Riverside hall'
+  hallName: 'CISA Inventory'
 };

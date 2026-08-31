@@ -12,9 +12,9 @@ interface EventsViewProps {
 }
 
 const PAST_LOCATIONS = [
-  'Riverside campus gate',
+  'Campus gate',
   'Downtown farmers market',
-  'Riverside hall — open house',
+  'CISA — open house',
   'Eastside park'
 ];
 
@@ -73,7 +73,10 @@ export const EventsView: React.FC<EventsViewProps> = ({
     }
     g.events.push(ev);
     if (!ev.planned) {
-      g.totalPassed += ev.lines.reduce((sum, l) => sum + (l.took - l.back), 0);
+      const passed = ev.lines && ev.lines.length > 0
+        ? ev.lines.reduce((sum, l) => sum + (l.took - l.back), 0)
+        : (ev.materialsDistributed || ev.totalPassed || 0);
+      g.totalPassed += passed;
     }
   });
 
@@ -110,9 +113,13 @@ export const EventsView: React.FC<EventsViewProps> = ({
 
   // EVENT RECORD VIEW
   if (viewingEvent) {
-    const totalTook = viewingEvent.lines.reduce((sum, l) => sum + l.took, 0);
+    const totalTook = viewingEvent.lines.length > 0
+      ? viewingEvent.lines.reduce((sum, l) => sum + l.took, 0)
+      : (viewingEvent.materialsDistributed || viewingEvent.totalPassed || 0);
     const totalBack = viewingEvent.lines.reduce((sum, l) => sum + l.back, 0);
-    const totalPassed = viewingEvent.lines.reduce((sum, l) => sum + (l.took - l.back), 0);
+    const totalPassed = viewingEvent.lines.length > 0
+      ? viewingEvent.lines.reduce((sum, l) => sum + (l.took - l.back), 0)
+      : (viewingEvent.materialsDistributed || viewingEvent.totalPassed || 0);
 
     return (
       <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-white overflow-hidden">
@@ -181,68 +188,84 @@ export const EventsView: React.FC<EventsViewProps> = ({
                     Count sheet
                   </span>
                   <span className="text-[12px] text-[#8b8e96]">
-                    {viewingEvent.lines.length} editions counted
+                    {viewingEvent.lines.length > 0 
+                      ? `${viewingEvent.lines.length} editions counted` 
+                      : 'Summary record'}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-[1fr_80px_80px_80px_100px_70px] items-center px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
-                  <div>Item</div>
-                  <div className="text-right">Before</div>
-                  <div className="text-right">Took</div>
-                  <div className="text-right">Back</div>
-                  <div className="text-right">Passed out</div>
-                  <div className="text-right">Correct</div>
-                </div>
+                {viewingEvent.lines.length === 0 ? (
+                  <div className="p-8 text-center bg-white space-y-2">
+                    <History className="w-8 h-8 text-[#8b8e96] mx-auto opacity-70" />
+                    <div className="text-[14.5px] font-semibold text-[#191c20]">
+                      Summary Distribution Record
+                    </div>
+                    <p className="text-[13px] text-[#6c6f77] max-w-md mx-auto">
+                      This historic event recorded a total distribution of <strong className="font-mono text-[#1f5f8b] font-bold">{totalPassed.toLocaleString()} pieces</strong>. Detailed line-by-line item counts were not recorded for this past entry.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-[1fr_80px_80px_80px_100px_70px] items-center px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
+                      <div>Item</div>
+                      <div className="text-right">Before</div>
+                      <div className="text-right">Took</div>
+                      <div className="text-right">Back</div>
+                      <div className="text-right">Passed out</div>
+                      <div className="text-right">Correct</div>
+                    </div>
 
-                <div className="divide-y divide-[#eef0f3]">
-                  {viewingEvent.lines.map(line => {
-                    const passed = line.took - line.back;
-                    const after = line.before - passed;
-                    return (
-                      <div
-                        key={line.key}
-                        className="grid grid-cols-[1fr_80px_80px_80px_100px_70px] items-center px-4 py-3 text-[13px]"
-                      >
-                        <div className="min-w-0 pr-3">
-                          <div className="font-semibold text-[#191c20] truncate">
-                            {line.title}
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="font-mono text-[11px] text-[#6c6f77]">{line.code}</span>
-                            <span className={`
-                              text-[9px] font-bold px-1.5 py-0.5 rounded-xs
-                              ${line.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}
-                            `}>
-                              {line.lang}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="text-right font-mono text-[13px] text-[#6c6f77] tabular-nums">
-                          {line.before}
-                        </div>
-                        <div className="text-right font-mono text-[13px] text-[#44474e] tabular-nums">
-                          {line.took}
-                        </div>
-                        <div className="text-right font-mono text-[13px] text-[#44474e] tabular-nums">
-                          {line.back}
-                        </div>
-                        <div className="text-right font-mono text-[14px] font-bold text-[#1f5f8b] tabular-nums">
-                          {passed}
-                        </div>
-                        <div className="text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleStartCorrection(line.key, line.back)}
-                            className="px-2 py-0.5 text-[11.5px] font-semibold text-[#1f5f8b] hover:bg-[#e9f1f7] rounded-sm transition-colors cursor-pointer"
+                    <div className="divide-y divide-[#eef0f3]">
+                      {viewingEvent.lines.map(line => {
+                        const passed = line.took - line.back;
+                        const after = line.before - passed;
+                        return (
+                          <div
+                            key={line.key}
+                            className="grid grid-cols-[1fr_80px_80px_80px_100px_70px] items-center px-4 py-3 text-[13px]"
                           >
-                            Fix
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                            <div className="min-w-0 pr-3">
+                              <div className="font-semibold text-[#191c20] truncate">
+                                {line.title}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="font-mono text-[11px] text-[#6c6f77]">{line.code}</span>
+                                <span className={`
+                                  text-[9px] font-bold px-1.5 py-0.5 rounded-xs
+                                  ${line.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}
+                                `}>
+                                  {line.lang}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="text-right font-mono text-[13px] text-[#6c6f77] tabular-nums">
+                              {line.before}
+                            </div>
+                            <div className="text-right font-mono text-[13px] text-[#44474e] tabular-nums">
+                              {line.took}
+                            </div>
+                            <div className="text-right font-mono text-[13px] text-[#44474e] tabular-nums">
+                              {line.back}
+                            </div>
+                            <div className="text-right font-mono text-[14px] font-bold text-[#1f5f8b] tabular-nums">
+                              {passed}
+                            </div>
+                            <div className="text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleStartCorrection(line.key, line.back)}
+                                className="px-2 py-0.5 text-[11.5px] font-semibold text-[#1f5f8b] hover:bg-[#e9f1f7] rounded-sm transition-colors cursor-pointer"
+                              >
+                                Fix
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Correction Form Modal / Drawer */}
@@ -397,7 +420,7 @@ export const EventsView: React.FC<EventsViewProps> = ({
                 type="text"
                 value={planLocation}
                 onChange={(e) => setPlanLocation(e.target.value)}
-                placeholder="e.g. Riverside campus gate"
+                placeholder="e.g. Campus main quad"
                 required
                 className="w-full px-3 py-2 border border-[#c9cbd2] rounded-md text-[13.5px] text-[#191c20] bg-white outline-none focus:border-[#1f5f8b]"
               />
@@ -447,7 +470,9 @@ export const EventsView: React.FC<EventsViewProps> = ({
             {/* Events Cards */}
             <div className="divide-y divide-[#dcdee3] border border-[#dcdee3] rounded-lg overflow-hidden bg-white shadow-xs">
               {group.events.map(ev => {
-                const passed = ev.lines.reduce((sum, l) => sum + (l.took - l.back), 0);
+                const passed = ev.lines.length > 0
+                  ? ev.lines.reduce((sum, l) => sum + (l.took - l.back), 0)
+                  : (ev.materialsDistributed || ev.totalPassed || 0);
                 const hasCorrection = ev.corrections && ev.corrections.length > 0;
 
                 return (
@@ -478,7 +503,9 @@ export const EventsView: React.FC<EventsViewProps> = ({
                       <div className="text-[12px] text-[#6c6f77] mt-0.5">
                         {ev.planned 
                           ? 'Taking literature reserves it until count is posted'
-                          : `${ev.lines.length} editions counted back`
+                          : ev.lines.length > 0
+                            ? `${ev.lines.length} editions counted back`
+                            : `${passed.toLocaleString()} total pieces distributed`
                         }
                       </div>
                     </div>

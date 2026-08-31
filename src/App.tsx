@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Title, 
   EventItem, 
@@ -7,15 +7,23 @@ import {
   SettingsData, 
   ActiveTab, 
   EventLine,
-  Category
+  Category,
+  Language,
+  Edition
 } from './types';
+import { useFirebase } from './context/FirebaseContext';
 import { 
-  INITIAL_TITLES, 
-  INITIAL_EVENTS, 
-  INITIAL_MOVEMENTS, 
-  INITIAL_ORDERS, 
-  INITIAL_SETTINGS 
-} from './data/initialData';
+  updateInventoryItem, 
+  addInventoryItem, 
+  addEvent, 
+  updateSettings as saveSystemSettings,
+  addOrderItem,
+  updateOrderItem,
+  deleteOrderItem,
+  createAuditLog
+} from './services/firestoreService';
+import { doc, updateDoc, Timestamp, serverTimestamp, setDoc } from 'firebase/firestore';
+import { db } from './firebase';
 import { Sidebar } from './components/Sidebar';
 import { TopNav } from './components/TopNav';
 import { OverviewView } from './components/OverviewView';
@@ -25,48 +33,23 @@ import { OrderListView } from './components/OrderListView';
 import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
 import { CountEventFlow } from './components/CountEventFlow';
+import { humanizeAuditLog } from './lib/humanizeHistory';
+import { AlertTriangle, Database, RefreshCw, ShieldAlert, PlusCircle } from 'lucide-react';
 
 export function App() {
-  // Application Data States with LocalStorage Persistence
-  const [titles, setTitles] = useState<Title[]>(() => {
-    const saved = localStorage.getItem('lit_titles');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
-    }
-    return INITIAL_TITLES;
-  });
-
-  const [events, setEvents] = useState<EventItem[]>(() => {
-    const saved = localStorage.getItem('lit_events');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
-    }
-    return INITIAL_EVENTS;
-  });
-
-  const [movements, setMovements] = useState<Movement[]>(() => {
-    const saved = localStorage.getItem('lit_movements');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
-    }
-    return INITIAL_MOVEMENTS;
-  });
-
-  const [orders, setOrders] = useState<OrderItem[]>(() => {
-    const saved = localStorage.getItem('lit_orders');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
-    }
-    return INITIAL_ORDERS;
-  });
-
-  const [settings, setSettings] = useState<SettingsData>(() => {
-    const saved = localStorage.getItem('lit_settings');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
-    }
-    return INITIAL_SETTINGS;
-  });
+  const { 
+    user, 
+    inventory: rawInventory, 
+    events: rawEvents, 
+    orders: rawOrders, 
+    auditLogs: rawLogs, 
+    settings: rawSettings,
+    login, 
+    logout, 
+    isAdmin, 
+    isAuthorized,
+    loading 
+  } = useFirebase();
 
   // Navigation State
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
@@ -77,26 +60,206 @@ export function App() {
   const [activeCountEvent, setActiveCountEvent] = useState<{ name: string; date: string; id?: string } | null>(null);
   const [selectedEventIdForRecord, setSelectedEventIdForRecord] = useState<string | null>(null);
 
-  // Save changes to localStorage
-  useEffect(() => {
-    localStorage.setItem('lit_titles', JSON.stringify(titles));
-  }, [titles]);
+  // Map real Firestore settings
+  const settings: SettingsData = useMemo(() => {
+    const defaultReorder = { Bible: 20, Booklet: 60, Tract: 200 };
+    const defaultPack = { Bible: 20, Booklet: 50, Tract: 100 };
+    return {
+      hallName: rawSettings?.hallName || rawSettings?.orgName || 'CISA Inventory',
+      reorder: rawSettings?.reorder || defaultReorder,
+      pack: rawSettings?.pack || defaultPack,
+      people: rawSettings?.people || [
+        { id: 'p1', name: user?.displayName || 'Yilong Wang', email: user?.email || 'YilongWang05@gmail.com', role: 'Admin', self: true }
+      ]
+    };
+  }, [rawSettings, user]);
 
-  useEffect(() => {
-    localStorage.setItem('lit_events', JSON.stringify(events));
-  }, [events]);
+  // Map real Firestore inventory into structured Titles with EN/ES Editions
+  const titles: Title[] = useMemo(() => {
+    if (!rawInventory || rawInventory.length === 0) {
+      return [];
+    }
 
-  useEffect(() => {
-    localStorage.setItem('lit_movements', JSON.stringify(movements));
-  }, [movements]);
+    // Check if items are already full title documents with an `editions` array
+    const hasCompositeEditions = rawInventory.some(i => Array.isArray(i.editions) && i.editions.length > 0);
+    if (hasCompositeEditions) {
+      return rawInventory.map(i => {
+        const catNorm = (i.cat || i.category || 'Tract').replace(/s$/, '') as Category;
+        return {
+          code: i.code || i.sku || i.id,
+          name: i.name || i.title,
+          cat: (catNorm === 'Bible' || catNorm === 'Booklet' || catNorm === 'Tract') ? catNorm : 'Tract',
+          reorder: Number(i.reorder) || (settings.reorder[catNorm] || 100),
+          pack: Number(i.pack) || (settings.pack[catNorm] || 50),
+          aliases: i.aliases || [],
+          editions: (i.editions || []).map((ed: any) => ({
+            lang: ((ed.lang || 'EN').toUpperCase().includes('ES') ? 'ES' : 'EN') as Language,
+            title: ed.title || i.title,
+            stock: Number(ed.stock ?? ed.stockLevel ?? 0),
+            code: ed.code || `${i.code || i.sku}-${ed.lang}`
+          }))
+        };
+      });
+    }
 
-  useEffect(() => {
-    localStorage.setItem('lit_orders', JSON.stringify(orders));
-  }, [orders]);
+    // Group individual inventory item documents by baseCode / title
+    const groups: Record<string, Title> = {};
 
-  useEffect(() => {
-    localStorage.setItem('lit_settings', JSON.stringify(settings));
-  }, [settings]);
+    rawInventory.forEach(item => {
+      const skuRaw = (item.sku || item.id || '').toUpperCase();
+      const langRaw = (item.language || '').toLowerCase();
+      const lang: Language = (langRaw.includes('es') || langRaw.includes('span') || skuRaw.endsWith('-ES')) ? 'ES' : 'EN';
+
+      let baseCode = item.baseCode;
+      if (!baseCode && item.sku) {
+        baseCode = item.sku.replace(/-(EN|ES)$/i, '');
+      }
+      if (!baseCode) {
+        baseCode = (item.title || 'ITEM').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+      }
+
+      const catNorm = (item.category || item.cat || 'Tract').replace(/s$/, '') as Category;
+      const cleanCat: Category = (catNorm === 'Bible' || catNorm === 'Booklet' || catNorm === 'Tract') ? catNorm : 'Tract';
+
+      if (!groups[baseCode]) {
+        groups[baseCode] = {
+          code: baseCode,
+          name: item.baseName || item.title?.replace(/\s*\((English|Spanish|EN|ES)\)/i, '') || item.title,
+          cat: cleanCat,
+          reorder: Number(item.reorder) || (settings.reorder[cleanCat] || 100),
+          pack: Number(item.pack) || (settings.pack[cleanCat] || 50),
+          aliases: item.aliases || [],
+          editions: []
+        };
+      }
+
+      const editionTitle = item.title || groups[baseCode].name;
+      const stock = Number(item.stockLevel ?? item.stock ?? 0);
+      const existingEdIndex = groups[baseCode].editions.findIndex(e => e.lang === lang);
+
+      if (existingEdIndex >= 0) {
+        groups[baseCode].editions[existingEdIndex].stock = stock;
+        groups[baseCode].editions[existingEdIndex].title = editionTitle;
+      } else {
+        groups[baseCode].editions.push({
+          lang,
+          title: editionTitle,
+          stock,
+          code: item.sku || `${baseCode}-${lang}`
+        });
+      }
+    });
+
+    // Ensure balanced EN & ES pairs where appropriate
+    return Object.values(groups).map(g => {
+      if (g.editions.length === 1 && g.editions[0].lang === 'EN') {
+        g.editions.push({
+          lang: 'ES',
+          title: g.name,
+          stock: 0,
+          code: `${g.code}-ES`
+        });
+      } else if (g.editions.length === 1 && g.editions[0].lang === 'ES') {
+        g.editions.unshift({
+          lang: 'EN',
+          title: g.name,
+          stock: 0,
+          code: `${g.code}-EN`
+        });
+      }
+      g.editions.sort((a, b) => (a.lang === 'EN' ? -1 : 1));
+      return g;
+    });
+  }, [rawInventory, settings]);
+
+  // Map real Firestore events
+  const events: EventItem[] = useMemo(() => {
+    if (!rawEvents || rawEvents.length === 0) return [];
+    return rawEvents.map(ev => {
+      let dateStr = '';
+      if (ev.date && typeof ev.date.toDate === 'function') {
+        dateStr = ev.date.toDate().toISOString().slice(0, 10);
+      } else if (ev.date && ev.date.seconds) {
+        dateStr = new Date(ev.date.seconds * 1000).toISOString().slice(0, 10);
+      } else if (typeof ev.date === 'string') {
+        dateStr = ev.date.slice(0, 10);
+      } else {
+        dateStr = new Date().toISOString().slice(0, 10);
+      }
+
+      const lines = Array.isArray(ev.lines) ? ev.lines : [];
+      const distributed = typeof ev.materialsDistributed === 'number' 
+        ? ev.materialsDistributed 
+        : (typeof ev.totalPassed === 'number' ? ev.totalPassed : 0);
+
+      return {
+        id: ev.id,
+        date: dateStr,
+        location: ev.location || ev.name || 'Outreach Event',
+        planned: ev.planned !== undefined ? ev.planned : (ev.status === 'Scheduled' || ev.status === 'Drafting'),
+        lines,
+        materialsDistributed: distributed,
+        totalPassed: distributed,
+        corrections: Array.isArray(ev.corrections) ? ev.corrections : []
+      };
+    });
+  }, [rawEvents]);
+
+  // Map real Firestore orders
+  const orders: OrderItem[] = useMemo(() => {
+    if (!rawOrders || rawOrders.length === 0) return [];
+    return rawOrders.map(o => ({
+      key: o.key || o.id || `${o.code}-${o.lang || 'EN'}`,
+      bundle: o.bundle,
+      lang: o.lang,
+      title: o.title,
+      code: o.code,
+      qty: Number(o.qty) || 0,
+      packs: o.packs ? Number(o.packs) : undefined,
+      orderedDate: o.orderedDate || new Date().toISOString().slice(0, 10),
+      shortOf: o.shortOf,
+      received: o.received
+    }));
+  }, [rawOrders]);
+
+  // Map real Firestore audit logs to Movements ledger
+  const movements: Movement[] = useMemo(() => {
+    if (!rawLogs || rawLogs.length === 0) return [];
+
+    const humanizeOptions = {
+      inventoryItems: rawInventory || [],
+      events: rawEvents || [],
+      orders: rawOrders || []
+    };
+
+    return rawLogs.map(log => {
+      let dateStr = '';
+      let isoStr = '';
+      if (log.timestamp && typeof log.timestamp.toDate === 'function') {
+        const d = log.timestamp.toDate();
+        isoStr = d.toISOString().slice(0, 10);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        dateStr = `${d.getDate()} ${months[d.getMonth()]}`;
+      } else {
+        const d = new Date();
+        isoStr = d.toISOString().slice(0, 10);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        dateStr = `${d.getDate()} ${months[d.getMonth()]}`;
+      }
+
+      const humanized = humanizeAuditLog(log, humanizeOptions);
+
+      return {
+        id: log.id,
+        iso: isoStr,
+        date: dateStr,
+        kind: humanized.kind,
+        what: humanized.what,
+        detail: humanized.detail,
+        delta: humanized.delta
+      };
+    });
+  }, [rawLogs, rawInventory, rawEvents, rawOrders]);
 
   // Helper date formatter
   const getTodayFormatted = () => {
@@ -108,74 +271,105 @@ export function App() {
   const getTodayIso = () => new Date().toISOString().slice(0, 10);
 
   // Calculate flagged items count for Sidebar badge
-  const flaggedOrderCount = titles.reduce((acc, t) => {
-    const threshold = settings.reorder[t.cat] || t.reorder;
-    const lowEds = t.editions.filter(ed => ed.stock < threshold);
-    return acc + lowEds.length;
-  }, 0);
+  const flaggedOrderCount = useMemo(() => {
+    return titles.reduce((acc, t) => {
+      const threshold = settings.reorder[t.cat] || t.reorder;
+      const lowEds = t.editions.filter(ed => ed.stock < threshold);
+      return acc + lowEds.length;
+    }, 0);
+  }, [titles, settings]);
 
-  // Handlers for Stock Adjustments
-  const handleAdjustStock = (codeKey: string, newStock: number, note: string) => {
-    let diff = 0;
-    let titleName = '';
-    let lang = '';
+  // Handlers for Stock Adjustments - writes directly to Firestore
+  const handleAdjustStock = async (codeKey: string, newStock: number, note: string) => {
+    try {
+      // Find matching item in Firestore inventory
+      const [titleCode, lang] = codeKey.split('-');
+      const item = rawInventory.find(i => 
+        i.sku === codeKey || 
+        i.id === codeKey || 
+        (i.baseCode === titleCode && (i.language?.toLowerCase().includes(lang?.toLowerCase()) || i.sku?.endsWith(`-${lang}`)))
+      );
 
-    setTitles(prev => prev.map(t => {
-      let matched = false;
-      const updatedEditions = t.editions.map(ed => {
-        if (`${t.code}-${ed.lang}` === codeKey) {
-          matched = true;
-          diff = newStock - ed.stock;
-          titleName = ed.title;
-          lang = ed.lang;
-          return { ...ed, stock: newStock };
+      if (item) {
+        const prevStock = Number(item.stockLevel || 0);
+        const diff = newStock - prevStock;
+        await updateInventoryItem(item.id, { stockLevel: newStock }, undefined, note);
+        await createAuditLog('STOCK_ADJUSTED', item.id, 'inventory', note || `Stock adjusted from ${prevStock} to ${newStock}`, {
+          delta: diff,
+          previousStock: prevStock,
+          newStock,
+          sku: item.sku
+        });
+      } else {
+        // Create new item in Firestore if not existing
+        const targetTitle = titles.find(t => t.code === titleCode);
+        const titleName = targetTitle ? `${targetTitle.name} (${lang})` : codeKey;
+        const cat = targetTitle?.cat || 'Tract';
+        const docRef = await addInventoryItem({
+          sku: codeKey,
+          title: titleName,
+          category: cat === 'Bible' ? 'Bibles' : cat === 'Booklet' ? 'Booklets' : 'Tracts',
+          language: lang === 'ES' ? 'Spanish' : 'English',
+          stockLevel: newStock,
+          status: newStock === 0 ? 'Out' : newStock < 100 ? 'Low' : 'Healthy',
+          unitPrice: 0,
+          baseCode: titleCode,
+          baseName: targetTitle?.name || titleName
+        });
+        if (docRef) {
+          await createAuditLog('STOCK_ADJUSTED', docRef.id, 'inventory', `Initial stock set to ${newStock}`, {
+            delta: newStock,
+            newStock,
+            sku: codeKey
+          });
         }
-        return ed;
-      });
-      return matched ? { ...t, editions: updatedEditions } : t;
-    }));
-
-    if (diff !== 0) {
-      const newMovement: Movement = {
-        id: `mov-${Date.now()}`,
-        iso: getTodayIso(),
-        date: getTodayFormatted(),
-        kind: 'adjust',
-        what: `Adjusted — ${titleName} (${lang})`,
-        detail: note || 'Shelf recount adjustment',
-        delta: diff
-      };
-      setMovements(prev => [newMovement, ...prev]);
+      }
+    } catch (err) {
+      console.error('Failed to adjust stock in database:', err);
     }
   };
 
-  // Handlers for Saving Titles (Add / Edit)
-  const handleSaveTitle = (originalCode: string | null, nextTitle: Title) => {
-    if (!originalCode) {
-      // New title
-      setTitles(prev => [...prev, nextTitle]);
-      // Log starting stocks if > 0
-      nextTitle.editions.forEach(ed => {
-        if (ed.stock > 0) {
-          const newMovement: Movement = {
-            id: `mov-${Date.now()}-${ed.lang}`,
-            iso: getTodayIso(),
-            date: getTodayFormatted(),
-            kind: 'adjust',
-            what: `Starting stock — ${ed.title} (${ed.lang})`,
-            detail: 'Initial shelf count upon catalog creation',
-            delta: ed.stock
-          };
-          setMovements(prev => [newMovement, ...prev]);
+  // Handlers for Saving Titles (Add / Edit) - writes directly to Firestore
+  const handleSaveTitle = async (originalCode: string | null, nextTitle: Title) => {
+    try {
+      for (const ed of nextTitle.editions) {
+        const sku = `${nextTitle.code}-${ed.lang}`;
+        const existing = rawInventory.find(i => i.sku === sku || (originalCode && i.baseCode === originalCode && i.sku?.endsWith(`-${ed.lang}`)));
+        
+        const catStr = nextTitle.cat === 'Bible' ? 'Bibles' : nextTitle.cat === 'Booklet' ? 'Booklets' : 'Tracts';
+        const payload = {
+          sku,
+          title: ed.title || nextTitle.name,
+          category: catStr,
+          language: ed.lang === 'ES' ? 'Spanish' : 'English',
+          stockLevel: ed.stock,
+          status: ed.stock === 0 ? 'Out' : ed.stock < nextTitle.reorder ? 'Low' : 'Healthy',
+          unitPrice: 0,
+          pack: nextTitle.pack,
+          reorder: nextTitle.reorder,
+          baseCode: nextTitle.code,
+          baseName: nextTitle.name,
+          aliases: nextTitle.aliases || []
+        };
+
+        if (existing) {
+          await updateInventoryItem(existing.id, payload);
+        } else {
+          const docRef = await addInventoryItem(payload);
+          if (docRef && ed.stock > 0) {
+            await createAuditLog('STARTING_STOCK', docRef.id, 'inventory', `Starting stock of ${ed.stock} units for ${ed.title}`, {
+              delta: ed.stock,
+              sku
+            });
+          }
         }
-      });
-    } else {
-      // Existing title update
-      setTitles(prev => prev.map(t => (t.code === originalCode ? nextTitle : t)));
+      }
+    } catch (err) {
+      console.error('Failed to save title in database:', err);
     }
   };
 
-  // Handlers for Count Flow
+  // Handlers for Count Flow - updates Firestore stock atomically & logs event
   const handleStartCount = (eventItem?: EventItem) => {
     if (eventItem) {
       setActiveCountEvent({
@@ -193,7 +387,7 @@ export function App() {
         });
       } else {
         setActiveCountEvent({
-          name: 'Riverside outreach distribution',
+          name: 'CISA outreach distribution',
           date: getTodayIso(),
           id: undefined
         });
@@ -202,184 +396,200 @@ export function App() {
     setIsCounting(true);
   };
 
-  const handlePostCount = (lines: EventLine[]) => {
-    let totalPassed = 0;
+  const handlePostCount = async (lines: EventLine[]) => {
+    try {
+      let totalPassed = 0;
 
-    // 1. Update shelf stocks
-    setTitles(prev => prev.map(t => {
-      const updatedEds = t.editions.map(ed => {
-        const line = lines.find(l => l.key === `${t.code}-${ed.lang}` || l.code === `${t.code}-${ed.lang}`);
-        if (line) {
-          const passed = line.took - line.back;
-          totalPassed += passed;
-          return {
-            ...ed,
-            stock: Math.max(0, ed.stock - passed)
-          };
+      // 1. Update shelf stocks in Firestore
+      for (const line of lines) {
+        const passed = Math.max(0, line.took - line.back);
+        totalPassed += passed;
+
+        const item = rawInventory.find(i => i.sku === line.code || i.sku === line.key || i.id === line.key);
+        if (item) {
+          const currentStock = Number(item.stockLevel || 0);
+          const newStock = Math.max(0, currentStock - passed);
+          await updateInventoryItem(item.id, { stockLevel: newStock });
         }
-        return ed;
-      });
-      return { ...t, editions: updatedEds };
-    }));
-
-    const eventName = activeCountEvent?.name || 'Outreach event';
-    const eventDate = activeCountEvent?.date || getTodayIso();
-    const eventId = activeCountEvent?.id || `ev-${Date.now()}`;
-
-    // 2. Log Movement to ledger
-    const newMovement: Movement = {
-      id: `mov-${Date.now()}`,
-      iso: eventDate,
-      date: getTodayFormatted(),
-      kind: 'count',
-      what: `Count posted — ${eventName}`,
-      detail: `${lines.length} editions counted back`,
-      delta: -totalPassed
-    };
-    setMovements(prev => [newMovement, ...prev]);
-
-    // 3. Save or update event record
-    setEvents(prev => {
-      const existing = prev.find(e => e.id === eventId);
-      if (existing) {
-        return prev.map(e => e.id === eventId ? { ...e, planned: false, lines } : e);
-      } else {
-        const newEv: EventItem = {
-          id: eventId,
-          date: eventDate,
-          location: eventName,
-          planned: false,
-          lines
-        };
-        return [newEv, ...prev];
       }
-    });
+
+      const eventName = activeCountEvent?.name || 'Outreach event';
+      const eventDate = activeCountEvent?.date || getTodayIso();
+      const eventId = activeCountEvent?.id;
+
+      // 2. Save / update event in Firestore
+      if (eventId) {
+        const eventRef = doc(db, 'events', eventId);
+        await updateDoc(eventRef, {
+          planned: false,
+          status: 'Completed',
+          materialsDistributed: totalPassed,
+          lines,
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        await addEvent({
+          name: eventName,
+          location: eventName,
+          date: Timestamp.fromDate(new Date(eventDate)),
+          planned: false,
+          status: 'Completed',
+          materialsDistributed: totalPassed,
+          lines
+        });
+      }
+
+      // 3. Log movement in Firestore audit logs
+      await createAuditLog('COUNT_POSTED', eventId || 'event', 'event', `Count posted — ${eventName}. ${totalPassed} items passed out.`, {
+        delta: -totalPassed,
+        linesCount: lines.length
+      });
+    } catch (err) {
+      console.error('Failed to post count to database:', err);
+    }
   };
 
   // Handlers for Additive Corrections
-  const handlePostCorrection = (
+  const handlePostCorrection = async (
     eventId: string,
     note: string,
     changes: { key: string; from: number; to: number }[]
   ) => {
-    let netDelta = 0;
+    try {
+      let netDelta = 0;
 
-    // Update lines in event
-    setEvents(prev => prev.map(ev => {
-      if (ev.id !== eventId) return ev;
-      const updatedLines = ev.lines.map(l => {
-        const change = changes.find(c => c.key === l.key);
-        if (change) {
-          return { ...l, back: change.to };
-        }
-        return l;
-      });
-
-      const newCorrection = {
-        id: `c-${Date.now()}`,
-        when: getTodayFormatted(),
-        by: 'Admin',
-        note,
-        changes
-      };
-
-      return {
-        ...ev,
-        lines: updatedLines,
-        corrections: [...(ev.corrections || []), newCorrection]
-      };
-    }));
-
-    // Adjust shelf stocks by delta (if came back increases, inStore increases)
-    changes.forEach(ch => {
-      const delta = ch.to - ch.from;
-      netDelta += delta;
-
-      setTitles(prev => prev.map(t => {
-        const updatedEds = t.editions.map(ed => {
-          if (`${t.code}-${ed.lang}` === ch.key) {
-            return { ...ed, stock: Math.max(0, ed.stock + delta) };
-          }
-          return ed;
+      // Update lines and corrections in Firestore event
+      const targetEvent = events.find(e => e.id === eventId);
+      if (targetEvent) {
+        const updatedLines = targetEvent.lines.map(l => {
+          const ch = changes.find(c => c.key === l.key);
+          return ch ? { ...l, back: ch.to } : l;
         });
-        return { ...t, editions: updatedEds };
-      }));
-    });
 
-    const targetEvent = events.find(e => e.id === eventId);
-    const newMovement: Movement = {
-      id: `mov-corr-${Date.now()}`,
-      iso: getTodayIso(),
-      date: getTodayFormatted(),
-      kind: 'count',
-      what: `Correction filed — ${targetEvent ? targetEvent.location : 'Event'}`,
-      detail: changes.map(ch => `${ch.key}: came back ${ch.from} → ${ch.to}`).join(', '),
-      delta: netDelta
-    };
-    setMovements(prev => [newMovement, ...prev]);
+        const newCorrection = {
+          id: `c-${Date.now()}`,
+          when: getTodayFormatted(),
+          by: user?.displayName || 'Admin',
+          note,
+          changes
+        };
+
+        const eventRef = doc(db, 'events', eventId);
+        await updateDoc(eventRef, {
+          lines: updatedLines,
+          corrections: [...(targetEvent.corrections || []), newCorrection],
+          updatedAt: serverTimestamp()
+        });
+      }
+
+      // Adjust shelf stocks in Firestore
+      for (const ch of changes) {
+        const delta = ch.to - ch.from;
+        netDelta += delta;
+
+        const item = rawInventory.find(i => i.sku === ch.key || i.id === ch.key);
+        if (item) {
+          const currentStock = Number(item.stockLevel || 0);
+          const newStock = Math.max(0, currentStock + delta);
+          await updateInventoryItem(item.id, { stockLevel: newStock });
+        }
+      }
+
+      await createAuditLog('CORRECTION_FILED', eventId, 'event', `Correction filed: ${note}`, {
+        delta: netDelta,
+        changes
+      });
+    } catch (err) {
+      console.error('Failed to post correction to database:', err);
+    }
   };
 
-  // Handlers for Ordering & Receiving Deliveries
-  const handleMarkOrdered = (
+  // Handlers for Ordering & Receiving Deliveries - writes directly to Firestore
+  const handleMarkOrdered = async (
     toOrder: { code: string; title: string; lang?: string; qty: number; packs?: number; bundle?: string }[]
   ) => {
-    const newOrders: OrderItem[] = toOrder.map(item => ({
-      key: item.bundle ? `BND-${item.bundle}` : item.code,
-      bundle: item.bundle,
-      title: item.title,
-      code: item.code,
-      lang: item.lang,
-      qty: item.qty,
-      packs: item.packs,
-      orderedDate: getTodayFormatted()
-    }));
-
-    setOrders(prev => [...prev.filter(o => !newOrders.some(n => n.key === o.key)), ...newOrders]);
-    setActiveTab('order');
+    try {
+      for (const item of toOrder) {
+        const key = item.bundle ? `BND-${item.bundle}` : item.code;
+        await addOrderItem({
+          key,
+          bundle: item.bundle || '',
+          title: item.title,
+          code: item.code,
+          lang: item.lang || 'EN',
+          qty: item.qty,
+          packs: item.packs || 1,
+          orderedDate: getTodayFormatted(),
+          status: 'ordered'
+        });
+      }
+      setActiveTab('order');
+    } catch (err) {
+      console.error('Failed to mark orders in database:', err);
+    }
   };
 
-  const handleReceiveDelivery = (
+  const handleReceiveDelivery = async (
     receipts: { code: string; title: string; lang: 'EN' | 'ES'; qty: number }[],
     remainingOrders: OrderItem[]
   ) => {
-    let totalReceived = 0;
+    try {
+      let totalReceived = 0;
 
-    // Increment stocks
-    receipts.forEach(r => {
-      totalReceived += r.qty;
-      setTitles(prev => prev.map(t => {
-        const updatedEds = t.editions.map(ed => {
-          if (`${t.code}-${ed.lang}` === r.code) {
-            return { ...ed, stock: ed.stock + r.qty };
+      // Increment stocks in Firestore
+      for (const r of receipts) {
+        totalReceived += r.qty;
+        const item = rawInventory.find(i => i.sku === r.code || i.id === r.code);
+        if (item) {
+          const currentStock = Number(item.stockLevel || 0);
+          await updateInventoryItem(item.id, { stockLevel: currentStock + r.qty });
+        }
+      }
+
+      // Update remaining orders in Firestore
+      for (const r of receipts) {
+        const orderDoc = rawOrders.find(o => o.code === r.code || o.key === r.code);
+        if (orderDoc) {
+          const remaining = remainingOrders.find(o => o.code === r.code || o.key === orderDoc.key);
+          if (!remaining) {
+            await deleteOrderItem(orderDoc.id);
+          } else {
+            await updateOrderItem(orderDoc.id, { qty: remaining.qty });
           }
-          return ed;
-        });
-        return { ...t, editions: updatedEds };
-      }));
-    });
+        }
+      }
 
-    // Write movement to ledger
-    const newMovement: Movement = {
-      id: `mov-rec-${Date.now()}`,
-      iso: getTodayIso(),
-      date: getTodayFormatted(),
-      kind: 'receipt',
-      what: `Stock received — delivery check-in`,
-      detail: `${receipts.length} editions received into inventory`,
-      delta: totalReceived
-    };
-    setMovements(prev => [newMovement, ...prev]);
-
-    // Update remaining orders
-    setOrders(remainingOrders);
+      await createAuditLog('DELIVERY_RECEIVED', 'delivery', 'inventory', `Delivery check-in: ${totalReceived} units received into inventory`, {
+        delta: totalReceived,
+        receiptsCount: receipts.length
+      });
+    } catch (err) {
+      console.error('Failed to receive delivery in database:', err);
+    }
   };
 
-  const handleCancelOrder = (orderKey: string) => {
-    setOrders(prev => prev.filter(o => o.key !== orderKey));
+  const handleCancelOrder = async (orderKey: string) => {
+    try {
+      const orderDoc = rawOrders.find(o => o.key === orderKey || o.id === orderKey);
+      if (orderDoc) {
+        await deleteOrderItem(orderDoc.id);
+      }
+    } catch (err) {
+      console.error('Failed to cancel order in database:', err);
+    }
   };
 
-  const handleSaveSettings = (nextSettings: SettingsData) => {
-    setSettings(nextSettings);
+  const handleSaveSettings = async (nextSettings: SettingsData) => {
+    try {
+      await saveSystemSettings({
+        hallName: nextSettings.hallName,
+        reorder: nextSettings.reorder,
+        pack: nextSettings.pack,
+        people: nextSettings.people
+      });
+    } catch (err) {
+      console.error('Failed to save settings in database:', err);
+    }
   };
 
   const handleAddAllToOrderList = () => {
@@ -400,6 +610,10 @@ export function App() {
         onStartCount={() => handleStartCount()}
         isOpen={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
+        user={user}
+        onLogin={login}
+        onLogout={logout}
+        isAdmin={isAdmin}
       />
 
       {/* Main Content Area */}
@@ -408,7 +622,41 @@ export function App() {
         <TopNav
           onOpenMobileNav={() => setMobileNavOpen(true)}
           hallName={settings.hallName}
+          user={user}
+          onLogin={login}
+          onLogout={logout}
         />
+
+        {/* Database Authorization & Connection State Banner */}
+        {!isAuthorized && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-between gap-3 text-[12.5px] text-amber-800">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-amber-600 flex-none" />
+              <span>
+                You are signed in as <strong>{user?.email}</strong>, awaiting administrator authorization to access live inventory records.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Empty Database Helper Banner */}
+        {isAuthorized && !loading && titles.length === 0 && (
+          <div className="bg-[#f6f7f9] border-b border-[#dcdee3] px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[13px]">
+            <div className="flex items-center gap-2 text-[#44474e]">
+              <Database className="w-4 h-4 text-[#1f5f8b]" />
+              <span>
+                Connected to live database. Ready for inventory records.
+              </span>
+            </div>
+            <button
+              onClick={() => setActiveTab('inventory')}
+              className="px-3 py-1 bg-[#1f5f8b] hover:bg-[#17496c] text-white text-[12px] font-semibold rounded flex items-center gap-1.5 cursor-pointer shadow-xs self-start sm:self-auto"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>Add First Inventory Item</span>
+            </button>
+          </div>
+        )}
 
         {/* View Switcher */}
         {activeTab === 'overview' && (
@@ -438,15 +686,20 @@ export function App() {
           <EventsView
             events={events}
             onStartCountForEvent={(ev) => handleStartCount(ev)}
-            onSavePlannedEvent={(date, location) => {
-              const newEv: EventItem = {
-                id: `ev-${Date.now()}`,
-                date,
-                location,
-                planned: true,
-                lines: []
-              };
-              setEvents(prev => [newEv, ...prev]);
+            onSavePlannedEvent={async (date, location) => {
+              try {
+                await addEvent({
+                  name: location,
+                  location,
+                  date: Timestamp.fromDate(new Date(date)),
+                  planned: true,
+                  status: 'Scheduled',
+                  materialsDistributed: 0,
+                  lines: []
+                });
+              } catch (err) {
+                console.error('Failed to create planned event:', err);
+              }
             }}
             onPostCorrection={handlePostCorrection}
             selectedEventId={selectedEventIdForRecord}
@@ -483,7 +736,7 @@ export function App() {
       {isCounting && (
         <CountEventFlow
           titles={titles}
-          eventName={activeCountEvent?.name || 'Riverside outreach distribution'}
+          eventName={activeCountEvent?.name || 'CISA outreach distribution'}
           eventDate={activeCountEvent?.date || getTodayFormatted()}
           onPostCount={handlePostCount}
           onLeave={() => {
@@ -505,4 +758,5 @@ export function App() {
     </div>
   );
 }
+
 export default App;

@@ -101,6 +101,14 @@ function cleanUndefined(obj: any): any {
 
 export type AuditAction = 
   | 'STOCK_UPDATE' 
+  | 'STOCK_ADJUSTED'
+  | 'STARTING_STOCK'
+  | 'COUNT_POSTED'
+  | 'CORRECTION_FILED'
+  | 'DELIVERY_RECEIVED'
+  | 'ORDER_CREATED'
+  | 'ORDER_UPDATED'
+  | 'ORDER_DELETED'
   | 'ITEM_CREATED' 
   | 'ITEM_DELETED' 
   | 'EVENT_CREATED' 
@@ -111,7 +119,8 @@ export type AuditAction =
   | 'SETTINGS_UPDATE' 
   | 'EMAIL_AUTHORIZED' 
   | 'EMAIL_DEAUTHORIZED'
-  | 'NOTIFICATION_CREATED';
+  | 'NOTIFICATION_CREATED'
+  | (string & {});
 
 export async function createAuditLog(action: AuditAction, targetId: string, targetType: string, details: string, metadata?: any) {
   const path = 'audit_logs';
@@ -541,12 +550,12 @@ export async function recordBatchDirectDistribution(
   }
 }
 
-export async function deleteInventoryItem(id: string) {
+export async function deleteInventoryItem(id: string, itemTitle?: string) {
   const path = `inventory/${id}`;
   try {
     const docRef = doc(db, 'inventory', id);
     await deleteDoc(docRef);
-    await createAuditLog('ITEM_DELETED', id, 'inventory', `Deleted item ID: ${id}`);
+    await createAuditLog('ITEM_DELETED', id, 'inventory', itemTitle ? `Removed item from catalog: ${itemTitle}` : 'Removed item from catalog', { title: itemTitle });
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
@@ -702,12 +711,12 @@ export async function updateEvent(id: string, event: any) {
   }
 }
 
-export async function deleteEvent(id: string) {
+export async function deleteEvent(id: string, eventName?: string) {
   const path = `events/${id}`;
   try {
     const docRef = doc(db, 'events', id);
     await deleteDoc(docRef);
-    await createAuditLog('EVENT_DELETED', id, 'event', `Deleted event ID: ${id}`);
+    await createAuditLog('EVENT_DELETED', id, 'event', eventName ? `Deleted event: ${eventName}` : 'Deleted outreach event', { name: eventName });
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
@@ -867,6 +876,7 @@ export async function updateEventMaterialQuantity(eventId: string, materialId: s
         throw new Error("Event or Material does not exist!");
       }
 
+      const eventData = eventDoc.data();
       const materialData = materialDoc.data();
       const oldQuantity = materialData.quantity || 0;
       const quantityDiff = newQuantity - oldQuantity;
@@ -939,9 +949,10 @@ export async function updateEventMaterialQuantity(eventId: string, materialId: s
       }
 
       transaction.update(materialRef, { quantity: newQuantity });
+      
+      const eventName = eventData?.location || eventData?.name || 'outreach event';
+      createAuditLog('EVENT_UPDATED', eventId, 'event', `Adjusted quantity of material in event: ${eventName}`, { eventName });
     });
-    
-    await createAuditLog('EVENT_UPDATED', eventId, 'event', `Adjusted quantity of material in event ${eventId}`);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -967,6 +978,7 @@ export async function updateEventMaterialCounts(
         throw new Error("Event or Material does not exist!");
       }
 
+      const eventData = eventDoc.data();
       const materialData = materialDoc.data();
       const oldPreCount = materialData.preCount !== undefined ? materialData.preCount : (materialData.quantity || 0);
       const oldPostCount = materialData.postCount !== undefined ? materialData.postCount : 0;
@@ -1049,9 +1061,10 @@ export async function updateEventMaterialCounts(
         preCount: newPreCount,
         postCount: newPostCount
       });
+
+      const eventName = eventData?.location || eventData?.name || 'outreach event';
+      createAuditLog('EVENT_UPDATED', eventId, 'event', `Adjusted pre/post counts for event: ${eventName}`, { eventName });
     });
-    
-    await createAuditLog('EVENT_UPDATED', eventId, 'event', `Adjusted pre/post counts of material in event ${eventId}`);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -1071,6 +1084,7 @@ export async function removeEventMaterial(eventId: string, materialId: string, t
         throw new Error("Event or Material does not exist!");
       }
 
+      const eventData = eventDoc.data();
       const materialData = materialDoc.data();
       const quantityToRemove = materialData.quantity || 0;
 
@@ -1136,9 +1150,9 @@ export async function removeEventMaterial(eventId: string, materialId: string, t
       }
 
       transaction.delete(materialRef);
+      const eventName = eventData?.location || eventData?.name || 'outreach event';
+      createAuditLog('EVENT_UPDATED', eventId, 'event', `Removed material from event: ${eventName}`, { eventName });
     });
-    
-    await createAuditLog('EVENT_UPDATED', eventId, 'event', `Removed material from event ${eventId}`);
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }
@@ -1452,6 +1466,69 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, eventsPath);
+  }
+}
+
+// --- Orders ---
+
+export function subscribeToOrders(callback: (orders: any[]) => void) {
+  const path = 'orders';
+  const q = query(collection(db, path), orderBy('orderedDate', 'desc'));
+  
+  return onSnapshot(q, (snapshot) => {
+    const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(orders);
+  }, (error: FirestoreError) => {
+    handleFirestoreError(error, OperationType.LIST, path);
+  });
+}
+
+export async function addOrderItem(order: any) {
+  const path = 'orders';
+  try {
+    const docId = order.key ? order.key.replace(/[^a-zA-Z0-9_-]/g, '_') : undefined;
+    let docRef;
+    if (docId) {
+      docRef = doc(db, 'orders', docId);
+      await setDoc(docRef, {
+        ...order,
+        createdAt: serverTimestamp()
+      }, { merge: true });
+    } else {
+      docRef = await addDoc(collection(db, path), {
+        ...order,
+        createdAt: serverTimestamp()
+      });
+    }
+    await createAuditLog('ORDER_CREATED', docRef.id || docId, 'order', `Created order for: ${order.title} (${order.qty} units)`);
+    return docRef;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function updateOrderItem(id: string, updates: any, orderTitle?: string) {
+  const path = `orders/${id}`;
+  try {
+    await updateDoc(doc(db, 'orders', id), {
+      ...updates,
+      updatedAt: serverTimestamp()
+    });
+    await createAuditLog('ORDER_UPDATED', id, 'order', orderTitle ? `Updated order for: ${orderTitle}` : 'Updated literature order', { title: orderTitle });
+    return;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function deleteOrderItem(id: string, orderTitle?: string) {
+  const path = `orders/${id}`;
+  try {
+    await deleteDoc(doc(db, 'orders', id));
+    await createAuditLog('ORDER_DELETED', id, 'order', orderTitle ? `Cancelled order for: ${orderTitle}` : 'Cancelled literature order', { title: orderTitle });
+    return;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 

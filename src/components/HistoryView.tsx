@@ -129,12 +129,27 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ movements }) => {
                 </div>
 
                 <div className="min-w-0 pr-4">
-                  <div className="font-semibold text-[13.5px] text-[#191c20]">
-                    {m.what}
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-[13.5px] text-[#191c20]">
+                      {m.what}
+                    </span>
+                    <span className={`
+                      text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-xs flex-none
+                      ${m.kind === 'count' 
+                        ? 'bg-[#e9f1f7] text-[#1f5f8b]' 
+                        : m.kind === 'receipt'
+                          ? 'bg-[#e6f4ea] text-[#137333]'
+                          : 'bg-[#f1f3f4] text-[#44474e]'
+                      }
+                    `}>
+                      {m.kind === 'count' ? 'Count' : m.kind === 'receipt' ? 'Receipt' : 'Adjustment'}
+                    </span>
                   </div>
-                  <div className="text-[12px] text-[#6c6f77] mt-0.5 leading-normal">
-                    {m.detail}
-                  </div>
+                  {m.detail && (
+                    <div className="text-[12px] text-[#6c6f77] mt-0.5 leading-normal">
+                      {m.detail}
+                    </div>
+                  )}
                 </div>
 
                 <div className={`

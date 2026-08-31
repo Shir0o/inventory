@@ -99,7 +99,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="text"
                   value={draft.hallName}
                   onChange={(e) => setDraft({ ...draft, hallName: e.target.value })}
-                  placeholder="e.g. Riverside hall"
+                  placeholder="e.g. CISA Inventory"
                   className="w-full sm:w-80 px-3 py-2 border border-[#c9cbd2] rounded-md text-[13.5px] text-[#191c20] bg-white outline-none focus:border-[#1f5f8b]"
                 />
               </div>
@@ -235,7 +235,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       type="email"
                       value={newPersonEmail}
                       onChange={(e) => setNewPersonEmail(e.target.value)}
-                      placeholder="name@riversidehall.org"
+                      placeholder="name@cisa.org"
                       required
                       className="w-full px-3 py-1.5 border border-[#c9cbd2] rounded-md text-[13px] bg-white outline-none"
                     />

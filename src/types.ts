@@ -49,6 +49,8 @@ export interface EventItem {
   location: string;
   planned?: boolean;
   lines: EventLine[];
+  materialsDistributed?: number;
+  totalPassed?: number;
   corrections?: Correction[];
 }
 

@@ -3,6 +3,7 @@ import { X, History, ArrowRight, Package, Calendar, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { subscribeToItemHistory } from '../services/firestoreService';
 import { cn } from '../lib/utils';
+import { sanitizeDetailText } from '../lib/humanizeHistory';
 
 interface StockHistoryModalProps {
   isOpen: boolean;
@@ -206,7 +207,7 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings, onLogMovement }: S
                             </div>
                           </div>
                           
-                          <p className="text-[13px] text-primary font-medium leading-snug">{log.details}</p>
+                          <p className="text-[13px] text-primary font-medium leading-snug">{sanitizeDetailText(log.details)}</p>
 
                           {/* Retrospective Context Card */}
                           {(note || recipient || occurredAt) && (

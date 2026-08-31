@@ -89,12 +89,31 @@
         "lastLogin": { "type": "string", "format": "date-time" }
       },
       "required": ["email", "role"]
+    },
+    "Order": {
+      "title": "Literature Order",
+      "description": "Literature order item on reorder queue.",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "title": { "type": "string" },
+        "code": { "type": "string" },
+        "qty": { "type": "number" },
+        "packs": { "type": "number" },
+        "orderedDate": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["key", "title", "code", "qty", "orderedDate"]
     }
   },
   "firestore": {
     "/inventory/{itemId}": {
       "schema": "InventoryItem",
       "description": "Collection of inventory items."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Collection of literature reorders."
     },
     "/events/{eventId}": {
       "schema": "Event",

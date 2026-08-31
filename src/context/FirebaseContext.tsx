@@ -9,6 +9,7 @@ import {
   subscribeToAuthorizedEmails,
   subscribeToAuditLogs,
   subscribeToNotifications,
+  subscribeToOrders,
   syncUserProfile 
 } from '../services/firestoreService';
 
@@ -19,6 +20,7 @@ interface FirebaseContextType {
   isAuthReady: boolean;
   inventory: any[];
   events: any[];
+  orders: any[];
   users: any[];
   authorizedEmails: string[];
   auditLogs: any[];
@@ -28,6 +30,7 @@ interface FirebaseContextType {
   logout: () => Promise<void>;
   updateUserRole: (userId: string, role: 'admin' | 'user' | 'guest') => Promise<void>;
   isAuthorized: boolean;
+  isAdmin: boolean;
 }
 
 const FirebaseContext = createContext<FirebaseContextType | undefined>(undefined);
@@ -38,6 +41,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [inventory, setInventory] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [authorizedEmails, setAuthorizedEmails] = useState<string[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -66,6 +70,11 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => unsubscribeAuth();
   }, []);
 
+  const isPrimaryAdmin = user?.email?.toLowerCase() === 'yilongwang05@gmail.com';
+  const role = currentUserProfile?.role || (isPrimaryAdmin ? 'admin' : undefined);
+  const isAllowed = isPrimaryAdmin || role === 'admin' || role === 'user';
+  const isAdmin = isPrimaryAdmin || role === 'admin';
+
   useEffect(() => {
     if (isAuthReady && user) {
       // 1. Always subscribe to the user's own profile to get their role
@@ -75,27 +84,30 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       let unsubInventory = () => {};
       let unsubEvents = () => {};
+      let unsubOrders = () => {};
       let unsubSettings = () => {};
       let unsubUsers = () => {};
       let unsubAuthEmails = () => {};
       let unsubAuditLogs = () => {};
       let unsubNotifications = () => {};
 
-      // 2. Only subscribe to data if the user is approved (admin or user)
-      if (currentUserProfile && (currentUserProfile.role === 'admin' || currentUserProfile.role === 'user')) {
+      // 2. Subscribe to data if authorized
+      if (isAllowed) {
         unsubInventory = subscribeToInventory(setInventory);
         unsubEvents = subscribeToEvents(setEvents);
+        unsubOrders = subscribeToOrders(setOrders);
         unsubSettings = subscribeToSettings(setSettings);
         unsubNotifications = subscribeToNotifications(setNotifications);
       } else {
         setInventory([]);
         setEvents([]);
+        setOrders([]);
         setSettings({});
         setNotifications([]);
       }
 
-      // 3. Only subscribe to full user list if admin
-      if (currentUserProfile?.role === 'admin') {
+      // 3. Only subscribe to full user list & logs if admin
+      if (isAdmin) {
         unsubUsers = subscribeToUsers(setUsers);
         unsubAuthEmails = subscribeToAuthorizedEmails(setAuthorizedEmails);
         unsubAuditLogs = subscribeToAuditLogs(setAuditLogs);
@@ -109,6 +121,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         unsubProfile();
         unsubInventory();
         unsubEvents();
+        unsubOrders();
         unsubSettings();
         unsubUsers();
         unsubAuthEmails();
@@ -118,6 +131,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } else {
       setInventory([]);
       setEvents([]);
+      setOrders([]);
       setUsers([]);
       setAuthorizedEmails([]);
       setAuditLogs([]);
@@ -126,7 +140,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setCurrentUserProfile(null);
       setIsAuthorized(true);
     }
-  }, [isAuthReady, user, currentUserProfile?.role]);
+  }, [isAuthReady, user?.uid, isAllowed, isAdmin]);
 
   const login = async () => {
     try {
@@ -161,6 +175,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       isAuthReady, 
       inventory, 
       events, 
+      orders,
       users,
       authorizedEmails,
       auditLogs,
@@ -169,7 +184,8 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       login,
       logout,
       updateUserRole: updateUserRoleHandler,
-      isAuthorized
+      isAuthorized,
+      isAdmin
     }}>
       {children}
     </FirebaseContext.Provider>

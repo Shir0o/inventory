@@ -7,7 +7,10 @@ import {
   History, 
   Settings, 
   Play,
-  Layers
+  Layers,
+  LogIn,
+  LogOut,
+  UserCheck
 } from 'lucide-react';
 import { ActiveTab } from '../types';
 
@@ -19,6 +22,10 @@ interface SidebarProps {
   onStartCount: () => void;
   isOpen: boolean;
   onClose: () => void;
+  user?: any | null;
+  onLogin?: () => void;
+  onLogout?: () => void;
+  isAdmin?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -28,7 +35,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   flaggedOrderCount,
   onStartCount,
   isOpen,
-  onClose
+  onClose,
+  user,
+  onLogin,
+  onLogout,
+  isAdmin
 }) => {
   const mainNavItems = [
     { id: 'overview' as ActiveTab, label: 'Overview', icon: LayoutDashboard },
@@ -64,15 +75,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="w-7 h-7 rounded bg-[#1f5f8b] flex items-center justify-center text-white font-bold text-xs shadow-xs">
               <Layers className="w-4 h-4" />
             </div>
-            <div>
-              <div className="text-[14px] font-bold tracking-tight text-[#191c20]">Literature inventory</div>
-              <div className="text-[12px] text-[#6c6f77] mt-0.5">{hallName || 'Riverside hall'}</div>
+            <div className="min-w-0">
+              <div className="text-[14px] font-bold tracking-tight text-[#191c20] truncate">CISA Inventory</div>
+              <div className="text-[12px] text-[#6c6f77] mt-0.5 truncate">{hallName || 'CISA Inventory'}</div>
             </div>
           </div>
         </div>
 
         {/* Main Navigation */}
-        <div className="py-2 flex flex-col flex-1 overflow-y-auto">
+        <div className="py-2 flex flex-col flex-1 overflow-y-auto custom-scrollbar">
           <div className="space-y-0.5">
             {mainNavItems.map((item) => {
               const active = activeTab === item.id;
@@ -126,6 +137,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </button>
           </div>
+        </div>
+
+        {/* User Account / Sign In Status */}
+        <div className="p-3 border-t border-[#dcdee3] bg-white">
+          {user ? (
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                {user.photoURL ? (
+                  <img 
+                    src={user.photoURL} 
+                    alt={user.displayName || 'User'} 
+                    className="w-7 h-7 rounded-full border border-[#dcdee3] flex-none"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-[#1f5f8b]/10 text-[#1f5f8b] flex items-center justify-center font-bold text-xs flex-none">
+                    <UserCheck className="w-3.5 h-3.5" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="text-[12px] font-semibold text-[#191c20] truncate">
+                    {user.displayName || user.email?.split('@')[0]}
+                  </div>
+                  <div className="text-[10px] text-[#6c6f77] flex items-center gap-1">
+                    <span className="px-1 py-0.2 bg-[#e9f1f7] text-[#1f5f8b] font-bold rounded text-[9px] uppercase">
+                      {isAdmin ? 'Admin' : 'Member'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  title="Sign out"
+                  className="p-1.5 hover:bg-[#f6f7f9] text-[#6c6f77] hover:text-[#b3261e] rounded transition-colors cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          ) : (
+            <div>
+              <button
+                onClick={onLogin}
+                className="w-full py-2 px-3 bg-[#e9f1f7] hover:bg-[#d8e7f3] text-[#1f5f8b] font-semibold text-[12px] rounded border border-[#1f5f8b]/20 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In with Google</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Action Pinned Footer */}

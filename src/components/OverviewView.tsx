@@ -73,7 +73,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
   const postedEvents = events.filter(e => !e.planned).sort((a, b) => b.date.localeCompare(a.date));
   const lastPosted = postedEvents[0];
-  const lastPassedCount = lastPosted ? lastPosted.lines.reduce((sum, l) => sum + (l.took - l.back), 0) : 0;
+  const lastPassedCount = lastPosted 
+    ? (lastPosted.lines && lastPosted.lines.length > 0 
+        ? lastPosted.lines.reduce((sum, l) => sum + (l.took - l.back), 0) 
+        : (lastPosted.materialsDistributed || lastPosted.totalPassed || 0))
+    : 0;
 
   const formatDateShort = (iso: string) => {
     try {
