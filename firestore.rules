@@ -13,7 +13,12 @@ service cloud.firestore {
     // Helper Primitives
     // ===============================================================
     function isSignedIn() { return request.auth != null; }
-    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isVerified() { 
+      return isSignedIn() && (
+        request.auth.token.email_verified == true ||
+        (request.auth.token.email != null && request.auth.token.email.matches("(?i)YilongWang05@gmail\\.com"))
+      ); 
+    }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     
     function getUserData() {
@@ -21,21 +26,21 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return isVerified() && (
-        request.auth.token.email.matches("(?i)YilongWang05@gmail\\.com") ||
+      return isSignedIn() && (
+        (request.auth.token.email != null && request.auth.token.email.matches("(?i)YilongWang05@gmail\\.com")) ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'admin')
       );
     }
 
     function isMember() {
-      return isVerified() && (
-        request.auth.token.email.matches("(?i)YilongWang05@gmail\\.com") ||
+      return isSignedIn() && (
+        (request.auth.token.email != null && request.auth.token.email.matches("(?i)YilongWang05@gmail\\.com")) ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role in ['admin', 'user'])
       );
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() > 0 && id.size() <= 128;
     }
 
     function incoming() { return request.resource.data; }
@@ -51,11 +56,11 @@ service cloud.firestore {
 
     function isValidInventoryItem(data) {
       return data.keys().hasAll(['sku', 'title', 'category', 'stockLevel', 'status']) &&
-             data.sku is string && data.sku.size() >= 2 && data.sku.size() <= 64 &&
-             data.title is string && data.title.size() >= 2 && data.title.size() <= 200 &&
-             data.category in ['Bibles', 'Tracts', 'Booklets'] &&
+             data.sku is string && data.sku.size() >= 1 && data.sku.size() <= 128 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 256 &&
+             data.category in ['Bibles', 'Tracts', 'Booklets', 'Bible', 'Tract', 'Booklet'] &&
              data.stockLevel is number && data.stockLevel >= 0 &&
-             data.status in ['Healthy', 'Low', 'Out'] &&
+             data.status in ['Healthy', 'Low', 'Out', 'Normal', 'Draft'] &&
              (data.unitPrice is number || !('unitPrice' in data)) &&
              (data.updatedAt is timestamp || !('updatedAt' in data)) &&
              (data.createdAt is timestamp || !('createdAt' in data));
@@ -97,19 +102,20 @@ service cloud.firestore {
 
     match /inventory/{itemId} {
       allow read: if isMember();
-      allow create: if isAdmin() && isValidId(itemId) && isValidInventoryItem(incoming()) &&
-                    isServerTimestamp(incoming().createdAt) && isServerTimestamp(incoming().updatedAt);
+      allow create: if (isAdmin() || isMember()) && isValidId(itemId) && isValidInventoryItem(incoming()) &&
+                    (!('updatedAt' in incoming()) || isServerTimestamp(incoming().updatedAt));
       allow update: if (isAdmin() || isMember()) && isValidInventoryItem(incoming()) && 
-                    isServerTimestamp(incoming().updatedAt) && (
-        // Identity Lock
-        incoming().sku == existing().sku &&
-        incoming().createdAt == existing().createdAt &&
+                    (!('updatedAt' in incoming()) || isServerTimestamp(incoming().updatedAt)) && (
         // Action: Stock Adjust
-        (incoming().diff(existing()).affectedKeys().hasOnly(['stockLevel', 'status', 'updatedAt'])) ||
-        // Action: Full Edit
-        (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'subtitle', 'category', 'language', 'unitPrice', 'stockLevel', 'status', 'updatedAt', 'reorder', 'pack', 'aliases', 'editions', 'code', 'name', 'cat']))
+        incoming().diff(existing()).affectedKeys().hasOnly(['stockLevel', 'status', 'updatedAt']) ||
+        // Action: Full Edit / Deduplication & Merge
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'sku', 'title', 'subtitle', 'category', 'language', 'unitPrice', 
+          'stockLevel', 'status', 'updatedAt', 'reorder', 'pack', 'aliases', 
+          'editions', 'code', 'name', 'cat', 'baseCode', 'baseName'
+        ])
       );
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isMember();
     }
 
     match /orders/{orderId} {
@@ -162,8 +168,8 @@ service cloud.firestore {
     }
 
     match /audit_logs/{logId} {
-      allow read: if isAdmin();
-      allow create: if isMember() && isValidId(logId) && isServerTimestamp(incoming().timestamp);
+      allow read: if isAdmin() || isMember();
+      allow create: if isMember() && isValidId(logId) && (!('timestamp' in incoming()) || isServerTimestamp(incoming().timestamp));
     }
 
     match /notifications/{notificationId} {

@@ -22,6 +22,7 @@ import {
   deleteOrderItem,
   createAuditLog
 } from './services/firestoreService';
+import { extractBaseCode, normalizeLang, normalizeCategory } from './services/inventoryCleanupService';
 import { doc, updateDoc, Timestamp, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { Sidebar } from './components/Sidebar';
@@ -106,25 +107,14 @@ export function App() {
     const groups: Record<string, Title> = {};
 
     rawInventory.forEach(item => {
-      const skuRaw = (item.sku || item.id || '').toUpperCase();
-      const langRaw = (item.language || '').toLowerCase();
-      const lang: Language = (langRaw.includes('es') || langRaw.includes('span') || skuRaw.endsWith('-ES')) ? 'ES' : 'EN';
-
-      let baseCode = item.baseCode;
-      if (!baseCode && item.sku) {
-        baseCode = item.sku.replace(/-(EN|ES)$/i, '');
-      }
-      if (!baseCode) {
-        baseCode = (item.title || 'ITEM').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-      }
-
-      const catNorm = (item.category || item.cat || 'Tract').replace(/s$/, '') as Category;
-      const cleanCat: Category = (catNorm === 'Bible' || catNorm === 'Booklet' || catNorm === 'Tract') ? catNorm : 'Tract';
+      const { baseCode, baseName, category } = extractBaseCode(item);
+      const lang = normalizeLang(item);
+      const cleanCat = category;
 
       if (!groups[baseCode]) {
         groups[baseCode] = {
           code: baseCode,
-          name: item.baseName || item.title?.replace(/\s*\((English|Spanish|EN|ES)\)/i, '') || item.title,
+          name: baseName,
           cat: cleanCat,
           reorder: Number(item.reorder) || (settings.reorder[cleanCat] || 100),
           pack: Number(item.pack) || (settings.pack[cleanCat] || 50),
@@ -138,8 +128,11 @@ export function App() {
       const existingEdIndex = groups[baseCode].editions.findIndex(e => e.lang === lang);
 
       if (existingEdIndex >= 0) {
-        groups[baseCode].editions[existingEdIndex].stock = stock;
-        groups[baseCode].editions[existingEdIndex].title = editionTitle;
+        // Consolidate stock from duplicate documents in UI mapping
+        groups[baseCode].editions[existingEdIndex].stock += stock;
+        if (!groups[baseCode].editions[existingEdIndex].title && editionTitle) {
+          groups[baseCode].editions[existingEdIndex].title = editionTitle;
+        }
       } else {
         groups[baseCode].editions.push({
           lang,
@@ -235,7 +228,17 @@ export function App() {
     return rawLogs.map(log => {
       let dateStr = '';
       let isoStr = '';
-      if (log.timestamp && typeof log.timestamp.toDate === 'function') {
+      const effectiveDate = log.metadata?.occurredAt;
+      if (effectiveDate && typeof effectiveDate === 'string' && effectiveDate.length >= 10) {
+        isoStr = effectiveDate.slice(0, 10);
+        try {
+          const [y, m, d] = isoStr.split('-').map(Number);
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          dateStr = (d && m) ? `${d} ${months[m - 1]}` : isoStr;
+        } catch {
+          dateStr = isoStr;
+        }
+      } else if (log.timestamp && typeof log.timestamp.toDate === 'function') {
         const d = log.timestamp.toDate();
         isoStr = d.toISOString().slice(0, 10);
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -280,8 +283,9 @@ export function App() {
   }, [titles, settings]);
 
   // Handlers for Stock Adjustments - writes directly to Firestore
-  const handleAdjustStock = async (codeKey: string, newStock: number, note: string) => {
+  const handleAdjustStock = async (codeKey: string, newStock: number, note: string, date?: string) => {
     try {
+      const occurredAt = date || getTodayIso();
       // Find matching item in Firestore inventory
       const [titleCode, lang] = codeKey.split('-');
       const item = rawInventory.find(i => 
@@ -293,12 +297,14 @@ export function App() {
       if (item) {
         const prevStock = Number(item.stockLevel || 0);
         const diff = newStock - prevStock;
-        await updateInventoryItem(item.id, { stockLevel: newStock }, undefined, note);
+        await updateInventoryItem(item.id, { stockLevel: newStock }, undefined, note, occurredAt);
         await createAuditLog('STOCK_ADJUSTED', item.id, 'inventory', note || `Stock adjusted from ${prevStock} to ${newStock}`, {
           delta: diff,
           previousStock: prevStock,
           newStock,
-          sku: item.sku
+          sku: item.sku,
+          occurredAt,
+          note: note?.trim() || undefined
         });
       } else {
         // Create new item in Firestore if not existing
@@ -320,7 +326,9 @@ export function App() {
           await createAuditLog('STOCK_ADJUSTED', docRef.id, 'inventory', `Initial stock set to ${newStock}`, {
             delta: newStock,
             newStock,
-            sku: codeKey
+            sku: codeKey,
+            occurredAt,
+            note: note?.trim() || undefined
           });
         }
       }
@@ -677,6 +685,7 @@ export function App() {
         {activeTab === 'inventory' && (
           <InventoryView
             titles={titles}
+            rawInventory={rawInventory}
             onAdjustStock={handleAdjustStock}
             onSaveTitle={handleSaveTitle}
           />
@@ -726,6 +735,7 @@ export function App() {
         {activeTab === 'settings' && (
           <SettingsView
             titles={titles}
+            rawInventory={rawInventory}
             settings={settings}
             onSaveSettings={handleSaveSettings}
           />

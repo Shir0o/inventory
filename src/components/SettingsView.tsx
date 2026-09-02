@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Title, SettingsData, Category, Person } from '../types';
-import { Plus, Trash2, Shield, Save, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, Shield, Save, RotateCcw, Sparkles, Database, ShieldCheck } from 'lucide-react';
+import { InventoryCleanupModal } from './InventoryCleanupModal';
+import { analyzeInventory } from '../services/inventoryCleanupService';
 
 interface SettingsViewProps {
   titles: Title[];
+  rawInventory?: any[];
   settings: SettingsData;
   onSaveSettings: (next: SettingsData) => void;
 }
@@ -13,6 +16,7 @@ const PLURAL: Record<Category, string> = { Bible: 'Bibles', Booklet: 'Booklets',
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   titles,
+  rawInventory = [],
   settings,
   onSaveSettings
 }) => {
@@ -21,6 +25,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newPersonName, setNewPersonName] = useState('');
   const [newPersonEmail, setNewPersonEmail] = useState('');
   const [newPersonRole, setNewPersonRole] = useState<'Admin' | 'View only'>('View only');
+  const [isCleanupOpen, setIsCleanupOpen] = useState(false);
+
+  const cleanupPlan = useMemo(() => {
+    return analyzeInventory(rawInventory);
+  }, [rawInventory]);
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(settings);
 
@@ -331,6 +340,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Database Integrity & Deduplication */}
+        <div className="bg-white border border-[#dcdee3] rounded-xl p-6 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Database className="w-4 h-4 text-[#1f5f8b]" />
+                <h2 className="text-[16px] font-bold text-[#191c20]">Database Maintenance & Count Reconciliation</h2>
+              </div>
+              <p className="text-[13px] text-[#6c6f77] mt-1 max-w-2xl">
+                Scan your Firestore inventory for duplicate title items, inconsistent SKUs, or split English/Spanish records. Reconcile counts to the latest, most accurate shelf records with full <strong>Dry Run preview</strong> before applying batch updates.
+              </p>
+              {cleanupPlan.duplicateDocsCount > 0 ? (
+                <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-md text-[12px] font-semibold text-amber-800">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                  <span>{cleanupPlan.duplicateDocsCount} duplicate document(s) detected across {cleanupPlan.groups.length} title group(s)</span>
+                </div>
+              ) : (
+                <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-md text-[12px] font-semibold text-emerald-800">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Inventory database is healthy and consolidated ({rawInventory.length} records)</span>
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsCleanupOpen(true)}
+              className="px-4 py-2 bg-white border border-[#1f5f8b]/40 text-[#1f5f8b] hover:bg-[#f0f7fc] text-[13px] font-semibold rounded-md transition-colors cursor-pointer flex items-center gap-2 flex-none shadow-xs"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Deduplicate & Reconcile</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Unsaved Changes Banner */}
@@ -355,6 +398,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Inventory Deduplication & Merge Modal */}
+      <InventoryCleanupModal
+        isOpen={isCleanupOpen}
+        onClose={() => setIsCleanupOpen(false)}
+        rawInventory={rawInventory}
+      />
     </div>
   );
 };

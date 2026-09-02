@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Title, Category, Language } from '../types';
-import { Search, Plus, Download, Edit2, SlidersHorizontal, ArrowLeft, X } from 'lucide-react';
+import { Search, Plus, Download, Edit2, SlidersHorizontal, ArrowLeft, X, Calendar, Sparkles, AlertCircle } from 'lucide-react';
 import { exportToCSV } from '../lib/csvExport';
+import { InventoryCleanupModal } from './InventoryCleanupModal';
+import { analyzeInventory } from '../services/inventoryCleanupService';
 
 interface InventoryViewProps {
   titles: Title[];
-  onAdjustStock: (code: string, qty: number, note: string) => void;
+  rawInventory?: any[];
+  onAdjustStock: (code: string, qty: number, note: string, date?: string) => void;
   onSaveTitle: (originalCode: string | null, nextTitle: Title) => void;
   reorderSensitivity?: number;
 }
@@ -23,6 +26,7 @@ function aliasesOf(t: Title): string[] {
 
 export const InventoryView: React.FC<InventoryViewProps> = ({
   titles,
+  rawInventory = [],
   onAdjustStock,
   onSaveTitle,
   reorderSensitivity = 1
@@ -31,11 +35,18 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [catFilter, setCatFilter] = useState<string>('All');
   const [langFilter, setLangFilter] = useState<string>('All');
   const [lowOnly, setLowOnly] = useState(false);
+  const [isCleanupOpen, setIsCleanupOpen] = useState(false);
+
+  // Compute dry-run analysis on raw inventory
+  const cleanupPlan = useMemo(() => {
+    return analyzeInventory(rawInventory);
+  }, [rawInventory]);
 
   // Inline adjustment state
   const [adjustingKey, setAdjustingKey] = useState<string | null>(null);
   const [adjustQty, setAdjustQty] = useState<string>('');
   const [adjustNote, setAdjustNote] = useState<string>('');
+  const [adjustDate, setAdjustDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
   // Title Editor State
   const [mode, setMode] = useState<'list' | 'edit'>('list');
@@ -101,14 +112,16 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     setAdjustingKey(code);
     setAdjustQty(String(currentStock));
     setAdjustNote('');
+    setAdjustDate(new Date().toISOString().slice(0, 10));
   };
 
   const handleSaveAdjust = (code: string) => {
     const qty = Math.max(0, parseInt(adjustQty, 10) || 0);
-    onAdjustStock(code, qty, adjustNote);
+    onAdjustStock(code, qty, adjustNote, adjustDate);
     setAdjustingKey(null);
     setAdjustQty('');
     setAdjustNote('');
+    setAdjustDate(new Date().toISOString().slice(0, 10));
   };
 
   // Start adding new title
@@ -593,14 +606,52 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             {titles.length} titles · {totalEditions} language editions · {totalFlagged} need reordering
           </p>
         </div>
-        <button
-          onClick={handleStartNewTitle}
-          className="px-4 py-2 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13px] rounded-md transition-colors cursor-pointer flex items-center gap-1.5 flex-none shadow-xs"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add a title</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setIsCleanupOpen(true)}
+            className={`px-3.5 py-2 border font-semibold text-[13px] rounded-md transition-all cursor-pointer flex items-center gap-2 flex-none shadow-xs ${
+              cleanupPlan.hasChanges 
+                ? 'bg-[#f0f7fc] border-[#1f5f8b]/40 text-[#1f5f8b] hover:bg-[#e1eff9]' 
+                : 'bg-white border-[#c9cbd2] text-[#44474e] hover:bg-[#f6f7f9]'
+            }`}
+            title="Scan database, review duplicates, and reconcile stock to the latest most accurate count"
+          >
+            <Sparkles className="w-4 h-4 text-[#1f5f8b]" />
+            <span>Merge & Reconcile Count</span>
+            {cleanupPlan.duplicateDocsCount > 0 && (
+              <span className="px-1.5 py-0.2 text-[10.5px] font-bold bg-[#b3261e] text-white rounded-full">
+                {cleanupPlan.duplicateDocsCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={handleStartNewTitle}
+            className="px-4 py-2 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13px] rounded-md transition-colors cursor-pointer flex items-center gap-1.5 flex-none shadow-xs"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add a title</span>
+          </button>
+        </div>
       </div>
+
+      {/* Duplicate Alert Banner if changes are pending */}
+      {cleanupPlan.duplicateDocsCount > 0 && (
+        <div className="bg-[#fffdf7] border-b border-[#f2d9a8] px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[12.5px] text-[#8a5a00]">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-[#8a5a00] flex-none" />
+            <span>
+              Detected <strong>{cleanupPlan.duplicateDocsCount} duplicate inventory records</strong> in Firestore. Reconcile stock to the latest most accurate count to eliminate duplicate inflation.
+            </span>
+          </div>
+          <button
+            onClick={() => setIsCleanupOpen(true)}
+            className="text-[12px] font-bold text-[#1f5f8b] hover:underline cursor-pointer flex items-center gap-1 self-start sm:self-auto"
+          >
+            Reconcile Count ➔
+          </button>
+        </div>
+      )}
 
       {/* Search & Filter Bar */}
       <div className="px-6 py-3.5 flex flex-wrap items-center gap-2.5 border-b border-[#dcdee3] bg-white">
@@ -803,52 +854,81 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
                           {/* Inline Shelf Adjustment Row */}
                           {isAdjusting && (
-                            <div className="flex flex-wrap items-center gap-3 px-6 py-3 bg-[#f6f9fb] border-t border-b border-[#dcdee3]">
-                              <span className="text-[12px] font-bold text-[#44474e] flex-none">
-                                Counted on the shelf
-                              </span>
-                              <input
-                                type="number"
-                                min="0"
-                                value={adjustQty}
-                                onChange={(e) => setAdjustQty(e.target.value)}
-                                className="w-20 px-2.5 py-1.5 border border-[#c9cbd2] rounded-md font-mono text-[13px] font-bold text-right text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none tabular-nums"
-                              />
-                              <span className={`
-                                font-mono text-[12.5px] font-bold min-w-[70px] flex-none tabular-nums
-                                ${delta === 0 ? 'text-[#8b8e96]' : delta > 0 ? 'text-[#1f5f8b]' : 'text-[#b3261e]'}
-                              `}>
-                                {delta === 0 ? 'no change' : `${delta > 0 ? '+' : '−'}${Math.abs(delta)}`}
-                              </span>
-                              <input
-                                type="text"
-                                value={adjustNote}
-                                onChange={(e) => setAdjustNote(e.target.value)}
-                                placeholder="Why the number changed (e.g. shelf recount)"
-                                className="flex-1 min-w-[160px] px-3 py-1.5 border border-[#c9cbd2] rounded-md text-[13px] text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none"
-                              />
-                              <div className="flex items-center gap-1.5 flex-none">
-                                <button
-                                  type="button"
-                                  onClick={() => setAdjustingKey(null)}
-                                  className="px-3 py-1.5 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] text-[12px] font-semibold rounded-md cursor-pointer transition-colors"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSaveAdjust(codeKey)}
-                                  disabled={delta === 0}
-                                  className={`
-                                    px-3.5 py-1.5 rounded-md text-[12px] font-semibold transition-colors cursor-pointer
-                                    ${delta !== 0 
-                                      ? 'bg-[#1f5f8b] hover:bg-[#17496c] text-white border border-[#1f5f8b]' 
-                                      : 'bg-[#f6f7f9] text-[#a4a7ae] border border-[#dcdee3] cursor-default'
-                                    }
-                                  `}
-                                >
-                                  Save adjustment
-                                </button>
+                            <div className="px-6 py-3.5 bg-[#f6f9fb] border-t border-b border-[#dcdee3] space-y-2.5">
+                              <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex items-center gap-2 flex-none">
+                                  <span className="text-[12px] font-bold text-[#44474e]">
+                                    Counted on shelf:
+                                  </span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={adjustQty}
+                                    onChange={(e) => setAdjustQty(e.target.value)}
+                                    className="w-20 px-2.5 py-1.5 border border-[#c9cbd2] rounded-md font-mono text-[13px] font-bold text-right text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none tabular-nums"
+                                  />
+                                  <span className={`
+                                    font-mono text-[12.5px] font-bold min-w-[65px] tabular-nums
+                                    ${delta === 0 ? 'text-[#8b8e96]' : delta > 0 ? 'text-[#1f5f8b]' : 'text-[#b3261e]'}
+                                  `}>
+                                    {delta === 0 ? 'no change' : `${delta > 0 ? '+' : '−'}${Math.abs(delta)}`}
+                                  </span>
+                                </div>
+
+                                {/* Date Field */}
+                                <div className="flex items-center gap-1.5 flex-none">
+                                  <Calendar className="w-3.5 h-3.5 text-[#6c6f77]" />
+                                  <span className="text-[12px] font-bold text-[#44474e]">Date:</span>
+                                  <input
+                                    type="date"
+                                    value={adjustDate}
+                                    onChange={(e) => setAdjustDate(e.target.value)}
+                                    className="px-2.5 py-1.5 border border-[#c9cbd2] rounded-md font-mono text-[12.5px] text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setAdjustDate(new Date().toISOString().slice(0, 10))}
+                                    className="text-[11px] text-[#1f5f8b] hover:underline px-1 py-0.5"
+                                  >
+                                    Today
+                                  </button>
+                                </div>
+
+                                {/* Reason / Note Field */}
+                                <div className="flex-1 min-w-[200px]">
+                                  <input
+                                    type="text"
+                                    value={adjustNote}
+                                    onChange={(e) => setAdjustNote(e.target.value)}
+                                    placeholder="Reason for adjustment (e.g. shelf recount, damaged copy)"
+                                    className="w-full px-3 py-1.5 border border-[#c9cbd2] rounded-md text-[13px] text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none"
+                                  />
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex items-center gap-1.5 flex-none">
+                                  <button
+                                    type="button"
+                                    onClick={() => setAdjustingKey(null)}
+                                    className="px-3 py-1.5 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] text-[12px] font-semibold rounded-md cursor-pointer transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveAdjust(codeKey)}
+                                    disabled={delta === 0}
+                                    className={`
+                                      px-3.5 py-1.5 rounded-md text-[12px] font-semibold transition-colors cursor-pointer
+                                      ${delta !== 0 
+                                        ? 'bg-[#1f5f8b] hover:bg-[#17496c] text-white border border-[#1f5f8b]' 
+                                        : 'bg-[#f6f7f9] text-[#a4a7ae] border border-[#dcdee3] cursor-default'
+                                      }
+                                    `}
+                                  >
+                                    Save adjustment
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -876,6 +956,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           <span>Export CSV</span>
         </button>
       </div>
+
+      {/* Inventory Deduplication & Merge Modal */}
+      <InventoryCleanupModal
+        isOpen={isCleanupOpen}
+        onClose={() => setIsCleanupOpen(false)}
+        rawInventory={rawInventory}
+      />
     </div>
   );
 };

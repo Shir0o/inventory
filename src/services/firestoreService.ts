@@ -272,7 +272,8 @@ export async function updateInventoryItem(
   id: string, 
   item: any, 
   thresholds?: { warning: number, critical: number },
-  note?: string
+  note?: string,
+  occurredAt?: string
 ) {
   const path = `inventory/${id}`;
   try {
@@ -347,7 +348,8 @@ export async function updateInventoryItem(
       previousStock: currentStock,
       newStock: Number(item.stockLevel),
       delta,
-      note: note?.trim() || undefined
+      note: note?.trim() || undefined,
+      occurredAt: occurredAt || new Date().toISOString().split('T')[0]
     });
     return;
   } catch (error) {
