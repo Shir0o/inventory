@@ -235,9 +235,52 @@ export async function getInventoryItemBySku(sku: string) {
   return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
 }
 
+/**
+ * Programmatically generates the next available SKU for a new inventory item
+ * without requiring the user to come up with one manually.
+ */
+export async function generateProgrammaticSku(category: string = 'Tract', language: string = 'EN'): Promise<string> {
+  const normCat = (category || 'Tract').toLowerCase();
+  const prefix = normCat.includes('bible') ? 'BIB' : normCat.includes('booklet') ? 'BKL' : 'TR';
+  const langCode = (language || 'EN').toUpperCase().slice(0, 2);
+  const itemNum = langCode === 'ES' ? '002' : '001';
+
+  const snapshot = await getDocs(collection(db, 'inventory'));
+  const regex = new RegExp(`^${prefix}-(\\d+)`, 'i');
+  let maxNum = 0;
+
+  snapshot.forEach(doc => {
+    const data = doc.data();
+    const s = data.sku || '';
+    const match = s.match(regex);
+    if (match && match[1]) {
+      const n = parseInt(match[1], 10);
+      if (!isNaN(n) && n > maxNum) {
+        maxNum = n;
+      }
+    }
+  });
+
+  let nextNum = maxNum + 1;
+  let candidate = `${prefix}-${String(nextNum).padStart(3, '0')}-${itemNum}-${langCode}`;
+  
+  // Double-check uniqueness in case of race
+  while (await getInventoryItemBySku(candidate)) {
+    nextNum++;
+    candidate = `${prefix}-${String(nextNum).padStart(3, '0')}-${itemNum}-${langCode}`;
+  }
+
+  return candidate;
+}
+
 export async function addInventoryItem(item: any, thresholds?: { warning: number, critical: number }) {
   const path = 'inventory';
   try {
+    // If SKU is not provided or empty, dynamically generate it programmatically
+    if (!item.sku || !item.sku.trim()) {
+      item.sku = await generateProgrammaticSku(item.category || 'Tract', item.language || 'EN');
+    }
+
     // Check for SKU uniqueness
     const existing = await getInventoryItemBySku(item.sku);
     if (existing) {
@@ -1251,8 +1294,16 @@ export async function syncUserProfile(user: any) {
     const userRef = doc(db, 'users', user.uid);
     
     // Check if user exists to preserve role
-    const { getDoc } = await import('firebase/firestore');
-    const userDoc = await getDoc(userRef);
+    let userDoc;
+    try {
+      userDoc = await getDoc(userRef);
+    } catch (readErr: any) {
+      if (readErr?.message?.includes('offline') || readErr?.code === 'unavailable') {
+        console.info("Firestore client currently offline; deferring initial profile sync.");
+        return;
+      }
+      throw readErr;
+    }
     
     const data = {
       email: user.email,
@@ -1262,24 +1313,32 @@ export async function syncUserProfile(user: any) {
     };
     
     if (!userDoc.exists()) {
-      // 1. Check if email is authorized
       const normalizedEmail = user.email?.toLowerCase();
-      const authEmailRef = doc(db, 'authorized_emails', normalizedEmail);
-      const authEmailDoc = await getDoc(authEmailRef);
-      // Use environment variable with hardcoded fallback if not set
       const primaryAdminEmail = import.meta.env.VITE_PRIMARY_ADMIN_EMAIL?.toLowerCase() || "yilongwang05@gmail.com";
       const isPrimaryAdmin = normalizedEmail === primaryAdminEmail;
 
-      if (!authEmailDoc.exists() && !isPrimaryAdmin) {
-        // Not authorized - this will trigger a permission error in rules
-        // or we can throw a custom error here
-        throw new Error("NOT_AUTHORIZED");
+      if (!isPrimaryAdmin) {
+        // Only check authorized_emails collection if not the primary admin
+        let authEmailDoc;
+        try {
+          const authEmailRef = doc(db, 'authorized_emails', normalizedEmail);
+          authEmailDoc = await getDoc(authEmailRef);
+        } catch (emailErr: any) {
+          if (emailErr?.message?.includes('offline') || emailErr?.code === 'unavailable') {
+            console.info("Firestore client currently offline; deferring email authorization check.");
+            return;
+          }
+          throw emailErr;
+        }
+
+        if (!authEmailDoc || !authEmailDoc.exists()) {
+          throw new Error("NOT_AUTHORIZED");
+        }
       }
 
       // New user defaults to 'guest' role for admin approval flow
       // Unless it's the default admin email
       const role = isPrimaryAdmin ? 'admin' : 'guest';
-      const { setDoc } = await import('firebase/firestore');
       return await setDoc(userRef, { ...data, role });
     } else {
       return await updateDoc(userRef, data);
@@ -1287,6 +1346,10 @@ export async function syncUserProfile(user: any) {
   } catch (error: any) {
     if (error.message === "NOT_AUTHORIZED") {
       throw error;
+    }
+    if (error?.message?.includes('offline') || error?.code === 'unavailable') {
+      console.info("Firestore user profile sync deferred while offline.");
+      return;
     }
     handleFirestoreError(error, OperationType.WRITE, path);
   }

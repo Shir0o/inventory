@@ -19,10 +19,18 @@ import {
   History
 } from 'lucide-react';
 import { 
+  Code,
+  Tag,
+  FileText
+} from 'lucide-react';
+import { 
   analyzeInventory, 
   executeInventoryCleanup, 
   CleanupPlan, 
-  ReconciliationStrategy 
+  ReconciliationStrategy,
+  analyzeExistingInventoryCodes,
+  executeInventoryCodeMigration,
+  CodeMigrationPlan
 } from '../services/inventoryCleanupService';
 import { useFirebase } from '../context/FirebaseContext';
 
@@ -32,6 +40,7 @@ interface InventoryCleanupModalProps {
   rawInventory: any[];
   rawEvents?: any[];
   rawLogs?: any[];
+  initialTab?: 'deduplicate' | 'codeMigration';
 }
 
 export const InventoryCleanupModal: React.FC<InventoryCleanupModalProps> = ({
@@ -39,12 +48,14 @@ export const InventoryCleanupModal: React.FC<InventoryCleanupModalProps> = ({
   onClose,
   rawInventory,
   rawEvents,
-  rawLogs
+  rawLogs,
+  initialTab = 'codeMigration'
 }) => {
   const { user, login, events: contextEvents, auditLogs: contextLogs } = useFirebase();
   const effectiveEvents = rawEvents || contextEvents || [];
   const effectiveLogs = rawLogs || contextLogs || [];
 
+  const [activeTab, setActiveTab] = useState<'deduplicate' | 'codeMigration'>(initialTab);
   const [strategy, setStrategy] = useState<ReconciliationStrategy>('reconcile_latest');
   const [customCounts, setCustomCounts] = useState<Record<string, number>>({});
   const [editingSku, setEditingSku] = useState<string | null>(null);
@@ -63,6 +74,28 @@ export const InventoryCleanupModal: React.FC<InventoryCleanupModalProps> = ({
   } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Code Migration State
+  const [isMigratingCodes, setIsMigratingCodes] = useState(false);
+  const [codeMigrationFilter, setCodeMigrationFilter] = useState<'all' | 'needsUpdate'>('needsUpdate');
+  const [codeMigrationSearch, setCodeMigrationSearch] = useState('');
+  const [codeMigrationResult, setCodeMigrationResult] = useState<{
+    success: boolean;
+    updatedCount: number;
+    totalAnalyzed: number;
+  } | null>(null);
+
+  // Synchronize initialTab if changed on open
+  React.useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
+
+  // Compute code migration plan
+  const codeMigrationPlan: CodeMigrationPlan = useMemo(() => {
+    return analyzeExistingInventoryCodes(rawInventory);
+  }, [rawInventory]);
+
   // Compute dry-run analysis with current strategy & custom overrides
   const plan: CleanupPlan = useMemo(() => {
     return analyzeInventory(rawInventory, {
@@ -73,7 +106,30 @@ export const InventoryCleanupModal: React.FC<InventoryCleanupModalProps> = ({
     });
   }, [rawInventory, strategy, customCounts, effectiveEvents, effectiveLogs]);
 
-  if (!isOpen) return null;
+  const allMigrationItems = useMemo(() => {
+    return [...codeMigrationPlan.itemsToUpdate, ...codeMigrationPlan.itemsUnchanged];
+  }, [codeMigrationPlan]);
+
+  const handleExecuteCodeMigration = async () => {
+    if (!user) {
+      setErrorMessage('Please sign in with your Google account (YilongWang05@gmail.com) to execute database modifications.');
+      return;
+    }
+    setIsMigratingCodes(true);
+    setErrorMessage(null);
+    try {
+      const result = await executeInventoryCodeMigration(codeMigrationPlan);
+      setCodeMigrationResult({
+        ...result,
+        totalAnalyzed: codeMigrationPlan.totalDocs
+      });
+    } catch (err: any) {
+      console.error('Code migration error:', err);
+      setErrorMessage(err.message || 'Failed to execute item code migration. Please check database permissions.');
+    } finally {
+      setIsMigratingCodes(false);
+    }
+  };
 
   const handleConfirmCleanup = async () => {
     if (!user) {
@@ -133,6 +189,23 @@ export const InventoryCleanupModal: React.FC<InventoryCleanupModalProps> = ({
     );
   });
 
+  const filteredMigrationItems = allMigrationItems.filter(item => {
+    if (codeMigrationFilter === 'needsUpdate' && !item.needsUpdate && codeMigrationPlan.hasChanges) {
+      return false;
+    }
+    if (!codeMigrationSearch.trim()) return true;
+    const q = codeMigrationSearch.toLowerCase();
+    return (
+      item.targetTitle.toLowerCase().includes(q) ||
+      item.targetSku.toLowerCase().includes(q) ||
+      item.currentSku.toLowerCase().includes(q) ||
+      item.currentTitle.toLowerCase().includes(q) ||
+      item.targetBaseCode.toLowerCase().includes(q)
+    );
+  });
+
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/50 backdrop-blur-xs overflow-y-auto">
       <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-white rounded-xl shadow-2xl border border-[#dcdee3] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
@@ -140,20 +213,31 @@ export const InventoryCleanupModal: React.FC<InventoryCleanupModalProps> = ({
         {/* Header */}
         <div className="px-6 py-5 border-b border-[#dcdee3] flex items-center justify-between bg-[#fbfbfc]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-[#e9f1f7] text-[#1f5f8b] flex items-center justify-center flex-none border border-[#1f5f8b]/20">
-              <Sparkles className="w-5 h-5" />
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-none border ${
+              activeTab === 'codeMigration'
+                ? 'bg-[#f4edf7] text-[#7a4a8b] border-[#7a4a8b]/20'
+                : 'bg-[#e9f1f7] text-[#1f5f8b] border-[#1f5f8b]/20'
+            }`}>
+              {activeTab === 'codeMigration' ? <Code className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-[19px] font-bold text-[#191c20] tracking-tight">
-                  Inventory Deduplication & Reconcile Count
+                  {activeTab === 'codeMigration' ? 'Auto Item Code & Title Migration' : 'Inventory Deduplication & Reconcile Count'}
                 </h2>
-                <span className="px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider bg-[#f0f4f8] text-[#1f5f8b] rounded-full border border-[#1f5f8b]/20">
-                  Interactive Reconcile Preview
+                <span className={`px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider rounded-full border ${
+                  activeTab === 'codeMigration'
+                    ? 'bg-[#f4edf7] text-[#7a4a8b] border-[#7a4a8b]/20'
+                    : 'bg-[#f0f4f8] text-[#1f5f8b] border-[#1f5f8b]/20'
+                }`}>
+                  {activeTab === 'codeMigration' ? 'SKU & Title Reconcile' : 'Interactive Reconcile Preview'}
                 </span>
               </div>
               <p className="text-[13px] text-[#6c6f77] mt-0.5">
-                Consolidate duplicate records and update stock to the latest, most accurate count.
+                {activeTab === 'codeMigration'
+                  ? 'Standardize existing inventory to [Category]-[Sequence]-[ItemNumber]-[Language] format and restore human titles.'
+                  : 'Consolidate duplicate records and update stock to the latest, most accurate count.'
+                }
               </p>
             </div>
           </div>
@@ -166,55 +250,341 @@ export const InventoryCleanupModal: React.FC<InventoryCleanupModalProps> = ({
           </button>
         </div>
 
+        {/* Tab Navigation */}
+        <div className="flex border-b border-[#dcdee3] px-6 bg-[#f8f9fa] gap-6">
+          <button
+            type="button"
+            onClick={() => setActiveTab('codeMigration')}
+            className={`py-3 text-[13px] font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              activeTab === 'codeMigration'
+                ? 'border-[#7a4a8b] text-[#7a4a8b]'
+                : 'border-transparent text-[#6c6f77] hover:text-[#191c20]'
+            }`}
+          >
+            <Code className="w-4 h-4" />
+            <span>Auto Item Code & Title Migration</span>
+            {codeMigrationPlan.itemsToUpdate.length > 0 && (
+              <span className="px-1.5 py-0.2 text-[10.5px] font-bold bg-[#7a4a8b] text-white rounded-full">
+                {codeMigrationPlan.itemsToUpdate.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('deduplicate')}
+            className={`py-3 text-[13px] font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              activeTab === 'deduplicate'
+                ? 'border-[#1f5f8b] text-[#1f5f8b]'
+                : 'border-transparent text-[#6c6f77] hover:text-[#191c20]'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Merge & Reconcile Count</span>
+            {plan.duplicateDocsCount > 0 && (
+              <span className="px-1.5 py-0.2 text-[10.5px] font-bold bg-[#b3261e] text-white rounded-full">
+                {plan.duplicateDocsCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Error Notification */}
+        {errorMessage && (
+          <div className="mx-6 mt-4 p-3.5 bg-[#fce8e6] border border-[#f5c2c7] rounded-lg text-[13px] text-[#b3261e] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 flex-none" />
+              <span>{errorMessage}</span>
+            </div>
+            {!user && (
+              <button
+                type="button"
+                onClick={login}
+                className="px-3 py-1 bg-[#b3261e] text-white rounded text-[12px] font-bold hover:bg-[#8f1d16] flex-none cursor-pointer"
+              >
+                Sign In
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Modal Content */}
         <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-[#f8f9fa]/50">
           
-          {executionResult ? (
-            /* Success View */
-            <div className="py-10 px-6 text-center space-y-4 max-w-md mx-auto">
-              <div className="w-16 h-16 rounded-full bg-[#e6f4ea] text-[#137333] flex items-center justify-center mx-auto border border-[#c6ecd0]">
-                <CheckCircle2 className="w-9 h-9" />
-              </div>
-              <h3 className="text-[20px] font-bold text-[#191c20]">
-                Inventory Reconciled & Merged Successfully!
-              </h3>
-              <p className="text-[13.5px] text-[#44474e] leading-relaxed">
-                Database deduplication and count reconciliation completed. Duplicate documents have been removed and stock updated to the latest accurate counts.
-              </p>
-              
-              <div className="p-4 bg-white border border-[#dcdee3] rounded-lg text-left text-[13px] space-y-2 text-[#44474e] shadow-xs">
-                <div className="flex justify-between">
-                  <span className="text-[#6c6f77]">Duplicate documents removed:</span>
-                  <span className="font-bold text-[#b3261e]">−{executionResult.deletedCount} docs</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#6c6f77]">Canonical records updated:</span>
-                  <span className="font-bold text-[#1f5f8b]">{executionResult.updatedCount} records</span>
-                </div>
-                {executionResult.varianceResolved > 0 && (
-                  <div className="flex justify-between text-[#137333] font-medium">
-                    <span>Duplicate overcount inflation prevented:</span>
-                    <span>−{executionResult.varianceResolved.toLocaleString()} units</span>
-                  </div>
-                )}
-                <div className="flex justify-between border-t border-[#eef0f3] pt-2">
-                  <span className="text-[#6c6f77]">Final Reconciled Stock:</span>
-                  <span className="font-bold text-[#137333]">{executionResult.reconciledStock.toLocaleString()} units</span>
-                </div>
-              </div>
-
-              <button
-                onClick={onClose}
-                className="w-full py-2.5 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13.5px] rounded-lg transition-colors cursor-pointer shadow-xs"
-              >
-                Return to Inventory
-              </button>
-            </div>
-          ) : (
-            /* Normal Interactive Reconciliation View */
+          {/* TAB 1: CODE MIGRATION */}
+          {activeTab === 'codeMigration' && (
             <>
-              {/* Reconciliation Mode Strategy Selector */}
-              <div className="p-4 bg-white border border-[#dcdee3] rounded-xl shadow-xs space-y-3">
+              {codeMigrationResult ? (
+                /* Success View for Code Migration */
+                <div className="py-10 px-6 text-center space-y-4 max-w-md mx-auto">
+                  <div className="w-16 h-16 rounded-full bg-[#e6f4ea] text-[#137333] flex items-center justify-center mx-auto border border-[#c6ecd0]">
+                    <CheckCircle2 className="w-9 h-9" />
+                  </div>
+                  <h3 className="text-[20px] font-bold text-[#191c20]">
+                    Auto Item Code Migration Completed!
+                  </h3>
+                  <p className="text-[13.5px] text-[#44474e] leading-relaxed">
+                    Successfully updated <strong>{codeMigrationResult.updatedCount} inventory records</strong> in Firestore to the <code>[Category]-[Sequence]-[ItemNumber]-[Language]</code> standard format and restored canonical human-readable titles.
+                  </p>
+                  
+                  <div className="p-4 bg-white border border-[#dcdee3] rounded-lg text-left text-[13px] space-y-2 text-[#44474e] shadow-xs">
+                    <div className="flex justify-between">
+                      <span className="text-[#6c6f77]">Total records analyzed:</span>
+                      <span className="font-bold text-[#191c20]">{codeMigrationResult.totalAnalyzed} items</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#6c6f77]">Records updated in database:</span>
+                      <span className="font-bold text-[#7a4a8b]">{codeMigrationResult.updatedCount} items</span>
+                    </div>
+                    <div className="flex justify-between border-t border-[#eef0f3] pt-2">
+                      <span className="text-[#6c6f77]">Standard SKU Format:</span>
+                      <span className="font-mono text-[11.5px] font-bold text-[#137333]">TR-009-001-EN</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={onClose}
+                    className="w-full py-2.5 bg-[#7a4a8b] hover:bg-[#633a72] text-white font-semibold text-[13.5px] rounded-lg transition-colors cursor-pointer shadow-xs"
+                  >
+                    Return to Inventory
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Summary Metric Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-4 bg-white border border-[#dcdee3] rounded-xl shadow-xs">
+                      <div className="text-[11px] font-bold text-[#6c6f77] uppercase tracking-wider mb-1">
+                        Items Needing Update
+                      </div>
+                      <div className="text-[22px] font-extrabold text-[#7a4a8b]">
+                        {codeMigrationPlan.itemsToUpdate.length}
+                        <span className="text-[12px] font-medium text-[#6c6f77] ml-1.5">
+                          of {codeMigrationPlan.totalDocs} items
+                        </span>
+                      </div>
+                      <div className="text-[11.5px] text-[#8b8e96] mt-0.5">
+                        {codeMigrationPlan.hasChanges ? 'Needs SKU format or title fix' : 'All items standardized'}
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-white border border-[#dcdee3] rounded-xl shadow-xs">
+                      <div className="text-[11px] font-bold text-[#6c6f77] uppercase tracking-wider mb-1">
+                        Standard SKU Format
+                      </div>
+                      <div className="font-mono text-[14.5px] font-bold text-[#191c20]">
+                        [Cat]-[Seq]-[Num]-[Lang]
+                      </div>
+                      <div className="text-[11.5px] text-[#8b8e96] mt-0.5 font-mono">
+                        e.g. TR-009-001-EN / ES
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-white border border-[#dcdee3] rounded-xl shadow-xs">
+                      <div className="text-[11px] font-bold text-[#6c6f77] uppercase tracking-wider mb-1">
+                        Already Standardized
+                      </div>
+                      <div className="text-[22px] font-extrabold text-[#137333]">
+                        {codeMigrationPlan.totalDocs - codeMigrationPlan.itemsToUpdate.length}
+                        <span className="text-[12px] font-medium text-[#6c6f77] ml-1.5">
+                          items
+                        </span>
+                      </div>
+                      <div className="text-[11.5px] text-[#8b8e96] mt-0.5">
+                        Proper SKU & title in place
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Informational Guidance Box */}
+                  <div className="p-4 bg-[#fcf8ff] border border-[#e8daf7] rounded-xl text-[12.5px] text-[#5c2b7d] flex items-start gap-3">
+                    <Info className="w-5 h-5 text-[#7a4a8b] flex-none mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="font-bold text-[13px] text-[#5c2b7d]">
+                        Auto Item Code & Human Title Standardization
+                      </p>
+                      <p className="text-[#6c4885] leading-relaxed">
+                        This script migrates existing Firestore inventory items to the standardized 4-segment SKU format <code>[Category]-[Sequence]-[ItemNumber]-[Language]</code> (e.g., <code>TR-009-001-EN</code> for English, <code>TR-009-002-ES</code> for Spanish) and restores human-readable titles (e.g., replacing raw codes with <strong>The Third Part</strong>) while displaying small subtle reference tags.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Search and Filters */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 border border-[#dcdee3] rounded-xl shadow-xs">
+                    <div className="relative flex-1 max-w-sm">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8b8e96]" />
+                      <input
+                        type="text"
+                        value={codeMigrationSearch}
+                        onChange={(e) => setCodeMigrationSearch(e.target.value)}
+                        placeholder="Search title, SKU, or base code..."
+                        className="w-full pl-9 pr-3 py-1.5 border border-[#c9cbd2] rounded-md text-[13px] text-[#191c20] bg-white focus:border-[#7a4a8b] focus:ring-2 focus:ring-[#7a4a8b]/15 outline-none"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setCodeMigrationFilter('needsUpdate')}
+                        className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-colors cursor-pointer ${
+                          codeMigrationFilter === 'needsUpdate'
+                            ? 'bg-[#f4edf7] text-[#7a4a8b] border border-[#7a4a8b]'
+                            : 'bg-white text-[#44474e] border border-[#c9cbd2] hover:bg-[#f6f7f9]'
+                        }`}
+                      >
+                        Needs Update Only ({codeMigrationPlan.itemsToUpdate.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCodeMigrationFilter('all')}
+                        className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-colors cursor-pointer ${
+                          codeMigrationFilter === 'all'
+                            ? 'bg-[#f4edf7] text-[#7a4a8b] border border-[#7a4a8b]'
+                            : 'bg-white text-[#44474e] border border-[#c9cbd2] hover:bg-[#f6f7f9]'
+                        }`}
+                      >
+                        All Items ({codeMigrationPlan.totalDocs})
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Preview Table */}
+                  <div className="bg-white border border-[#dcdee3] rounded-xl overflow-hidden shadow-xs">
+                    <div className="grid grid-cols-[1.2fr_1fr_1.2fr_130px] items-center px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10.5px] font-bold tracking-wider uppercase text-[#6c6f77]">
+                      <div>Current In Database</div>
+                      <div>Standardized SKU</div>
+                      <div>Canonical Human Title</div>
+                      <div className="text-right">Action / Reason</div>
+                    </div>
+
+                    <div className="divide-y divide-[#eef0f3] max-h-[400px] overflow-y-auto">
+                      {filteredMigrationItems.length === 0 ? (
+                        <div className="py-10 text-center text-[#6c6f77] text-[13px]">
+                          No items match the current filter.
+                        </div>
+                      ) : (
+                        filteredMigrationItems.map((item) => {
+                          const langBadge = item.language === 'Spanish' ? 'ES' : 'EN';
+                          return (
+                            <div
+                              key={item.id}
+                              className={`grid grid-cols-[1.2fr_1fr_1.2fr_130px] items-center px-4 py-3 text-[13px] ${
+                                item.needsUpdate ? 'bg-[#fffdfb]' : 'bg-white'
+                              }`}
+                            >
+                              {/* Current Database Data */}
+                              <div className="min-w-0 pr-3">
+                                <div className="font-medium text-[#191c20] truncate">
+                                  {item.currentTitle}
+                                </div>
+                                <div className="font-mono text-[11px] text-[#8b8e96] flex items-center gap-1.5 mt-0.5">
+                                  <span>sku: {item.currentSku || 'none'}</span>
+                                  <span className="text-[9.5px] text-[#a8abb3]">(id: {item.id.slice(0, 6)}...)</span>
+                                </div>
+                              </div>
+
+                              {/* Standardized SKU */}
+                              <div className="min-w-0 pr-3">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-xs flex-none ${
+                                    langBadge === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'
+                                  }`}>
+                                    {langBadge}
+                                  </span>
+                                  <span 
+                                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-mono font-bold tracking-tight text-[#5f6368] bg-[#f1f3f4] border border-[#dadce0]"
+                                    title="Standard 4-segment SKU reference tag"
+                                  >
+                                    {item.targetSku}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Canonical Human Title */}
+                              <div className="min-w-0 pr-3">
+                                <div className="font-semibold text-[#191c20] text-[13px] truncate">
+                                  {item.targetTitle}
+                                </div>
+                                <div className="text-[11px] text-[#6c6f77] truncate">
+                                  {item.category} · base {item.targetBaseCode}
+                                </div>
+                              </div>
+
+                              {/* Action / Status */}
+                              <div className="text-right">
+                                {item.needsUpdate ? (
+                                  <span 
+                                    className="inline-block px-2 py-0.5 text-[10.5px] font-bold rounded-full bg-[#f4edf7] text-[#7a4a8b] border border-[#7a4a8b]/30 truncate max-w-full"
+                                    title={item.reason}
+                                  >
+                                    {item.reason}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#137333]">
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Standardized</span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {/* TAB 2: DEDUPLICATION */}
+          {activeTab === 'deduplicate' && (
+            executionResult ? (
+              /* Success View */
+              <div className="py-10 px-6 text-center space-y-4 max-w-md mx-auto">
+                <div className="w-16 h-16 rounded-full bg-[#e6f4ea] text-[#137333] flex items-center justify-center mx-auto border border-[#c6ecd0]">
+                  <CheckCircle2 className="w-9 h-9" />
+                </div>
+                <h3 className="text-[20px] font-bold text-[#191c20]">
+                  Inventory Reconciled & Merged Successfully!
+                </h3>
+                <p className="text-[13.5px] text-[#44474e] leading-relaxed">
+                  Database deduplication and count reconciliation completed. Duplicate documents have been removed and stock updated to the latest accurate counts.
+                </p>
+                
+                <div className="p-4 bg-white border border-[#dcdee3] rounded-lg text-left text-[13px] space-y-2 text-[#44474e] shadow-xs">
+                  <div className="flex justify-between">
+                    <span className="text-[#6c6f77]">Duplicate documents removed:</span>
+                    <span className="font-bold text-[#b3261e]">−{executionResult.deletedCount} docs</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6c6f77]">Canonical records updated:</span>
+                    <span className="font-bold text-[#1f5f8b]">{executionResult.updatedCount} records</span>
+                  </div>
+                  {executionResult.varianceResolved > 0 && (
+                    <div className="flex justify-between text-[#137333] font-medium">
+                      <span>Duplicate overcount inflation prevented:</span>
+                      <span>−{executionResult.varianceResolved.toLocaleString()} units</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t border-[#eef0f3] pt-2">
+                    <span className="text-[#6c6f77]">Final Reconciled Stock:</span>
+                    <span className="font-bold text-[#137333]">{executionResult.reconciledStock.toLocaleString()} units</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={onClose}
+                  className="w-full py-2.5 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13.5px] rounded-lg transition-colors cursor-pointer shadow-xs"
+                >
+                  Return to Inventory
+                </button>
+              </div>
+            ) : (
+              /* Normal Interactive Reconciliation View */
+              <div className="space-y-6">
+                {/* Reconciliation Mode Strategy Selector */}
+                <div className="p-4 bg-white border border-[#dcdee3] rounded-xl shadow-xs space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sliders className="w-4 h-4 text-[#1f5f8b]" />
@@ -665,21 +1035,27 @@ export const InventoryCleanupModal: React.FC<InventoryCleanupModalProps> = ({
                   ))
                 )}
               </div>
-            </>
-          )}
+            </div>
+          )
+        )}
 
         </div>
 
         {/* Footer Actions */}
-        {!executionResult && (
+        {((activeTab === 'deduplicate' && !executionResult) || (activeTab === 'codeMigration' && !codeMigrationResult)) && (
           <div className="px-6 py-4 border-t border-[#dcdee3] bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="text-[12px] text-[#6c6f77] flex items-center gap-1.5">
               <Database className="w-4 h-4 text-[#8b8e96]" />
               <span>
-                {plan.hasChanges 
-                  ? `${plan.docsToDelete.length} redundant documents will be cleaned, ${plan.docsToUpdate.length} documents updated to reconciled count.`
-                  : 'Your inventory is already completely deduplicated and clean.'
-                }
+                {activeTab === 'codeMigration' ? (
+                  codeMigrationPlan.hasChanges
+                    ? `${codeMigrationPlan.itemsToUpdate.length} items will be updated to standard [Category]-[Sequence]-[ItemNumber]-[Language] SKU codes and canonical titles.`
+                    : 'All inventory items already match the standard SKU format and canonical titles.'
+                ) : (
+                  plan.hasChanges 
+                    ? `${plan.docsToDelete.length} redundant documents will be cleaned, ${plan.docsToUpdate.length} documents updated to reconciled count.`
+                    : 'Your inventory is already completely deduplicated and clean.'
+                )}
               </span>
             </div>
 
@@ -687,35 +1063,63 @@ export const InventoryCleanupModal: React.FC<InventoryCleanupModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                disabled={isExecuting}
+                disabled={isExecuting || isMigratingCodes}
                 className="px-4 py-2 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] font-semibold text-[13px] rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                onClick={handleConfirmCleanup}
-                disabled={isExecuting || !plan.hasChanges}
-                className={`px-5 py-2 font-semibold text-[13px] rounded-lg transition-all flex items-center gap-2 shadow-xs cursor-pointer ${
-                  !plan.hasChanges 
-                    ? 'bg-[#eef0f3] text-[#a8abb3] cursor-not-allowed border border-[#dcdee3]' 
-                    : isExecuting
-                      ? 'bg-[#1f5f8b]/70 text-white cursor-wait'
-                      : 'bg-[#1f5f8b] hover:bg-[#17496c] text-white'
-                }`}
-              >
-                {isExecuting ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Applying Reconciled Count...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    <span>Confirm & Apply Reconciled Count</span>
-                  </>
-                )}
-              </button>
+
+              {activeTab === 'codeMigration' ? (
+                <button
+                  type="button"
+                  onClick={handleExecuteCodeMigration}
+                  disabled={isMigratingCodes || !codeMigrationPlan.hasChanges}
+                  className={`px-5 py-2 font-semibold text-[13px] rounded-lg transition-all flex items-center gap-2 shadow-xs cursor-pointer ${
+                    !codeMigrationPlan.hasChanges 
+                      ? 'bg-[#eef0f3] text-[#a8abb3] cursor-not-allowed border border-[#dcdee3]' 
+                      : isMigratingCodes
+                        ? 'bg-[#7a4a8b]/70 text-white cursor-wait'
+                        : 'bg-[#7a4a8b] hover:bg-[#633a72] text-white'
+                  }`}
+                >
+                  {isMigratingCodes ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Updating Database SKUs & Titles...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Code className="w-4 h-4" />
+                      <span>Execute Auto Item Code Migration ({codeMigrationPlan.itemsToUpdate.length})</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleConfirmCleanup}
+                  disabled={isExecuting || !plan.hasChanges}
+                  className={`px-5 py-2 font-semibold text-[13px] rounded-lg transition-all flex items-center gap-2 shadow-xs cursor-pointer ${
+                    !plan.hasChanges 
+                      ? 'bg-[#eef0f3] text-[#a8abb3] cursor-not-allowed border border-[#dcdee3]' 
+                      : isExecuting
+                        ? 'bg-[#1f5f8b]/70 text-white cursor-wait'
+                        : 'bg-[#1f5f8b] hover:bg-[#17496c] text-white'
+                  }`}
+                >
+                  {isExecuting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Applying Reconciled Count...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Confirm & Apply Reconciled Count</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         )}

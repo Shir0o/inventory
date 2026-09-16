@@ -1,6 +1,7 @@
 import React from 'react';
 import { Title, EventItem, Movement, OrderItem } from '../types';
 import { ArrowRight, ShoppingCart, Play, SlidersHorizontal } from 'lucide-react';
+import { calculateSuggestedOrderQty } from '../lib/utils';
 
 interface OverviewViewProps {
   titles: Title[];
@@ -11,6 +12,7 @@ interface OverviewViewProps {
   onStartCount: () => void;
   onAddAllToOrderList: () => void;
   reorderSensitivity?: number;
+  hasActiveCountDraft?: boolean;
 }
 
 export const OverviewView: React.FC<OverviewViewProps> = ({
@@ -21,7 +23,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   onNavigate,
   onStartCount,
   onAddAllToOrderList,
-  reorderSensitivity = 1
+  reorderSensitivity = 1,
+  hasActiveCountDraft = false
 }) => {
   const reorderAt = (t: Title) => Math.round(t.reorder * reorderSensitivity);
 
@@ -45,9 +48,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     t.editions.forEach(ed => {
       const at = reorderAt(t);
       if (ed.stock === 0 || ed.stock < at) {
-        const target = at * 2;
-        const need = Math.max(target - ed.stock, t.pack);
-        const suggest = Math.ceil(need / t.pack) * t.pack;
+        const suggest = calculateSuggestedOrderQty(ed.stock, at, t.pack);
         const key = `${t.code}-${ed.lang}`;
         flagged.push({
           title: t,
@@ -120,7 +121,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             className="px-4 py-2 border border-[#1f5f8b] bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13px] rounded-md transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
           >
             <Play className="w-3.5 h-3.5 fill-current" />
-            <span>Start a count</span>
+            <span>{hasActiveCountDraft ? 'Resume count' : 'Start a count'}</span>
           </button>
         </div>
       </div>
@@ -186,8 +187,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                         {item.edition.lang}
                       </span>
                       <div className="min-w-0">
-                        <div className="font-semibold text-[#191c20] text-[13.5px] leading-snug truncate">
-                          {item.edition.title}
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <span className="font-semibold text-[#191c20] text-[13.5px] leading-snug truncate">
+                            {item.edition.title}
+                          </span>
+                          <span className="font-mono text-[9.5px] text-[#8b8e96] bg-[#f1f3f5] px-1.5 py-0.5 rounded tracking-tight border border-[#dcdee3]/60 flex-none">
+                            {code}
+                          </span>
                         </div>
                         <div className="text-[11.5px] text-[#8b8e96] mt-0.5 truncate">
                           {onOrder 
@@ -201,8 +207,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                     </div>
 
                     {/* Code */}
-                    <div className="font-mono text-[11px] text-[#6c6f77] truncate">
-                      {code}
+                    <div className="font-mono text-[11px] text-[#8b8e96] truncate">
+                      <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
+                        {code}
+                      </span>
                     </div>
 
                     {/* In Store */}
@@ -247,7 +255,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         </div>
 
         <p className="mx-6 mt-2.5 text-[11.5px] text-[#8b8e96] leading-normal">
-          Suggested quantity brings the edition back to twice its reorder point, rounded up to a whole pack.
+          Suggested quantity orders the minimum number of full packs required to bring stock back at or above the reorder threshold.
         </p>
 
         {/* 2-Column Grid: Next Event & Recent Movements */}

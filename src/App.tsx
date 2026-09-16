@@ -22,7 +22,15 @@ import {
   deleteOrderItem,
   createAuditLog
 } from './services/firestoreService';
-import { extractBaseCode, normalizeLang, normalizeCategory } from './services/inventoryCleanupService';
+import { 
+  extractBaseCode, 
+  normalizeLang, 
+  normalizeCategory, 
+  generateProgrammaticCode, 
+  generateEditionSku, 
+  resolveHumanTitle,
+  isCodeLikeTitle 
+} from './services/inventoryCleanupService';
 import { doc, updateDoc, Timestamp, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { Sidebar } from './components/Sidebar';
@@ -56,10 +64,42 @@ export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  // Active Count Flow State
-  const [isCounting, setIsCounting] = useState(false);
-  const [activeCountEvent, setActiveCountEvent] = useState<{ name: string; date: string; id?: string } | null>(null);
+  // Active Count Flow State - loads saved count session if one was in progress
+  const [isCounting, setIsCounting] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('lit_ledger_is_counting') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [activeCountEvent, setActiveCountEvent] = useState<{ name: string; date: string; id?: string } | null>(() => {
+    try {
+      const saved = localStorage.getItem('lit_ledger_active_count_event');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [selectedEventIdForRecord, setSelectedEventIdForRecord] = useState<string | null>(null);
+
+  // Check whether an in-progress count draft exists in localStorage
+  const hasActiveCountDraft = useMemo(() => {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('lit_ledger_count_draft_')) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.itemsData && Object.values(parsed.itemsData).some((v: any) => v.took > 0)) {
+              return true;
+            }
+          }
+        }
+      }
+    } catch {}
+    return false;
+  }, [isCounting]);
 
   // Map real Firestore settings
   const settings: SettingsData = useMemo(() => {
@@ -86,19 +126,26 @@ export function App() {
     if (hasCompositeEditions) {
       return rawInventory.map(i => {
         const catNorm = (i.cat || i.category || 'Tract').replace(/s$/, '') as Category;
+        const { baseCode, baseName } = extractBaseCode(i);
+        const resolvedName = resolveHumanTitle(i.name || i.title, 'EN', baseName, baseCode);
         return {
-          code: i.code || i.sku || i.id,
-          name: i.name || i.title,
+          code: baseCode || i.code || i.sku || i.id,
+          name: resolvedName,
           cat: (catNorm === 'Bible' || catNorm === 'Booklet' || catNorm === 'Tract') ? catNorm : 'Tract',
           reorder: Number(i.reorder) || (settings.reorder[catNorm] || 100),
           pack: Number(i.pack) || (settings.pack[catNorm] || 50),
           aliases: i.aliases || [],
-          editions: (i.editions || []).map((ed: any) => ({
-            lang: ((ed.lang || 'EN').toUpperCase().includes('ES') ? 'ES' : 'EN') as Language,
-            title: ed.title || i.title,
-            stock: Number(ed.stock ?? ed.stockLevel ?? 0),
-            code: ed.code || `${i.code || i.sku}-${ed.lang}`
-          }))
+          editions: (i.editions || []).map((ed: any) => {
+            const edLang = ((ed.lang || 'EN').toUpperCase().includes('ES') ? 'ES' : 'EN') as Language;
+            const edTitle = resolveHumanTitle(ed.title || i.title, edLang, resolvedName, baseCode);
+            const edCode = generateEditionSku(baseCode || i.code || i.sku, edLang);
+            return {
+              lang: edLang,
+              title: edTitle,
+              stock: Number(ed.stock ?? ed.stockLevel ?? 0),
+              code: edCode
+            };
+          })
         };
       });
     }
@@ -110,27 +157,39 @@ export function App() {
       const { baseCode, baseName, category } = extractBaseCode(item);
       const lang = normalizeLang(item);
       const cleanCat = category;
+      const resolvedBaseName = (cleanCat === 'Bible' && (baseName.toLowerCase().includes('bible') || baseName.toLowerCase().includes('biblia')))
+        ? 'Bible'
+        : resolveHumanTitle(baseName, 'EN', baseName, baseCode);
 
       if (!groups[baseCode]) {
         groups[baseCode] = {
           code: baseCode,
-          name: baseName,
+          name: resolvedBaseName,
           cat: cleanCat,
           reorder: Number(item.reorder) || (settings.reorder[cleanCat] || 100),
           pack: Number(item.pack) || (settings.pack[cleanCat] || 50),
-          aliases: item.aliases || [],
+          aliases: Array.isArray(item.aliases) ? [...item.aliases] : (item.alias ? [item.alias] : []),
           editions: []
         };
+      } else if (item.aliases && Array.isArray(item.aliases)) {
+        const mergedAliases = Array.from(new Set([...(groups[baseCode].aliases || []), ...item.aliases]));
+        groups[baseCode].aliases = mergedAliases;
       }
 
-      const editionTitle = item.title || groups[baseCode].name;
+      const editionTitle = resolveHumanTitle(item.title, lang, resolvedBaseName, baseCode);
+      const editionCode = generateEditionSku(item.sku || baseCode, lang);
       const stock = Number(item.stockLevel ?? item.stock ?? 0);
       const existingEdIndex = groups[baseCode].editions.findIndex(e => e.lang === lang);
 
       if (existingEdIndex >= 0) {
         // Consolidate stock from duplicate documents in UI mapping
         groups[baseCode].editions[existingEdIndex].stock += stock;
-        if (!groups[baseCode].editions[existingEdIndex].title && editionTitle) {
+        const currentTitle = groups[baseCode].editions[existingEdIndex].title || '';
+        const isBadTitle = !currentTitle || 
+          isCodeLikeTitle(currentTitle) || 
+          currentTitle.toLowerCase().includes('(spanish)') || 
+          currentTitle.toLowerCase().includes('(english)');
+        if (isBadTitle && editionTitle && !editionTitle.toLowerCase().includes('(spanish)') && !editionTitle.toLowerCase().includes('(english)')) {
           groups[baseCode].editions[existingEdIndex].title = editionTitle;
         }
       } else {
@@ -138,7 +197,7 @@ export function App() {
           lang,
           title: editionTitle,
           stock,
-          code: item.sku || `${baseCode}-${lang}`
+          code: editionCode
         });
       }
     });
@@ -148,16 +207,16 @@ export function App() {
       if (g.editions.length === 1 && g.editions[0].lang === 'EN') {
         g.editions.push({
           lang: 'ES',
-          title: g.name,
+          title: resolveHumanTitle('', 'ES', g.name, g.code),
           stock: 0,
-          code: `${g.code}-ES`
+          code: generateEditionSku(g.code, 'ES')
         });
       } else if (g.editions.length === 1 && g.editions[0].lang === 'ES') {
         g.editions.unshift({
           lang: 'EN',
-          title: g.name,
+          title: resolveHumanTitle('', 'EN', g.name, g.code),
           stock: 0,
-          code: `${g.code}-EN`
+          code: generateEditionSku(g.code, 'EN')
         });
       }
       g.editions.sort((a, b) => (a.lang === 'EN' ? -1 : 1));
@@ -286,12 +345,19 @@ export function App() {
   const handleAdjustStock = async (codeKey: string, newStock: number, note: string, date?: string) => {
     try {
       const occurredAt = date || getTodayIso();
-      // Find matching item in Firestore inventory
-      const [titleCode, lang] = codeKey.split('-');
+      // Derive language and baseCode reliably from 4-segment SKU (e.g. TR-009-001-EN) or legacy (TR-009-EN)
+      const isSpanish = codeKey.endsWith('-ES') || codeKey.includes('-002-');
+      const lang = isSpanish ? 'ES' : 'EN';
+      const cleanBaseCode = codeKey
+        .replace(/-(001|002)-(EN|ES)$/i, '')
+        .replace(/-(EN|ES)$/i, '')
+        .trim();
+
       const item = rawInventory.find(i => 
         i.sku === codeKey || 
         i.id === codeKey || 
-        (i.baseCode === titleCode && (i.language?.toLowerCase().includes(lang?.toLowerCase()) || i.sku?.endsWith(`-${lang}`)))
+        (extractBaseCode(i).baseCode === cleanBaseCode && normalizeLang(i) === lang) ||
+        (i.baseCode === cleanBaseCode && (i.language?.toLowerCase().includes(lang.toLowerCase()) || i.sku?.endsWith(`-${lang}`)))
       );
 
       if (item) {
@@ -302,14 +368,18 @@ export function App() {
           delta: diff,
           previousStock: prevStock,
           newStock,
-          sku: item.sku,
+          sku: item.sku || codeKey,
           occurredAt,
           note: note?.trim() || undefined
         });
       } else {
         // Create new item in Firestore if not existing
-        const targetTitle = titles.find(t => t.code === titleCode);
-        const titleName = targetTitle ? `${targetTitle.name} (${lang})` : codeKey;
+        const targetTitle = titles.find(t => t.code === cleanBaseCode);
+        const titleName = targetTitle 
+          ? (lang === 'ES' 
+              ? (targetTitle.editions.find(e => e.lang === 'ES')?.title || resolveHumanTitle('', 'ES', targetTitle.name, cleanBaseCode))
+              : (targetTitle.editions.find(e => e.lang === 'EN')?.title || targetTitle.name))
+          : resolveHumanTitle(codeKey, lang, undefined, cleanBaseCode);
         const cat = targetTitle?.cat || 'Tract';
         const docRef = await addInventoryItem({
           sku: codeKey,
@@ -319,7 +389,7 @@ export function App() {
           stockLevel: newStock,
           status: newStock === 0 ? 'Out' : newStock < 100 ? 'Low' : 'Healthy',
           unitPrice: 0,
-          baseCode: titleCode,
+          baseCode: cleanBaseCode,
           baseName: targetTitle?.name || titleName
         });
         if (docRef) {
@@ -340,14 +410,23 @@ export function App() {
   // Handlers for Saving Titles (Add / Edit) - writes directly to Firestore
   const handleSaveTitle = async (originalCode: string | null, nextTitle: Title) => {
     try {
+      let codeToUse = nextTitle.code?.trim();
+      if (!codeToUse || codeToUse.endsWith('-') || codeToUse === 'TR' || codeToUse === 'BIB' || codeToUse === 'BKL') {
+        codeToUse = generateProgrammaticCode(nextTitle.cat, titles);
+      }
       for (const ed of nextTitle.editions) {
-        const sku = `${nextTitle.code}-${ed.lang}`;
-        const existing = rawInventory.find(i => i.sku === sku || (originalCode && i.baseCode === originalCode && i.sku?.endsWith(`-${ed.lang}`)));
+        const sku = generateEditionSku(codeToUse, ed.lang);
+        const humanTitle = resolveHumanTitle(ed.title || nextTitle.name, ed.lang, nextTitle.name, codeToUse);
+        const existing = rawInventory.find(i => 
+          i.sku === sku || 
+          i.sku === `${codeToUse}-${ed.lang}` || 
+          (originalCode && (i.baseCode === originalCode || i.sku?.startsWith(`${originalCode}-`)) && normalizeLang(i) === ed.lang)
+        );
         
         const catStr = nextTitle.cat === 'Bible' ? 'Bibles' : nextTitle.cat === 'Booklet' ? 'Booklets' : 'Tracts';
         const payload = {
           sku,
-          title: ed.title || nextTitle.name,
+          title: humanTitle,
           category: catStr,
           language: ed.lang === 'ES' ? 'Spanish' : 'English',
           stockLevel: ed.stock,
@@ -355,7 +434,7 @@ export function App() {
           unitPrice: 0,
           pack: nextTitle.pack,
           reorder: nextTitle.reorder,
-          baseCode: nextTitle.code,
+          baseCode: codeToUse,
           baseName: nextTitle.name,
           aliases: nextTitle.aliases || []
         };
@@ -365,7 +444,7 @@ export function App() {
         } else {
           const docRef = await addInventoryItem(payload);
           if (docRef && ed.stock > 0) {
-            await createAuditLog('STARTING_STOCK', docRef.id, 'inventory', `Starting stock of ${ed.stock} units for ${ed.title}`, {
+            await createAuditLog('STARTING_STOCK', docRef.id, 'inventory', `Starting stock of ${ed.stock} units for ${humanTitle}`, {
               delta: ed.stock,
               sku
             });
@@ -379,29 +458,50 @@ export function App() {
 
   // Handlers for Count Flow - updates Firestore stock atomically & logs event
   const handleStartCount = (eventItem?: EventItem) => {
+    let nextEvent: { name: string; date: string; id?: string };
     if (eventItem) {
-      setActiveCountEvent({
+      nextEvent = {
         name: eventItem.location,
         date: eventItem.date,
         id: eventItem.id
-      });
+      };
     } else {
-      const nextPlanned = events.find(e => e.planned);
-      if (nextPlanned) {
-        setActiveCountEvent({
-          name: nextPlanned.location,
-          date: nextPlanned.date,
-          id: nextPlanned.id
-        });
-      } else {
-        setActiveCountEvent({
-          name: 'CISA outreach distribution',
-          date: getTodayIso(),
-          id: undefined
-        });
+      // If we already have an activeCountEvent saved from a draft, prioritize restoring it
+      const savedEventRaw = localStorage.getItem('lit_ledger_active_count_event');
+      let restoredFromSaved = false;
+      if (savedEventRaw) {
+        try {
+          const parsed = JSON.parse(savedEventRaw);
+          if (parsed && parsed.name) {
+            nextEvent = parsed;
+            restoredFromSaved = true;
+          }
+        } catch {}
+      }
+
+      if (!restoredFromSaved) {
+        const nextPlanned = events.find(e => e.planned);
+        if (nextPlanned) {
+          nextEvent = {
+            name: nextPlanned.location,
+            date: nextPlanned.date,
+            id: nextPlanned.id
+          };
+        } else {
+          nextEvent = {
+            name: 'CISA outreach distribution',
+            date: getTodayIso(),
+            id: undefined
+          };
+        }
       }
     }
+    setActiveCountEvent(nextEvent!);
     setIsCounting(true);
+    try {
+      localStorage.setItem('lit_ledger_is_counting', 'true');
+      localStorage.setItem('lit_ledger_active_count_event', JSON.stringify(nextEvent!));
+    } catch {}
   };
 
   const handlePostCount = async (lines: EventLine[]) => {
@@ -452,6 +552,12 @@ export function App() {
         delta: -totalPassed,
         linesCount: lines.length
       });
+
+      // 4. Clean up active count session storage
+      try {
+        localStorage.removeItem('lit_ledger_is_counting');
+        localStorage.removeItem('lit_ledger_active_count_event');
+      } catch {}
     } catch (err) {
       console.error('Failed to post count to database:', err);
     }
@@ -622,6 +728,7 @@ export function App() {
         onLogin={login}
         onLogout={logout}
         isAdmin={isAdmin}
+        hasActiveCountDraft={hasActiveCountDraft}
       />
 
       {/* Main Content Area */}
@@ -679,6 +786,7 @@ export function App() {
             }}
             onStartCount={() => handleStartCount()}
             onAddAllToOrderList={handleAddAllToOrderList}
+            hasActiveCountDraft={hasActiveCountDraft}
           />
         )}
 
@@ -748,19 +856,30 @@ export function App() {
           titles={titles}
           eventName={activeCountEvent?.name || 'CISA outreach distribution'}
           eventDate={activeCountEvent?.date || getTodayFormatted()}
+          eventId={activeCountEvent?.id}
           onPostCount={handlePostCount}
           onLeave={() => {
             setIsCounting(false);
-            setActiveCountEvent(null);
+            try {
+              localStorage.setItem('lit_ledger_is_counting', 'false');
+            } catch {}
           }}
           onViewRecord={() => {
             setIsCounting(false);
             setActiveCountEvent(null);
+            try {
+              localStorage.setItem('lit_ledger_is_counting', 'false');
+              localStorage.removeItem('lit_ledger_active_count_event');
+            } catch {}
             setActiveTab('events');
           }}
           onGoOrderList={() => {
             setIsCounting(false);
             setActiveCountEvent(null);
+            try {
+              localStorage.setItem('lit_ledger_is_counting', 'false');
+              localStorage.removeItem('lit_ledger_active_count_event');
+            } catch {}
             setActiveTab('order');
           }}
         />

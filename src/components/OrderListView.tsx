@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Title, OrderItem } from '../types';
-import { ShoppingCart, PackageCheck, Plus, Check, Trash2, ArrowLeft, Layers } from 'lucide-react';
+import { ShoppingCart, PackageCheck, Plus, Check, Trash2, ArrowLeft, Layers, RotateCcw } from 'lucide-react';
+import { calculateSuggestedOrderQty } from '../lib/utils';
 
 interface OrderListViewProps {
   titles: Title[];
@@ -50,9 +51,7 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
     t.editions.forEach(ed => {
       const at = reorderAt(t);
       if (ed.stock < at) {
-        const target = at * 2;
-        const need = Math.max(target - ed.stock, t.pack);
-        const suggest = Math.ceil(need / t.pack) * t.pack;
+        const suggest = calculateSuggestedOrderQty(ed.stock, at, t.pack);
         const codeKey = `${t.code}-${ed.lang}`;
         candidates.push({
           title: t,
@@ -419,7 +418,7 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
             <div>
               <h2 className="text-[18px] font-bold tracking-tight text-[#191c20]">To order</h2>
               <p className="text-[13px] text-[#6c6f77] mt-0.5">
-                Editions that have fallen below their reorder point. Select which ones to place with the publisher.
+                Editions that have fallen below their reorder threshold. Quantities are smart-calculated to order the minimum full packs needed to reach or exceed the threshold.
               </p>
             </div>
             <div className="flex items-center gap-2 flex-none">
@@ -503,16 +502,25 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
                           <span className="font-semibold text-[#191c20] truncate">
                             {c.edition.title}
                           </span>
+                          <span className="font-mono text-[10px] text-[#8b8e96] bg-[#f1f3f5] px-1.5 py-0.5 rounded tracking-tight border border-[#dcdee3]/60 flex-none">
+                            {c.codeKey}
+                          </span>
                         </div>
-                        {isOnOrder && (
+                        {isOnOrder ? (
                           <div className="text-[11.5px] text-[#8a5a00] font-medium mt-0.5">
                             Already on order ({orderMap[c.codeKey].qty} pcs)
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-[#6c6f77] mt-0.5">
+                            Deficit: {c.at - c.edition.stock} below threshold ({c.at}) · Smart suggest: {c.suggest} ({Math.round(c.suggest / c.pack)} {Math.round(c.suggest / c.pack) === 1 ? 'pack' : 'packs'}) to reach ≥{c.at}
                           </div>
                         )}
                       </div>
 
-                      <div className="font-mono text-[11px] text-[#6c6f77] truncate">
-                        {c.codeKey}
+                      <div className="font-mono text-[11px] text-[#8b8e96] truncate">
+                        <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
+                          {c.codeKey}
+                        </span>
                       </div>
 
                       <div className="text-right font-mono text-[13.5px] font-bold text-[#8a5a00] tabular-nums">
@@ -523,7 +531,7 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
                         {c.at}
                       </div>
 
-                      <div className="flex justify-end">
+                      <div className="flex items-center justify-end gap-1.5">
                         <input
                           type="number"
                           min="0"
@@ -536,6 +544,20 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
                           }}
                           className="w-20 px-2 py-1 border border-[#c9cbd2] rounded-md font-mono text-[13px] font-bold text-right text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none tabular-nums disabled:bg-[#edeef4]"
                         />
+                        {customQuantities[c.codeKey] !== undefined && customQuantities[c.codeKey] !== c.suggest && !isOnOrder && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = { ...customQuantities };
+                              delete next[c.codeKey];
+                              setCustomQuantities(next);
+                            }}
+                            title={`Reset to smart suggest (${c.suggest})`}
+                            className="p-1 text-[#8b8e96] hover:text-[#1f5f8b] cursor-pointer transition-colors"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
 
                       <div className="text-right font-mono text-[12.5px] text-[#8b8e96] tabular-nums">
@@ -574,8 +596,13 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
                     className="grid grid-cols-[1fr_100px_100px_90px_70px] items-center px-4 py-3 text-[13px]"
                   >
                     <div className="min-w-0 pr-3">
-                      <div className="font-semibold text-[#191c20] truncate">
-                        {o.title}
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-semibold text-[#191c20] truncate">
+                          {o.title}
+                        </span>
+                        <span className="font-mono text-[10px] text-[#8b8e96] bg-[#f1f3f5] px-1.5 py-0.5 rounded tracking-tight border border-[#dcdee3]/60 flex-none">
+                          {o.code}
+                        </span>
                       </div>
                       {o.bundle && (
                         <div className="text-[11.5px] text-[#1f5f8b] font-medium mt-0.5">
@@ -584,8 +611,10 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
                       )}
                     </div>
 
-                    <div className="font-mono text-[11px] text-[#6c6f77] truncate">
-                      {o.code}
+                    <div className="font-mono text-[11px] text-[#8b8e96] truncate">
+                      <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
+                        {o.code}
+                      </span>
                     </div>
 
                     <div className="text-[12.5px] text-[#6c6f77]">

@@ -26,6 +26,7 @@ interface SidebarProps {
   onLogin?: () => void;
   onLogout?: () => void;
   isAdmin?: boolean;
+  hasActiveCountDraft?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -39,7 +40,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   user,
   onLogin,
   onLogout,
-  isAdmin
+  isAdmin,
+  hasActiveCountDraft = false
 }) => {
   const mainNavItems = [
     { id: 'overview' as ActiveTab, label: 'Overview', icon: LayoutDashboard },
@@ -191,7 +193,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Action Pinned Footer */}
-        <div className="p-4 border-t border-[#dcdee3] space-y-3 bg-[#f6f7f9]">
+        <div className="p-4 border-t border-[#dcdee3] space-y-2 bg-[#f6f7f9]">
           <button
             onClick={() => {
               onStartCount();
@@ -200,10 +202,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="w-full py-2.5 px-3.5 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13px] rounded-md flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs active:scale-[0.99]"
           >
             <Play className="w-3.5 h-3.5 fill-current" />
-            <span>Start a count</span>
+            <span>{hasActiveCountDraft ? 'Resume count' : 'Start a count'}</span>
           </button>
           <p className="text-[11px] text-[#8b8e96] leading-relaxed text-center">
-            Taking literature out reserves it. Stock only moves when the count is posted.
+            {hasActiveCountDraft 
+              ? 'You have a saved in-progress count. Click to resume.' 
+              : 'Taking literature out reserves it. Stock only moves when the count is posted.'}
           </p>
         </div>
       </aside>

@@ -195,7 +195,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             <div className="p-3.5 bg-[#f6f7f9] border border-[#dcdee3] rounded-md text-[12.5px] text-[#44474e]">
-              <strong>Worked example:</strong> If a booklet edition has <strong>8</strong> in store with a reorder point of <strong>60</strong> (target 120), the system suggests ordering <strong>120</strong> (6 packs of 20).
+              <strong>Worked example:</strong> If a booklet edition has <strong>8</strong> in store with a reorder point of <strong>60</strong> (deficit of 52) and a pack size of <strong>20</strong>, the system smart-suggests ordering <strong>60</strong> (3 packs of 20) to bring stock to 68, safely reaching and exceeding the 60 threshold.
             </div>
           </div>
 

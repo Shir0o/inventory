@@ -525,7 +525,18 @@ export const EventsView: React.FC<EventsViewProps> = ({
                           onClick={() => onStartCountForEvent(ev)}
                           className="px-3.5 py-2 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[12.5px] rounded-md transition-colors cursor-pointer shadow-xs"
                         >
-                          Count event
+                          {(() => {
+                            try {
+                              const raw = localStorage.getItem(`lit_ledger_count_draft_event_${ev.id}`);
+                              if (raw) {
+                                const parsed = JSON.parse(raw);
+                                if (parsed?.itemsData && Object.values(parsed.itemsData).some((v: any) => v.took > 0)) {
+                                  return 'Resume count';
+                                }
+                              }
+                            } catch {}
+                            return 'Count event';
+                          })()}
                         </button>
                       ) : (
                         <button

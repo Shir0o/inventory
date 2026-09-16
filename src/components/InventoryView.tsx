@@ -3,7 +3,7 @@ import { Title, Category, Language } from '../types';
 import { Search, Plus, Download, Edit2, SlidersHorizontal, ArrowLeft, X, Calendar, Sparkles, AlertCircle } from 'lucide-react';
 import { exportToCSV } from '../lib/csvExport';
 import { InventoryCleanupModal } from './InventoryCleanupModal';
-import { analyzeInventory } from '../services/inventoryCleanupService';
+import { analyzeInventory, generateProgrammaticCode } from '../services/inventoryCleanupService';
 
 interface InventoryViewProps {
   titles: Title[];
@@ -128,8 +128,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const handleStartNewTitle = () => {
     setOriginalTitle(null);
     setAliasInput('');
+    const autoCode = generateProgrammaticCode('Tract', titles);
     setDraftTitle({
-      code: 'TR-',
+      code: autoCode,
       name: '',
       cat: 'Tract',
       reorder: String(DEFAULT_REORDER.Tract),
@@ -163,8 +164,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const handleSetDraftCat = (cat: Category) => {
     if (!draftTitle) return;
     const wasDefault = draftTitle.reorder === String(DEFAULT_REORDER[draftTitle.cat]);
-    const code = (!originalTitle && (!draftTitle.code || draftTitle.code.startsWith('TR-') || draftTitle.code.startsWith('BIB-') || draftTitle.code.startsWith('BKL-')))
-      ? `${PREFIX[cat]}-`
+    const code = !originalTitle
+      ? generateProgrammaticCode(cat, titles)
       : draftTitle.code;
     setDraftTitle({
       ...draftTitle,
@@ -312,30 +313,58 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 The content itself. Its canonical name is shown when referring to the title across editions.
               </p>
 
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-3.5">
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-3.5">
                 <div>
                   <label className="text-[10px] font-bold tracking-wider uppercase text-[#6c6f77] block mb-1.5">
-                    Name
+                    Title Name
                   </label>
                   <input
                     type="text"
                     value={draftTitle.name}
-                    onChange={(e) => setDraftTitle({ ...draftTitle, name: e.target.value })}
+                    onChange={(e) => {
+                      const nextName = e.target.value;
+                      setDraftTitle(prev => {
+                        if (!prev) return null;
+                        const nextEditions = prev.editions.map(ed => {
+                          // Auto-fill English edition title if it was empty or matched previous draft name
+                          if (ed.lang === 'EN' && (!ed.title || ed.title === prev.name)) {
+                            return { ...ed, title: nextName };
+                          }
+                          return ed;
+                        });
+                        return { ...prev, name: nextName, editions: nextEditions };
+                      });
+                    }}
                     placeholder="What this piece of literature is called"
                     className="w-full px-3 py-2 border border-[#c9cbd2] rounded-md text-[13.5px] text-[#191c20] bg-white focus:border-[#1f5f8b] focus:ring-2 focus:ring-[#1f5f8b]/15 outline-none transition-all"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold tracking-wider uppercase text-[#6c6f77] block mb-1.5">
-                    Code
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
+                      Reference Code
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const freshCode = generateProgrammaticCode(draftTitle.cat, titles);
+                        setDraftTitle({ ...draftTitle, code: freshCode });
+                      }}
+                      className="text-[10px] font-semibold text-[#1f5f8b] hover:underline"
+                    >
+                      Auto-generate
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={draftTitle.code}
                     onChange={(e) => setDraftTitle({ ...draftTitle, code: e.target.value.toUpperCase() })}
-                    placeholder="TR-NEW"
-                    className="w-full px-3 py-2 border border-[#c9cbd2] rounded-md font-mono text-[13.5px] font-semibold text-[#191c20] bg-white focus:border-[#1f5f8b] focus:ring-2 focus:ring-[#1f5f8b]/15 outline-none uppercase transition-all"
+                    placeholder="TR-001"
+                    className="w-full px-3 py-2 border border-[#c9cbd2] rounded-md font-mono text-[13px] font-semibold text-[#191c20] bg-[#fbfbfc] focus:bg-white focus:border-[#1f5f8b] focus:ring-2 focus:ring-[#1f5f8b]/15 outline-none uppercase transition-all"
                   />
+                  <span className="text-[10px] text-[#8b8e96] mt-0.5 block">
+                    Auto-generated reference tag
+                  </span>
                 </div>
               </div>
 
@@ -754,8 +783,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   {/* Title Header Row */}
                   <div className="grid grid-cols-[1fr_90px_80px_80px_70px_70px] items-baseline px-6 pt-3.5 pb-2 bg-[#fbfbfc]">
                     <div className="min-w-0 pr-3">
-                      <div className="font-bold text-[14.5px] text-[#191c20] tracking-tight truncate">
-                        {t.name}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-[14.5px] text-[#191c20] tracking-tight">
+                          {t.name}
+                        </span>
+                        <span className="font-mono text-[10px] text-[#8b8e96] bg-[#f1f3f5] px-1.5 py-0.5 rounded tracking-tight font-normal border border-[#dcdee3]/60" title="Base reference code">
+                          {t.code}
+                        </span>
                       </div>
                       {aliases.length > 0 && (
                         <div className="text-[11.5px] text-[#8b8e96] italic mt-0.5 truncate">
@@ -763,8 +797,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                         </div>
                       )}
                     </div>
-                    <div className="font-mono text-[11px] text-[#a8abb3] truncate">
-                      {t.code}
+                    <div className="font-mono text-[11px] text-[#8b8e96] truncate">
+                      <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
+                        {t.code}
+                      </span>
                     </div>
                     <div className="text-right font-mono text-[13px] font-bold text-[#8b8e96] tabular-nums">
                       {titleTotal}
@@ -797,21 +833,26 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                             ${status === 'out' ? 'bg-[#fffcfc]' : status === 'low' ? 'bg-[#fffdf7]' : 'bg-white'}
                           `}>
                             {/* Edition title & lang badge */}
-                            <div className="min-w-0 flex items-baseline gap-2.5 pl-4 pr-3">
+                            <div className="min-w-0 flex items-baseline gap-2 pl-4 pr-3 flex-wrap">
                               <span className={`
                                 text-[9px] font-bold px-1.5 py-0.5 rounded-xs flex-none
                                 ${ed.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}
                               `}>
                                 {ed.lang}
                               </span>
-                              <span className="font-medium text-[#191c20] text-[13.5px] truncate">
+                              <span className="font-medium text-[#191c20] text-[13.5px]">
                                 {ed.title}
+                              </span>
+                              <span className="font-mono text-[10px] text-[#8b8e96] bg-[#f1f3f5] px-1.5 py-0.5 rounded tracking-tight font-normal border border-[#dcdee3]/60" title="Edition reference code">
+                                {codeKey}
                               </span>
                             </div>
 
                             {/* Code */}
-                            <div className="font-mono text-[11px] text-[#6c6f77] truncate">
-                              {codeKey}
+                            <div className="font-mono text-[11px] text-[#8b8e96] truncate">
+                              <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
+                                {codeKey}
+                              </span>
                             </div>
 
                             {/* Stock */}

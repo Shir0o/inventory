@@ -221,17 +221,23 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
         const q = parseInt(qty) || 0;
         
         // Map common names to categorical SKUs
-        if (s.includes('SPANISH BIBLE') || s.includes('BIBLIA')) return { sku: 'BIBLES_ES', quantity: q, title: 'Spanish Bibles' };
-        if (s.includes('ENGLISH BIBLE')) return { sku: 'BIBLES_EN', quantity: q, title: 'English Bibles' };
-        if (s.includes('BIBLE')) return { sku: 'BIBLES', quantity: q, title: 'Total Bibles' };
+        if (s.includes('SPANISH BIBLE') || s.includes('BIBLIA')) return { sku: 'BIBLES_ES', quantity: q, title: 'Spanish Bible' };
+        if (s.includes('ENGLISH BIBLE')) return { sku: 'BIBLES_EN', quantity: q, title: 'English Bible' };
+        if (s.includes('BIBLE')) return { sku: 'BIBLES', quantity: q, title: 'Bible' };
         
         if (s.includes('SPANISH TRACT')) return { sku: 'TRACTS_ES', quantity: q, title: 'Spanish Tracts' };
         if (s.includes('ENGLISH TRACT')) return { sku: 'TRACTS_EN', quantity: q, title: 'English Tracts' };
         if (s.includes('TRACT')) return { sku: 'TRACTS', quantity: q, title: 'Total Tracts' };
         
-        if (s.includes('SPANISH BOOKLET')) return { sku: 'BOOKLETS_ES', quantity: q, title: 'Spanish Booklets' };
-        if (s.includes('ENGLISH BOOKLET')) return { sku: 'BOOKLETS_EN', quantity: q, title: 'English Booklets' };
-        if (s.includes('BOOKLET')) return { sku: 'BOOKLETS', quantity: q, title: 'Total Booklets' };
+        if (s.includes('SPANISH BOOKLET') || s.includes('SPANISH BASIC ELEMENTS') || s.includes('ELEMENTOS BASICOS') || s.includes('ELEMENTOS BÁSICOS')) {
+          return { sku: 'BOOKLETS_ES', quantity: q, title: 'Elementos básicos de la vida cristiana, tomo 1' };
+        }
+        if (s.includes('ENGLISH BOOKLET') || s.includes('ENGLISH BASIC ELEMENTS')) {
+          return { sku: 'BOOKLETS_EN', quantity: q, title: 'Basic Elements of the Christian Life, vol. 1' };
+        }
+        if (s.includes('BOOKLET') || s.includes('BASIC ELEMENTS')) {
+          return { sku: 'BOOKLETS', quantity: q, title: 'Basic Elements of the Christian Life, vol. 1' };
+        }
         
         return { sku: s, quantity: q };
       }
@@ -241,17 +247,23 @@ const BulkImportModal = ({ isOpen, onClose, initialType = 'inventory', isAdmin =
       const qtyMatch = p.match(/\d+/);
       const qty = qtyMatch ? parseInt(qtyMatch[0]) : 1;
 
-      if (lower.includes('spanish bible') || lower.includes('biblia')) return { sku: 'BIBLES_ES', quantity: qty, title: 'Spanish Bibles' };
-      if (lower.includes('english bible')) return { sku: 'BIBLES_EN', quantity: qty, title: 'English Bibles' };
-      if (lower.includes('bible')) return { sku: 'BIBLES', quantity: qty, title: 'Total Bibles' };
+      if (lower.includes('spanish bible') || lower.includes('biblia')) return { sku: 'BIBLES_ES', quantity: qty, title: 'Spanish Bible' };
+      if (lower.includes('english bible')) return { sku: 'BIBLES_EN', quantity: qty, title: 'English Bible' };
+      if (lower.includes('bible')) return { sku: 'BIBLES', quantity: qty, title: 'Bible' };
       
       if (lower.includes('spanish tract')) return { sku: 'TRACTS_ES', quantity: qty, title: 'Spanish Tracts' };
       if (lower.includes('english tract')) return { sku: 'TRACTS_EN', quantity: qty, title: 'English Tracts' };
       if (lower.includes('tract')) return { sku: 'TRACTS', quantity: qty, title: 'Total Tracts' };
       
-      if (lower.includes('spanish booklet')) return { sku: 'BOOKLETS_ES', quantity: qty, title: 'Spanish Booklets' };
-      if (lower.includes('english booklet')) return { sku: 'BOOKLETS_EN', quantity: qty, title: 'English Booklets' };
-      if (lower.includes('booklet')) return { sku: 'BOOKLETS', quantity: qty, title: 'Total Booklets' };
+      if (lower.includes('spanish booklet') || lower.includes('spanish basic elements') || lower.includes('elementos basicos') || lower.includes('elementos básicos')) {
+        return { sku: 'BOOKLETS_ES', quantity: qty, title: 'Elementos básicos de la vida cristiana, tomo 1' };
+      }
+      if (lower.includes('english booklet') || lower.includes('english basic elements')) {
+        return { sku: 'BOOKLETS_EN', quantity: qty, title: 'Basic Elements of the Christian Life, vol. 1' };
+      }
+      if (lower.includes('booklet') || lower.includes('basic elements')) {
+        return { sku: 'BOOKLETS', quantity: qty, title: 'Basic Elements of the Christian Life, vol. 1' };
+      }
 
       // 3. Simple Number (Total Items)
       if (!isNaN(parseInt(p))) {

@@ -156,8 +156,11 @@ const DistributionModal = ({ isOpen, onClose, events, inventory, settings }: Dis
                         className="flex items-center justify-between p-3 hover:bg-surface-container transition-colors text-left rounded-sharp group border border-transparent hover:border-outline-variant bg-surface"
                       >
                         <div>
-                          <p className="font-bold text-[13px] text-primary line-clamp-1">{item.title}</p>
-                          <p className="text-[11px] font-mono text-on-surface-variant whitespace-nowrap">{item.sku} • {item.stockLevel} units</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-[13px] text-primary line-clamp-1">{item.title}</p>
+                            <span className="font-mono text-[9.5px] text-slate-500 bg-slate-100 px-1 py-0.5 rounded tracking-tight shrink-0">{item.sku}</span>
+                          </div>
+                          <p className="text-[11px] font-mono text-on-surface-variant whitespace-nowrap">{item.stockLevel} units available</p>
                         </div>
                         <Plus className="w-4 h-4 text-slate-400 group-hover:text-primary shrink-0 ml-2" />
                       </button>

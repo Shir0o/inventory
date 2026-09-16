@@ -1,3 +1,5 @@
+import { resolveHumanTitle, isCodeLikeTitle } from '../services/inventoryCleanupService';
+
 export interface HumanizeOptions {
   inventoryItems?: { id?: string; sku?: string; title?: string; name?: string; baseCode?: string; baseName?: string; language?: string }[];
   events?: { id?: string; name?: string; location?: string; date?: string }[];
@@ -31,11 +33,16 @@ export function resolveTargetName(
       i => i.id === targetId || i.sku === targetId || i.baseCode === targetId
     );
     if (item) {
-      if (item.title) return item.title;
-      if (item.name) return item.name;
-      if (item.baseName) return `${item.baseName} (${item.language || item.sku || 'EN'})`;
-      if (item.sku) return item.sku;
+      const cand = item.title || item.name || item.baseName;
+      if (cand && !isCodeLikeTitle(cand)) return cand;
+      return resolveHumanTitle(cand || item.sku, (item.language as any) || 'EN', item.baseName, item.baseCode);
     }
+  }
+
+  // Also check if targetId itself is a code-like title (e.g. TR-009-001-EN)
+  if (targetType === 'inventory' || isCodeLikeTitle(targetId)) {
+    const resolved = resolveHumanTitle(targetId);
+    if (resolved && !isCodeLikeTitle(resolved)) return resolved;
   }
 
   // 2. Check events

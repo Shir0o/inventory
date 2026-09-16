@@ -7,7 +7,7 @@ export const INITIAL_TITLES: Title[] = [
     cat: 'Bible',
     reorder: 20,
     pack: 10,
-    aliases: ['Recovery Version NT', 'RcV New Testament'],
+    aliases: ['Recovery Version NT', 'RcV New Testament', 'Bible', 'Bibles', 'English Bible', 'Spanish Bible', 'Biblia'],
     editions: [
       { lang: 'EN', title: 'New Testament Recovery Version', stock: 58 },
       { lang: 'ES', title: 'Nuevo Testamento Versión Recobro', stock: 31 }
@@ -19,7 +19,18 @@ export const INITIAL_TITLES: Title[] = [
     cat: 'Booklet',
     reorder: 60,
     pack: 20,
-    aliases: ['BE Vol 1', 'Basic Elements 1'],
+    aliases: [
+      'BE Vol 1',
+      'Basic Elements 1',
+      'Basic Elements Vol 1',
+      'Basic Elements, vol. 1',
+      'Basic Elements',
+      'Basic Elements of the Christian Life',
+      'Elementos Básicos',
+      'Elementos básicos tomo 1',
+      'BKL-001',
+      'BOOKLETS'
+    ],
     editions: [
       { lang: 'EN', title: 'Basic Elements of the Christian Life, vol. 1', stock: 148 },
       { lang: 'ES', title: 'Elementos básicos de la vida cristiana, tomo 1', stock: 84 }
@@ -31,7 +42,15 @@ export const INITIAL_TITLES: Title[] = [
     cat: 'Booklet',
     reorder: 60,
     pack: 20,
-    aliases: ['BE Vol 2', 'Basic Elements 2'],
+    aliases: [
+      'BE Vol 2',
+      'Basic Elements 2',
+      'Basic Elements Vol 2',
+      'Basic Elements, vol. 2',
+      'Elementos Básicos 2',
+      'Elementos básicos tomo 2',
+      'BKL-002'
+    ],
     editions: [
       { lang: 'EN', title: 'Basic Elements of the Christian Life, vol. 2', stock: 96 },
       { lang: 'ES', title: 'Elementos básicos de la vida cristiana, tomo 2', stock: 55 }
@@ -43,7 +62,15 @@ export const INITIAL_TITLES: Title[] = [
     cat: 'Booklet',
     reorder: 60,
     pack: 20,
-    aliases: ['BE Vol 3', 'Basic Elements 3'],
+    aliases: [
+      'BE Vol 3',
+      'Basic Elements 3',
+      'Basic Elements Vol 3',
+      'Basic Elements, vol. 3',
+      'Elementos Básicos 3',
+      'Elementos básicos tomo 3',
+      'BKL-003'
+    ],
     editions: [
       { lang: 'EN', title: 'Basic Elements of the Christian Life, vol. 3', stock: 72 },
       { lang: 'ES', title: 'Elementos básicos de la vida cristiana, tomo 3', stock: 40 }
@@ -127,7 +154,7 @@ export const INITIAL_TITLES: Title[] = [
     cat: 'Tract',
     reorder: 150,
     pack: 50,
-    aliases: ['Healing Jesus'],
+    aliases: ['Healing Touch', 'Healing Jesus'],
     editions: [
       { lang: 'EN', title: 'Only Jesus Can Heal Us', stock: 180 },
       { lang: 'ES', title: 'El toque que sana', stock: 118 }

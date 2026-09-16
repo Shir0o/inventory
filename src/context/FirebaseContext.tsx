@@ -59,6 +59,9 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         } catch (error: any) {
           if (error.message === "NOT_AUTHORIZED") {
             setIsAuthorized(false);
+          } else {
+            console.warn("User profile sync deferred (offline or reconnecting):", error?.message || error);
+            setIsAuthorized(true);
           }
         }
       }

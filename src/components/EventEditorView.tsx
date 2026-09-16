@@ -757,8 +757,11 @@ export const EventEditorView: React.FC<EventEditorViewProps> = ({
                               }}
                               className="flex-1 text-left"
                             >
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <p className="text-xs font-bold text-primary">{i.title}</p>
+                                <span className="font-mono text-[9px] text-slate-500 bg-slate-100 px-1 py-0.5 rounded tracking-tight border border-outline-variant/60">
+                                  {i.sku}
+                                </span>
                                 {i.language && (
                                   <span className="text-[9px] px-1.5 py-0.5 bg-surface-container text-on-surface-variant font-bold rounded-md uppercase">
                                     {i.language}
@@ -766,7 +769,7 @@ export const EventEditorView: React.FC<EventEditorViewProps> = ({
                                 )}
                               </div>
                               <p className="text-[10px] font-mono text-on-surface-variant mt-0.5">
-                                {i.sku} • {isOutOfStock ? (
+                                {isOutOfStock ? (
                                   <span className="text-tertiary font-bold bg-tertiary/10 px-1.5 py-0.5 rounded">OUT OF STOCK</span>
                                 ) : (
                                   <span>{i.stockLevel} in stock</span>
@@ -870,7 +873,7 @@ export const EventEditorView: React.FC<EventEditorViewProps> = ({
                             <div>
                               <p className="font-headline font-bold text-sm text-primary">{m.title}</p>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <span className="font-mono text-[10px] text-on-surface-variant uppercase">{m.sku}</span>
+                                <span className="font-mono text-[9.5px] text-slate-500 bg-slate-100 px-1 py-0.5 rounded tracking-tight border border-outline-variant/60">{m.sku}</span>
                                 {m.language && (
                                   <>
                                     <span className="text-slate-300">•</span>
@@ -1047,7 +1050,7 @@ export const EventEditorView: React.FC<EventEditorViewProps> = ({
                                   {m.isOptimistic && <span className="ml-2 text-[10px] text-primary italic font-normal">(Syncing...)</span>}
                                 </p>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="font-mono text-[10px] text-on-surface-variant uppercase">{m.sku}</span>
+                                  <span className="font-mono text-[9.5px] text-slate-500 bg-slate-100 px-1 py-0.5 rounded tracking-tight border border-outline-variant/60">{m.sku}</span>
                                   {m.language && (
                                     <>
                                       <span className="text-slate-300">•</span>

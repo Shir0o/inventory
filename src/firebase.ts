@@ -1,19 +1,33 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager, 
+  doc, 
+  getDocFromServer 
+} from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+// Use experimentalForceLongPolling to avoid 10-second WebChannel stream buffering timeouts in sandbox/proxy environments,
+// paired with persistentLocalCache for reliable offline support across tabs.
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+}, firebaseConfig.firestoreDatabaseId);
+
 export const googleProvider = new GoogleAuthProvider();
 
-// Connection test
+// Connection test as specified in firebase-skill
 async function testConnection() {
   try {
-    // Attempt to fetch a connectivity test doc
-    await getDocFromServer(doc(db, '_system_', 'connectivity_test'));
+    await getDocFromServer(doc(db, 'test', 'connection'));
     console.log("Firebase connection established.");
   } catch (error: any) {
     if (error instanceof Error) {

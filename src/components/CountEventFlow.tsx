@@ -6,6 +6,7 @@ interface CountEventFlowProps {
   titles: Title[];
   eventName: string;
   eventDate: string;
+  eventId?: string;
   onPostCount: (lines: EventLine[]) => void;
   onLeave: () => void;
   onViewRecord: () => void;
@@ -26,10 +27,34 @@ interface WorkingItem {
   returned: number | null;
 }
 
+interface SavedCountDraft {
+  eventId?: string;
+  eventName: string;
+  eventDate: string;
+  step: 1 | 2 | 3 | 4;
+  currentIndex: number;
+  searchQuery?: string;
+  itemsData: {
+    [code: string]: {
+      took: number;
+      returned: number | null;
+    };
+  };
+  lastSavedAt: number;
+}
+
+const getStorageKey = (id?: string, name?: string, date?: string) => {
+  if (id) return `lit_ledger_count_draft_event_${id}`;
+  const safeName = (name || 'outreach').trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const safeDate = (date || 'today').trim().replace(/[^a-z0-9]/g, '_');
+  return `lit_ledger_count_draft_${safeName}_${safeDate}`;
+};
+
 export const CountEventFlow: React.FC<CountEventFlowProps> = ({
   titles,
   eventName,
   eventDate,
+  eventId,
   onPostCount,
   onLeave,
   onViewRecord,
@@ -38,33 +63,130 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
   autoAdvanceOnEnter = true
 }) => {
   const reorderAt = (reorder: number) => Math.round(reorder * reorderSensitivity);
+  const storageKey = getStorageKey(eventId, eventName, eventDate);
 
-  // Initialize items from titles
+  // Helper to load saved draft from localStorage
+  const loadSavedDraft = (): SavedCountDraft | null => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && parsed.itemsData) {
+        return parsed;
+      }
+    } catch (err) {
+      console.warn('Failed to parse saved count draft:', err);
+    }
+    return null;
+  };
+
+  // Initialize items from titles, restoring any saved take out or return numbers
   const buildInitialItems = (): WorkingItem[] => {
+    const draft = loadSavedDraft();
+    const savedCounts = draft?.itemsData || {};
+
     const list: WorkingItem[] = [];
     titles.forEach(t => {
       const aliases = t.aliases || (t.alias ? [t.alias] : []);
       t.editions.forEach(ed => {
+        const code = `${t.code}-${ed.lang}`;
+        const saved = savedCounts[code];
         list.push({
-          code: `${t.code}-${ed.lang}`,
+          code,
           title: ed.title,
           lang: ed.lang,
           cat: t.cat,
           inStore: ed.stock,
           reorder: t.reorder,
           alias: aliases.join(', '),
-          took: 0,
-          returned: null
+          took: saved && typeof saved.took === 'number' ? saved.took : 0,
+          returned: saved ? saved.returned : null
         });
       });
     });
     return list;
   };
 
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(() => {
+    const draft = loadSavedDraft();
+    if (draft && draft.step >= 1 && draft.step <= 3) {
+      return draft.step;
+    }
+    return 1;
+  });
+
   const [items, setItems] = useState<WorkingItem[]>(buildInitialItems);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
+
+  const [currentIndex, setCurrentIndex] = useState<number>(() => {
+    const draft = loadSavedDraft();
+    return typeof draft?.currentIndex === 'number' ? draft.currentIndex : 0;
+  });
+
+  const [searchQuery, setSearchQuery] = useState<string>(() => {
+    const draft = loadSavedDraft();
+    return draft?.searchQuery || '';
+  });
+
+  const [lastSavedTime, setLastSavedTime] = useState<string | null>(() => {
+    const draft = loadSavedDraft();
+    if (draft?.lastSavedAt) {
+      const d = new Date(draft.lastSavedAt);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    return null;
+  });
+
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+
+  // Auto-save draft on every change so user never loses progress
+  useEffect(() => {
+    if (step === 4) {
+      return;
+    }
+
+    const itemsData: { [code: string]: { took: number; returned: number | null } } = {};
+    let hasAnyData = false;
+
+    items.forEach(i => {
+      if (i.took > 0 || i.returned !== null) {
+        hasAnyData = true;
+        itemsData[i.code] = {
+          took: i.took,
+          returned: i.returned
+        };
+      }
+    });
+
+    if (hasAnyData || step > 1) {
+      try {
+        const payload: SavedCountDraft = {
+          eventId,
+          eventName,
+          eventDate,
+          step,
+          currentIndex,
+          searchQuery,
+          itemsData,
+          lastSavedAt: Date.now()
+        };
+        localStorage.setItem(storageKey, JSON.stringify(payload));
+        localStorage.setItem('lit_ledger_active_count_event', JSON.stringify({
+          name: eventName,
+          date: eventDate,
+          id: eventId
+        }));
+        localStorage.setItem('lit_ledger_is_counting', 'true');
+        const d = new Date();
+        setLastSavedTime(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      } catch (err) {
+        console.warn('Failed to save count draft to localStorage:', err);
+      }
+    } else {
+      try {
+        localStorage.removeItem(storageKey);
+      } catch (err) {}
+    }
+  }, [items, step, currentIndex, searchQuery, storageKey, eventId, eventName, eventDate]);
 
   // Keyboard navigation for step 2
   useEffect(() => {
@@ -122,15 +244,55 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
       took: i.took,
       back: i.returned || 0
     }));
+
+    // Post to backend
     onPostCount(lines);
+
+    // Clean up draft from storage
+    try {
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem('lit_ledger_is_counting');
+      localStorage.removeItem('lit_ledger_active_count_event');
+    } catch (err) {}
+
     setStep(4);
   };
 
-  const handleRestart = () => {
-    setItems(buildInitialItems());
+  const handleDiscardDraft = () => {
+    try {
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem('lit_ledger_is_counting');
+      localStorage.removeItem('lit_ledger_active_count_event');
+    } catch (err) {}
+
+    const fresh: WorkingItem[] = [];
+    titles.forEach(t => {
+      const aliases = t.aliases || (t.alias ? [t.alias] : []);
+      t.editions.forEach(ed => {
+        fresh.push({
+          code: `${t.code}-${ed.lang}`,
+          title: ed.title,
+          lang: ed.lang,
+          cat: t.cat,
+          inStore: ed.stock,
+          reorder: t.reorder,
+          alias: aliases.join(', '),
+          took: 0,
+          returned: null
+        });
+      });
+    });
+
+    setItems(fresh);
     setCurrentIndex(0);
     setSearchQuery('');
     setStep(1);
+    setLastSavedTime(null);
+    setShowDiscardConfirm(false);
+  };
+
+  const handleRestart = () => {
+    handleDiscardDraft();
   };
 
   // Find low items after count
@@ -157,6 +319,24 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
             {eventName}
           </div>
           <div className="text-[12px] text-[#6c6f77] mt-0.5">{eventDate}</div>
+
+          {/* Auto-save status and draft reset */}
+          <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-[#dcdee3]">
+            <div className="flex items-center gap-1.5 text-[11px] text-[#1f5f8b] font-medium">
+              <Check className="w-3.5 h-3.5 flex-none" />
+              <span>{lastSavedTime ? `Saved at ${lastSavedTime}` : 'Auto-saving'}</span>
+            </div>
+            {(takenItems.length > 0 || step > 1) && step !== 4 && (
+              <button
+                type="button"
+                onClick={() => setShowDiscardConfirm(true)}
+                className="text-[11px] text-[#6c6f77] hover:text-[#b3261e] underline cursor-pointer"
+                title="Discard saved progress and start over"
+              >
+                Reset draft
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Step Progress List */}
@@ -298,6 +478,11 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                 How many of each are you taking? Nothing leaves your stock count yet — that happens when you post the count afterwards.
               </p>
 
+              <div className="mt-2.5 inline-flex items-center gap-1.5 text-[12px] text-[#1f5f8b] bg-[#e9f1f7] px-2.5 py-1 rounded-md border border-[#1f5f8b]/15">
+                <Check className="w-3.5 h-3.5 flex-none" />
+                <span>All entries auto-save immediately. You can safely leave and return at any time.</span>
+              </div>
+
               <div className="mt-4 w-80">
                 <input
                   type="text"
@@ -342,12 +527,14 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                           {item.title}
                         </div>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="font-mono text-[11px] text-[#6c6f77]">{item.code}</span>
                           <span className={`
                             text-[9px] font-bold px-1.5 py-0.5 rounded-xs
                             ${item.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}
                           `}>
                             {item.lang}
+                          </span>
+                          <span className="font-mono text-[10px] text-[#8b8e96] bg-[#f1f3f5] px-1.5 py-0.5 rounded tracking-tight border border-[#dcdee3]/60">
+                            {item.code}
                           </span>
                           {item.alias && (
                             <span className="text-[11.5px] text-[#8b8e96] italic">
@@ -431,12 +618,14 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                 {currentItem.title}
               </h1>
               <div className="flex items-center gap-2 mt-2">
-                <span className="font-mono text-[12px] text-[#6c6f77]">{currentItem.code}</span>
                 <span className={`
                   text-[10px] font-bold px-2 py-0.5 rounded-xs uppercase tracking-wider
                   ${currentItem.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}
                 `}>
                   {currentItem.lang === 'EN' ? 'ENGLISH' : 'SPANISH'}
+                </span>
+                <span className="font-mono text-[11px] text-[#8b8e96] bg-[#f1f3f5] px-2 py-0.5 rounded tracking-tight border border-[#dcdee3]/60 font-normal">
+                  {currentItem.code}
                 </span>
               </div>
               {currentItem.alias && (
@@ -612,13 +801,13 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                           {item.title}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="font-mono text-[11px] text-[#6c6f77]">{item.code}</span>
                           <span className={`
                             text-[9px] font-bold px-1.5 py-0.5 rounded-xs
                             ${item.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}
                           `}>
                             {item.lang}
                           </span>
+                          <span className="font-mono text-[10px] text-[#8b8e96] bg-[#f1f3f5] px-1.5 py-0.5 rounded tracking-tight border border-[#dcdee3]/60">{item.code}</span>
                           {isLow && (
                             <span className="text-[11px] font-semibold text-[#8a5a00]">
                               below reorder point of {reorderAt(item.reorder)}
@@ -815,6 +1004,34 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
           </div>
         )}
       </main>
+
+      {/* Discard In-Progress Count Confirmation Dialog */}
+      {showDiscardConfirm && (
+        <div className="fixed inset-0 bg-slate-900/40 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-lg border border-[#dcdee3] space-y-4">
+            <h3 className="font-bold text-[16px] text-[#191c20]">Discard in-progress count?</h3>
+            <p className="text-[13px] text-[#44474e] leading-relaxed">
+              This will clear all entered quantities and reset the count back to Step 1.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDiscardConfirm(false)}
+                className="px-3.5 py-1.5 border border-[#c9cbd2] bg-white text-[#44474e] text-[13px] font-semibold rounded-md hover:bg-[#f6f7f9] cursor-pointer"
+              >
+                Keep counting
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardDraft}
+                className="px-3.5 py-1.5 bg-[#b3261e] hover:bg-[#8e1f18] text-white text-[13px] font-semibold rounded-md cursor-pointer shadow-xs"
+              >
+                Discard & reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

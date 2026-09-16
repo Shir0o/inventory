@@ -81,24 +81,550 @@ export interface CleanupPlan {
   reconciliationStrategy: ReconciliationStrategy;
 }
 
-// Known title pairs for standard catalog literature if unlinked
-const KNOWN_TITLE_PAIRS: { [key: string]: { baseCode: string; baseName: string; cat: Category; enTitle: string; esTitle: string } } = {
-  'nkjv holy bible': { baseCode: 'BIB-NKJV', baseName: 'NKJV Holy Bible', cat: 'Bible', enTitle: 'NKJV Holy Bible', esTitle: 'Santa Biblia RV1960' },
-  'santa biblia rv1960': { baseCode: 'BIB-NKJV', baseName: 'NKJV Holy Bible', cat: 'Bible', enTitle: 'NKJV Holy Bible', esTitle: 'Santa Biblia RV1960' },
-  'new testament recovery version': { baseCode: 'BIB-NTRV', baseName: 'New Testament Recovery Version', cat: 'Bible', enTitle: 'New Testament Recovery Version', esTitle: 'Nuevo Testamento Versión Recobro' },
-  'nuevo testamento versión recobro': { baseCode: 'BIB-NTRV', baseName: 'New Testament Recovery Version', cat: 'Bible', enTitle: 'New Testament Recovery Version', esTitle: 'Nuevo Testamento Versión Recobro' },
-  'steps to christ': { baseCode: 'TR-STC', baseName: 'Steps to Christ', cat: 'Tract', enTitle: 'Steps to Christ', esTitle: 'El Camino a Cristo' },
-  'el camino a cristo': { baseCode: 'TR-STC', baseName: 'Steps to Christ', cat: 'Tract', enTitle: 'Steps to Christ', esTitle: 'El Camino a Cristo' },
-  'understanding prophecy': { baseCode: 'BKL-PROP', baseName: 'Understanding Prophecy', cat: 'Booklet', enTitle: 'Understanding Prophecy', esTitle: 'Entendiendo la Profecía' },
-  'entendiendo la profecía': { baseCode: 'BKL-PROP', baseName: 'Understanding Prophecy', cat: 'Booklet', enTitle: 'Understanding Prophecy', esTitle: 'Entendiendo la Profecía' },
-  'foolishness or the power of god?': { baseCode: 'TR-FOOL', baseName: 'Foolishness or the Power of God?', cat: 'Tract', enTitle: 'Foolishness or the Power of God?', esTitle: 'La palabra de la cruz: ¿locura o sabiduría?' },
-  'freed from the fear of death': { baseCode: 'TR-FEAR', baseName: 'Freed from the Fear of Death', cat: 'Tract', enTitle: 'Freed from the Fear of Death', esTitle: 'Librados del temor de la muerte' },
-  'how can i know god exists?': { baseCode: 'TR-EXIST', baseName: 'How Can I Know God Exists?', cat: 'Tract', enTitle: 'How Can I Know God Exists?', esTitle: '¿Cómo saber que Dios existe?' },
-  'is jesus in your boat?': { baseCode: 'TR-BOAT', baseName: 'Is Jesus in Your Boat?', cat: 'Tract', enTitle: 'Is Jesus in Your Boat?', esTitle: '¿Está Jesús en su barca?' },
-  'basic elements of the christian life, vol. 1': { baseCode: 'BKL-BE1', baseName: 'Basic Elements of the Christian Life, vol. 1', cat: 'Booklet', enTitle: 'Basic Elements of the Christian Life, vol. 1', esTitle: 'Elementos básicos de la vida cristiana, tomo 1' },
-  'basic elements of the christian life, vol. 2': { baseCode: 'BKL-BE2', baseName: 'Basic Elements of the Christian Life, vol. 2', cat: 'Booklet', enTitle: 'Basic Elements of the Christian Life, vol. 2', esTitle: 'Elementos básicos de la vida cristiana, tomo 2' },
-  'basic elements of the christian life, vol. 3': { baseCode: 'BKL-BE3', baseName: 'Basic Elements of the Christian Life, vol. 3', cat: 'Booklet', enTitle: 'Basic Elements of the Christian Life, vol. 3', esTitle: 'Elementos básicos de la vida cristiana, tomo 3' }
-};
+// Full Catalog Literature Registry supporting sequential codes (TR-001..TR-013, BKL-001..BKL-004, BIB-001..BIB-002)
+// and legacy alphanumeric slugs (TR-THIRD, TR-FOOL, etc.)
+export interface CatalogItemDefinition {
+  seq: number;
+  baseCode: string;
+  legacyCodes: string[];
+  baseName: string;
+  cat: Category;
+  enTitle: string;
+  esTitle: string;
+  aliases: string[];
+}
+
+export const CATALOG_REGISTRY: CatalogItemDefinition[] = [
+  // Bibles
+  {
+    seq: 1,
+    baseCode: 'BIB-001',
+    legacyCodes: [
+      'BIB-NTRV',
+      'BIBLES',
+      'BIB-BIBLE',
+      'BIB-ENGLISHB',
+      'BIB-SPANISHB',
+      'BIBLES_EN',
+      'BIBLES_ES',
+      'BIB-EN',
+      'BIB-ES'
+    ],
+    baseName: 'Bible',
+    cat: 'Bible',
+    enTitle: 'English Bible',
+    esTitle: 'Spanish Bible',
+    aliases: [
+      'Bible',
+      'Bibles',
+      'English Bible',
+      'Spanish Bible',
+      'English Bibles',
+      'Spanish Bibles',
+      'Biblia',
+      'Biblia en Español',
+      'Santa Biblia',
+      'Holy Bible',
+      'New Testament Recovery Version',
+      'Nuevo Testamento Versión Recobro',
+      'Recovery Version NT',
+      'RcV New Testament',
+      'BIB-NTRV',
+      'BIBLES',
+      'BIBLES_EN',
+      'BIBLES_ES'
+    ]
+  },
+  {
+    seq: 2,
+    baseCode: 'BIB-002',
+    legacyCodes: ['BIB-NKJV'],
+    baseName: 'NKJV Holy Bible',
+    cat: 'Bible',
+    enTitle: 'NKJV Holy Bible',
+    esTitle: 'Santa Biblia RV1960',
+    aliases: ['NKJV', 'RV1960', 'Santa Biblia', 'BIB-NKJV']
+  },
+
+  // Booklets
+  {
+    seq: 1,
+    baseCode: 'BKL-001',
+    legacyCodes: ['BKL-BE1', 'BKL-BE-1', 'BE1', 'BE-1', 'BOOKLETS', 'BOOKLETS_EN', 'BOOKLETS_ES'],
+    baseName: 'Basic Elements of the Christian Life, vol. 1',
+    cat: 'Booklet',
+    enTitle: 'Basic Elements of the Christian Life, vol. 1',
+    esTitle: 'Elementos básicos de la vida cristiana, tomo 1',
+    aliases: [
+      'BE Vol 1',
+      'BE Vol. 1',
+      'BE, Vol. 1',
+      'Basic Elements 1',
+      'Basic Elements Vol 1',
+      'Basic Elements Vol. 1',
+      'Basic Elements, Vol. 1',
+      'Basic Elements of the Christian Life 1',
+      'Basic Elements of the Christian Life Vol 1',
+      'Basic Elements of the Christian Life Vol. 1',
+      'Basic Elements of the Christian Life, Vol. 1',
+      'Basic Elements of the Christian Life',
+      'Basic Elements',
+      'Elementos Básicos 1',
+      'Elementos Básicos Tomo 1',
+      'Elementos Básicos de la Vida Cristiana Tomo 1',
+      'Elementos básicos de la vida cristiana, tomo 1',
+      'Elementos Básicos',
+      'Elementos basicos',
+      'BKL-BE1',
+      'BE1',
+      'BKL-001',
+      'Booklet',
+      'Booklets',
+      'English Booklet',
+      'Spanish Booklet',
+      'English Booklets',
+      'Spanish Booklets',
+      'BOOKLETS',
+      'BOOKLETS_EN',
+      'BOOKLETS_ES'
+    ]
+  },
+  {
+    seq: 2,
+    baseCode: 'BKL-002',
+    legacyCodes: ['BKL-BE2', 'BKL-BE-2', 'BE2', 'BE-2'],
+    baseName: 'Basic Elements of the Christian Life, vol. 2',
+    cat: 'Booklet',
+    enTitle: 'Basic Elements of the Christian Life, vol. 2',
+    esTitle: 'Elementos básicos de la vida cristiana, tomo 2',
+    aliases: [
+      'BE Vol 2',
+      'BE Vol. 2',
+      'BE, Vol. 2',
+      'Basic Elements 2',
+      'Basic Elements Vol 2',
+      'Basic Elements Vol. 2',
+      'Basic Elements, Vol. 2',
+      'Basic Elements of the Christian Life 2',
+      'Basic Elements of the Christian Life Vol 2',
+      'Basic Elements of the Christian Life Vol. 2',
+      'Basic Elements of the Christian Life, Vol. 2',
+      'Elementos Básicos 2',
+      'Elementos Básicos Tomo 2',
+      'Elementos Básicos de la Vida Cristiana Tomo 2',
+      'Elementos básicos de la vida cristiana, tomo 2',
+      'BKL-BE2',
+      'BE2',
+      'BKL-002'
+    ]
+  },
+  {
+    seq: 3,
+    baseCode: 'BKL-003',
+    legacyCodes: ['BKL-BE3', 'BKL-BE-3', 'BE3', 'BE-3'],
+    baseName: 'Basic Elements of the Christian Life, vol. 3',
+    cat: 'Booklet',
+    enTitle: 'Basic Elements of the Christian Life, vol. 3',
+    esTitle: 'Elementos básicos de la vida cristiana, tomo 3',
+    aliases: [
+      'BE Vol 3',
+      'BE Vol. 3',
+      'BE, Vol. 3',
+      'Basic Elements 3',
+      'Basic Elements Vol 3',
+      'Basic Elements Vol. 3',
+      'Basic Elements, Vol. 3',
+      'Basic Elements of the Christian Life 3',
+      'Basic Elements of the Christian Life Vol 3',
+      'Basic Elements of the Christian Life Vol. 3',
+      'Basic Elements of the Christian Life, Vol. 3',
+      'Elementos Básicos 3',
+      'Elementos Básicos Tomo 3',
+      'Elementos Básicos de la Vida Cristiana Tomo 3',
+      'Elementos básicos de la vida cristiana, tomo 3',
+      'BKL-BE3',
+      'BE3',
+      'BKL-003'
+    ]
+  },
+  {
+    seq: 4,
+    baseCode: 'BKL-004',
+    legacyCodes: ['BKL-PROP'],
+    baseName: 'Understanding Prophecy',
+    cat: 'Booklet',
+    enTitle: 'Understanding Prophecy',
+    esTitle: 'Entendiendo la Profecía',
+    aliases: ['BKL-PROP']
+  },
+
+  // Tracts (1-13)
+  {
+    seq: 1,
+    baseCode: 'TR-001',
+    legacyCodes: ['TR-FOOL'],
+    baseName: 'Foolishness or the Power of God?',
+    cat: 'Tract',
+    enTitle: 'Foolishness or the Power of God?',
+    esTitle: 'La palabra de la cruz: ¿locura o sabiduría?',
+    aliases: ['The Word of the Cross', 'TR-FOOL']
+  },
+  {
+    seq: 2,
+    baseCode: 'TR-002',
+    legacyCodes: ['TR-FEAR'],
+    baseName: 'Freed from the Fear of Death',
+    cat: 'Tract',
+    enTitle: 'Freed from the Fear of Death',
+    esTitle: 'Librados del temor de la muerte',
+    aliases: ['Fear of Death', 'TR-FEAR']
+  },
+  {
+    seq: 3,
+    baseCode: 'TR-003',
+    legacyCodes: ['TR-EXIST'],
+    baseName: 'How Can I Know God Exists?',
+    cat: 'Tract',
+    enTitle: 'How Can I Know God Exists?',
+    esTitle: '¿Cómo saber que Dios existe?',
+    aliases: ['God Exists', 'TR-EXIST']
+  },
+  {
+    seq: 4,
+    baseCode: 'TR-004',
+    legacyCodes: ['TR-BOAT'],
+    baseName: 'Is Jesus in Your Boat?',
+    cat: 'Tract',
+    enTitle: 'Is Jesus in Your Boat?',
+    esTitle: '¿Está Jesús en su barca?',
+    aliases: ['Jesus in Your Boat', 'TR-BOAT']
+  },
+  {
+    seq: 5,
+    baseCode: 'TR-005',
+    legacyCodes: ['TR-LOST'],
+    baseName: 'Lost and Found',
+    cat: 'Tract',
+    enTitle: 'Lost and Found',
+    esTitle: 'Perdido y hallado',
+    aliases: ['Lost & Found', 'TR-LOST']
+  },
+  {
+    seq: 6,
+    baseCode: 'TR-006',
+    legacyCodes: ['TR-ENEM'],
+    baseName: 'No Longer Enemies',
+    cat: 'Tract',
+    enTitle: 'No Longer Enemies',
+    esTitle: 'Ya no somos enemigos',
+    aliases: ['TR-ENEM']
+  },
+  {
+    seq: 7,
+    baseCode: 'TR-007',
+    legacyCodes: ['TR-HEAL'],
+    baseName: 'Only Jesus Can Heal Us',
+    cat: 'Tract',
+    enTitle: 'Only Jesus Can Heal Us',
+    esTitle: 'El toque que sana',
+    aliases: ['Healing Touch', 'Healing Jesus', 'TR-HEAL']
+  },
+  {
+    seq: 8,
+    baseCode: 'TR-008',
+    legacyCodes: ['TR-BIGQ'],
+    baseName: 'The Big Question',
+    cat: 'Tract',
+    enTitle: 'The Big Question',
+    esTitle: 'La pregunta crucial',
+    aliases: ['The Ultimate Question', 'TR-BIGQ']
+  },
+  {
+    seq: 9,
+    baseCode: 'TR-009',
+    legacyCodes: ['TR-THIRD'],
+    baseName: 'The Third Part',
+    cat: 'Tract',
+    enTitle: 'The Third Part',
+    esTitle: 'La tercera parte',
+    aliases: ['Human Spirit - The Third Part', 'The Third Part (Human Spirit)', 'TR-THIRD']
+  },
+  {
+    seq: 10,
+    baseCode: 'TR-010',
+    legacyCodes: ['TR-WHO'],
+    baseName: 'Who Is Jesus?',
+    cat: 'Tract',
+    enTitle: 'Who Is Jesus?',
+    esTitle: '¿Quién es Jesús?',
+    aliases: ['TR-WHO']
+  },
+  {
+    seq: 11,
+    baseCode: 'TR-011',
+    legacyCodes: ['TR-KNOW'],
+    baseName: 'You Can Know God',
+    cat: 'Tract',
+    enTitle: 'You Can Know God',
+    esTitle: 'Al Dios no conocido',
+    aliases: ['To the Unknown God', 'TR-KNOW']
+  },
+  {
+    seq: 12,
+    baseCode: 'TR-012',
+    legacyCodes: ['TR-BORN'],
+    baseName: 'You Must Be Born Anew',
+    cat: 'Tract',
+    enTitle: 'You Must Be Born Anew',
+    esTitle: 'Os es necesario nacer de nuevo',
+    aliases: ['Born Again', 'Born Anew', 'TR-BORN']
+  },
+  {
+    seq: 13,
+    baseCode: 'TR-013',
+    legacyCodes: ['TR-STC'],
+    baseName: 'Steps to Christ',
+    cat: 'Tract',
+    enTitle: 'Steps to Christ',
+    esTitle: 'El Camino a Cristo',
+    aliases: ['TR-STC']
+  }
+];
+
+/**
+ * Checks if a string looks like a raw SKU / code rather than a human-readable title
+ * (e.g. TR-009-001-EN, TR-009, BIB-001-001-EN, TR-THIRD, TR 009, etc.)
+ */
+export function isCodeLikeTitle(text: string | null | undefined): boolean {
+  if (!text || typeof text !== 'string') return true;
+  const t = text.trim();
+  if (!t) return true;
+  if (/^(TR|BIB|BKL|GEN)[-_ ][A-Z0-9]+([-_ ][A-Z0-9]+)*$/i.test(t)) return true;
+  if (/^(TR|BIB|BKL|GEN)-\d+/i.test(t)) return true;
+  if (/^[A-Z0-9_-]{4,25}$/i.test(t) && !t.includes(' ')) return true;
+  return false;
+}
+
+/**
+ * Matches an item or text against the Catalog Registry by title, SKU, baseCode, or legacy code
+ */
+export function findCatalogItem(params: {
+  title?: string;
+  sku?: string;
+  baseCode?: string;
+  id?: string;
+}): CatalogItemDefinition | null {
+  const titleNorm = String(params.title || '').trim().toLowerCase();
+  const skuNorm = String(params.sku || '').trim().toUpperCase();
+  const baseCodeNorm = String(params.baseCode || '').trim().toUpperCase();
+  const idNorm = String(params.id || '').trim().toUpperCase();
+
+  // 1. Direct SKU/Code exact or prefix match (e.g. TR-009-001-EN -> TR-009)
+  for (const item of CATALOG_REGISTRY) {
+    const codesToTest = [
+      item.baseCode,
+      ...item.legacyCodes,
+      `${item.baseCode}-001-EN`,
+      `${item.baseCode}-002-ES`,
+      `${item.baseCode}-EN`,
+      `${item.baseCode}-ES`
+    ];
+    const titleUpper = titleNorm.toUpperCase();
+    if (
+      (baseCodeNorm && (item.baseCode === baseCodeNorm || item.legacyCodes.includes(baseCodeNorm))) ||
+      (skuNorm && (codesToTest.includes(skuNorm) || skuNorm.startsWith(`${item.baseCode}-`) || item.legacyCodes.some(l => skuNorm.startsWith(`${l}-`)))) ||
+      (titleUpper && (codesToTest.includes(titleUpper) || titleUpper.startsWith(`${item.baseCode}-`) || item.legacyCodes.some(l => titleUpper.startsWith(`${l}-`)))) ||
+      (idNorm && (codesToTest.includes(idNorm) || idNorm.startsWith(`${item.baseCode}-`)))
+    ) {
+      return item;
+    }
+  }
+
+  // 2. Title match (English, Spanish, or Aliases)
+  if (titleNorm) {
+    // Strip trailing language tags for clean matching against registry titles
+    const cleanTitle = titleNorm
+      .replace(/\s*\((english|spanish|en|es)\)/gi, '')
+      .replace(/\s*-\s*(english|spanish|en|es)$/gi, '')
+      .trim();
+
+    for (const item of CATALOG_REGISTRY) {
+      const en = item.enTitle.toLowerCase();
+      const es = item.esTitle.toLowerCase();
+      if (
+        titleNorm === en ||
+        titleNorm === es ||
+        cleanTitle === en ||
+        cleanTitle === es ||
+        titleNorm.includes(en) ||
+        titleNorm.includes(es) ||
+        en.includes(titleNorm) ||
+        es.includes(titleNorm) ||
+        (cleanTitle && (en.includes(cleanTitle) || es.includes(cleanTitle) || cleanTitle.includes(en) || cleanTitle.includes(es))) ||
+        item.aliases.some(a => {
+          const aLower = a.toLowerCase();
+          return titleNorm === aLower ||
+            cleanTitle === aLower ||
+            titleNorm.includes(aLower) ||
+            cleanTitle.includes(aLower) ||
+            aLower.includes(titleNorm) ||
+            (cleanTitle && aLower.includes(cleanTitle));
+        })
+      ) {
+        return item;
+      }
+      // Check if title itself is a code (e.g. TR-009-001-EN)
+      if (
+        titleNorm === item.baseCode.toLowerCase() ||
+        titleNorm.startsWith(`${item.baseCode.toLowerCase()}-`) ||
+        item.legacyCodes.some(l => titleNorm === l.toLowerCase() || titleNorm.startsWith(`${l.toLowerCase()}-`))
+      ) {
+        return item;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Resolves a human-readable title, strictly avoiding raw code display (e.g. TR-009-001-EN).
+ */
+export function resolveHumanTitle(
+  rawTitle: string | undefined | null,
+  lang: Language = 'EN',
+  baseNameFallback?: string,
+  baseCodeFallback?: string
+): string {
+  const trimmed = rawTitle ? rawTitle.trim() : '';
+
+  // 1. Clean and normalize any divided or redundant Bible / Basic Elements / Booklets titles
+  if (trimmed) {
+    // Bible patterns
+    if (/english bible\s*\(\s*(spanish|es)\s*\)/i.test(trimmed)) {
+      return lang === 'ES' ? 'Spanish Bible' : 'English Bible';
+    }
+    if (/spanish bible\s*\(\s*(english|en)\s*\)/i.test(trimmed)) {
+      return lang === 'EN' ? 'English Bible' : 'Spanish Bible';
+    }
+    if (/spanish bible\s*\(\s*(spanish|es)\s*\)/i.test(trimmed)) {
+      return 'Spanish Bible';
+    }
+    if (/english bible\s*\(\s*(english|en)\s*\)/i.test(trimmed)) {
+      return 'English Bible';
+    }
+    if (/^english bibles?$/i.test(trimmed) && lang === 'ES') {
+      return 'Spanish Bible';
+    }
+    if (/^spanish bibles?$/i.test(trimmed) && lang === 'EN') {
+      return 'English Bible';
+    }
+    if (/^biblia( en espa[ñn]ol)?$/i.test(trimmed) && lang === 'EN') {
+      return 'English Bible';
+    }
+    if (/^bibles?$/i.test(trimmed)) {
+      return lang === 'ES' ? 'Spanish Bible' : 'English Bible';
+    }
+
+    // Basic Elements patterns (unified English and Spanish editions without redundant language tags)
+    const isBasicElements = /basic elements|elementos b[áa]sicos|bkl-be|be\s*vol|be\s*[123]/i.test(trimmed) ||
+      (baseCodeFallback && (baseCodeFallback.startsWith('BKL-00') || baseCodeFallback.startsWith('BKL-BE')));
+    if (isBasicElements) {
+      const lower = trimmed.toLowerCase();
+      const codeUpper = (baseCodeFallback || '').toUpperCase();
+      const isVol3 = lower.includes('3') || codeUpper.includes('003') || codeUpper.includes('BE3');
+      if (isVol3) {
+        return lang === 'ES' ? 'Elementos básicos de la vida cristiana, tomo 3' : 'Basic Elements of the Christian Life, vol. 3';
+      }
+      const isVol2 = lower.includes('2') || codeUpper.includes('002') || codeUpper.includes('BE2');
+      if (isVol2) {
+        return lang === 'ES' ? 'Elementos básicos de la vida cristiana, tomo 2' : 'Basic Elements of the Christian Life, vol. 2';
+      }
+      // Vol 1 or general Basic Elements
+      return lang === 'ES' ? 'Elementos básicos de la vida cristiana, tomo 1' : 'Basic Elements of the Christian Life, vol. 1';
+    }
+
+    // Generic Booklets patterns
+    if (/^english booklets?(\s*\((spanish|es)\))?$/i.test(trimmed)) {
+      return lang === 'ES' ? 'Spanish Booklet' : 'English Booklet';
+    }
+    if (/^spanish booklets?(\s*\((english|en)\))?$/i.test(trimmed)) {
+      return lang === 'EN' ? 'English Booklet' : 'Spanish Booklet';
+    }
+  }
+
+  // 2. Look up catalog definition by clean title (stripping language tags), sku, or baseCode
+  const cleanTitle = trimmed
+    .replace(/\s*\((english|spanish|en|es)\)$/i, '')
+    .replace(/\s*-\s*(english|spanish|en|es)$/i, '')
+    .trim();
+
+  const catalog = findCatalogItem({
+    title: cleanTitle || trimmed || undefined,
+    baseCode: baseCodeFallback,
+    sku: cleanTitle || trimmed || undefined
+  }) || (baseNameFallback ? findCatalogItem({ title: baseNameFallback, baseCode: baseCodeFallback }) : null)
+     || (baseCodeFallback ? findCatalogItem({ baseCode: baseCodeFallback }) : null);
+
+  if (catalog) {
+    return lang === 'ES' ? catalog.esTitle : catalog.enTitle;
+  }
+
+  // 3. If rawTitle is already human-readable, not code-like, and didn't have redundant language marker, use it
+  if (trimmed && !isCodeLikeTitle(trimmed) && trimmed === cleanTitle) {
+    return trimmed;
+  }
+
+  // 4. If baseNameFallback exists and is Bible or general title
+  if (baseNameFallback) {
+    const isBible = baseNameFallback.toLowerCase().includes('bible') || 
+      baseNameFallback.toLowerCase().includes('biblia') || 
+      (baseCodeFallback && (baseCodeFallback.startsWith('BIB') || baseCodeFallback.includes('BIBLE')));
+    if (isBible) {
+      return lang === 'ES' ? 'Spanish Bible' : 'English Bible';
+    }
+
+    const isBasicElem = baseNameFallback.toLowerCase().includes('basic element') ||
+      baseNameFallback.toLowerCase().includes('elementos b') ||
+      (baseCodeFallback && (baseCodeFallback.startsWith('BKL-00') || baseCodeFallback.startsWith('BKL-BE')));
+    if (isBasicElem) {
+      if (baseNameFallback.includes('3') || (baseCodeFallback && baseCodeFallback.includes('3'))) {
+        return lang === 'ES' ? 'Elementos básicos de la vida cristiana, tomo 3' : 'Basic Elements of the Christian Life, vol. 3';
+      }
+      if (baseNameFallback.includes('2') || (baseCodeFallback && baseCodeFallback.includes('2'))) {
+        return lang === 'ES' ? 'Elementos básicos de la vida cristiana, tomo 2' : 'Basic Elements of the Christian Life, vol. 2';
+      }
+      return lang === 'ES' ? 'Elementos básicos de la vida cristiana, tomo 1' : 'Basic Elements of the Christian Life, vol. 1';
+    }
+
+    if (!isCodeLikeTitle(baseNameFallback)) {
+      const clean = baseNameFallback
+        .replace(/\s*\((English|Spanish|EN|ES)\)/i, '')
+        .replace(/\b(English|Spanish)\b/i, '')
+        .trim();
+      return lang === 'ES' ? `${clean} (Spanish)` : clean;
+    }
+  }
+
+  // 5. Fallbacks
+  if (baseCodeFallback) {
+    if (baseCodeFallback.startsWith('BIB') || baseCodeFallback.includes('BIBLE')) {
+      return lang === 'ES' ? 'Spanish Bible' : 'English Bible';
+    }
+    if (baseCodeFallback.startsWith('BKL-001') || baseCodeFallback === 'BKL-BE1') {
+      return lang === 'ES' ? 'Elementos básicos de la vida cristiana, tomo 1' : 'Basic Elements of the Christian Life, vol. 1';
+    }
+    if (baseCodeFallback.startsWith('BKL-002') || baseCodeFallback === 'BKL-BE2') {
+      return lang === 'ES' ? 'Elementos básicos de la vida cristiana, tomo 2' : 'Basic Elements of the Christian Life, vol. 2';
+    }
+    if (baseCodeFallback.startsWith('BKL-003') || baseCodeFallback === 'BKL-BE3') {
+      return lang === 'ES' ? 'Elementos básicos de la vida cristiana, tomo 3' : 'Basic Elements of the Christian Life, vol. 3';
+    }
+    return `Literature Item ${baseCodeFallback}`;
+  }
+
+  return 'Literature Item';
+}
 
 export function normalizeLang(item: any): Language {
   const langRaw = String(item.language || '').toLowerCase().trim();
@@ -110,9 +636,21 @@ export function normalizeLang(item: any): Language {
     langRaw.includes('span') || 
     skuRaw.endsWith('-ES') || 
     skuRaw.includes('-ES-') || 
+    skuRaw.includes('-002-') ||
+    skuRaw.endsWith('-002') ||
     skuRaw.includes('_ES') ||
     titleRaw.includes('(spanish)') ||
-    titleRaw.includes('(es)')
+    titleRaw.includes('(es)') ||
+    titleRaw.includes('spanish bible') ||
+    titleRaw.includes('spanish bibles') ||
+    titleRaw.includes('spanish booklet') ||
+    titleRaw.includes('spanish booklets') ||
+    titleRaw.includes('biblia') ||
+    titleRaw.includes('recobro') ||
+    titleRaw.includes('elementos') ||
+    titleRaw.includes('básicos') ||
+    titleRaw.includes('basicos') ||
+    titleRaw.includes('tomo')
   ) {
     return 'ES';
   }
@@ -122,55 +660,190 @@ export function normalizeLang(item: any): Language {
 export function normalizeCategory(catRaw: any): Category {
   const c = String(catRaw || 'Tract').trim().toLowerCase();
   if (c.includes('bib')) return 'Bible';
-  if (c.includes('book')) return 'Booklet';
+  if (c.includes('book') || c.includes('element') || c.includes('folleto')) return 'Booklet';
   return 'Tract';
 }
 
 export function extractBaseCode(item: any): { baseCode: string; baseName: string; category: Category } {
   const cat = normalizeCategory(item.category || item.cat);
-  const titleNorm = String(item.title || '').trim().toLowerCase();
-  
-  // Check known catalog literature pairs first
-  for (const [key, val] of Object.entries(KNOWN_TITLE_PAIRS)) {
-    if (titleNorm.includes(key) || key.includes(titleNorm)) {
-      return { baseCode: val.baseCode, baseName: val.baseName, category: val.cat };
-    }
+  const titleNorm = String(item.title || '').trim();
+  const skuNorm = String(item.sku || item.id || '').trim().toUpperCase();
+  const baseCodeCand = String(item.baseCode || '').trim().toUpperCase();
+
+  // 1. Check full catalog registry
+  const matched = findCatalogItem({
+    title: titleNorm,
+    sku: skuNorm,
+    baseCode: baseCodeCand,
+    id: String(item.id || '')
+  });
+  if (matched) {
+    return {
+      baseCode: matched.baseCode,
+      baseName: matched.baseName,
+      category: matched.cat
+    };
   }
 
-  // If item already has an explicit baseCode
+  // 2. Unify Bibles: English and Spanish Bibles are combined under the single Bible entry
+  const isBible = cat === 'Bible' || 
+    titleNorm.toLowerCase().includes('bible') || 
+    titleNorm.toLowerCase().includes('biblia') || 
+    skuNorm.startsWith('BIB') || 
+    skuNorm.includes('BIBLE') ||
+    baseCodeCand.startsWith('BIB') ||
+    baseCodeCand.includes('BIBLE');
+
+  if (isBible) {
+    const isNkjv = titleNorm.toLowerCase().includes('nkjv') || 
+      skuNorm.includes('NKJV') || 
+      titleNorm.toLowerCase().includes('rv1960') ||
+      baseCodeCand.includes('NKJV');
+    if (isNkjv) {
+      return { baseCode: 'BIB-002', baseName: 'NKJV Holy Bible', category: 'Bible' };
+    }
+    return { baseCode: 'BIB-001', baseName: 'Bible', category: 'Bible' };
+  }
+
+  // 3. Unify Basic Elements / Booklets: Combine English and Spanish editions under single volume entries
+  const isBasicElements = cat === 'Booklet' ||
+    titleNorm.toLowerCase().includes('basic element') ||
+    titleNorm.toLowerCase().includes('elementos b') ||
+    titleNorm.toLowerCase().includes('elementos de la vida') ||
+    skuNorm.startsWith('BKL') ||
+    skuNorm.includes('BOOKLET') ||
+    skuNorm.includes('BE1') ||
+    skuNorm.includes('BE2') ||
+    skuNorm.includes('BE3') ||
+    baseCodeCand.startsWith('BKL') ||
+    baseCodeCand.includes('BOOKLET');
+
+  if (isBasicElements) {
+    const lower = titleNorm.toLowerCase();
+    const isVol3 = lower.includes('vol. 3') || lower.includes('vol 3') || lower.includes('volume 3') ||
+      lower.includes('tomo 3') || lower.includes('be 3') || lower.includes('be3') || lower.includes('be-3') ||
+      skuNorm.includes('BKL-003') || skuNorm.includes('BE3') || baseCodeCand.includes('003') || baseCodeCand.includes('BE3');
+    if (isVol3) {
+      return { baseCode: 'BKL-003', baseName: 'Basic Elements of the Christian Life, vol. 3', category: 'Booklet' };
+    }
+
+    const isVol2 = lower.includes('vol. 2') || lower.includes('vol 2') || lower.includes('volume 2') ||
+      lower.includes('tomo 2') || lower.includes('be 2') || lower.includes('be2') || lower.includes('be-2') ||
+      skuNorm.includes('BKL-002') || skuNorm.includes('BE2') || baseCodeCand.includes('002') || baseCodeCand.includes('BE2');
+    if (isVol2) {
+      return { baseCode: 'BKL-002', baseName: 'Basic Elements of the Christian Life, vol. 2', category: 'Booklet' };
+    }
+
+    // Check if Understanding Prophecy
+    const isProphecy = lower.includes('prophecy') || lower.includes('profec') || skuNorm.includes('PROP') || baseCodeCand.includes('004');
+    if (isProphecy) {
+      return { baseCode: 'BKL-004', baseName: 'Understanding Prophecy', category: 'Booklet' };
+    }
+
+    // Default to Vol 1 / General Basic Elements
+    return { baseCode: 'BKL-001', baseName: 'Basic Elements of the Christian Life, vol. 1', category: 'Booklet' };
+  }
+
+  // 3. If item already has an explicit baseCode
   if (item.baseCode && String(item.baseCode).trim()) {
     const cleanBaseCode = String(item.baseCode).trim().toUpperCase();
-    const cleanBaseName = item.baseName || item.title?.replace(/\s*\((English|Spanish|EN|ES)\)/i, '').trim() || item.title;
+    const cleanBaseName = item.baseName || (!isCodeLikeTitle(item.title) ? item.title?.replace(/\s*\((English|Spanish|EN|ES)\)/i, '').trim() : '') || cleanBaseCode;
     return { baseCode: cleanBaseCode, baseName: cleanBaseName, category: cat };
   }
 
-  // Derive from SKU
-  const sku = String(item.sku || item.id || '').toUpperCase().trim();
-  if (sku) {
-    let derived = sku
+  // 4. Derive from SKU: strip -(001|002)-(EN|ES), -(001|002), -(EN|ES), etc.
+  if (skuNorm) {
+    let derived = skuNorm
+      .replace(/-(001|002)?-(EN|ES)$/i, '')
+      .replace(/-(001|002)$/i, '')
       .replace(/-(EN|ES)$/i, '')
       .replace(/-(EN|ES)-/i, '-')
       .replace(/_(EN|ES)$/i, '')
       .replace(/_(EN|ES)_/i, '_');
     
-    if (derived && derived !== sku) {
-      const cleanBaseName = item.baseName || item.title?.replace(/\s*\((English|Spanish|EN|ES)\)/i, '').trim() || item.title;
-      return { baseCode: derived, baseName: cleanBaseName, category: cat };
+    if (derived && derived !== skuNorm) {
+      const candidateName = item.baseName || (!isCodeLikeTitle(item.title) ? item.title?.replace(/\s*\((English|Spanish|EN|ES)\)/i, '').trim() : '') || derived;
+      return { baseCode: derived, baseName: candidateName, category: cat };
     }
   }
 
-  // Derive from title slug
-  const titleSlug = (item.title || 'ITEM')
+  // 5. Derive from title slug
+  const titleSlug = (item.title && !isCodeLikeTitle(item.title) ? item.title : 'ITEM')
     .toUpperCase()
     .replace(/\s*\((ENGLISH|SPANISH|EN|ES)\)/i, '')
     .replace(/[^A-Z0-9]/g, '')
     .slice(0, 8);
   
-  const prefix = cat === 'Bible' ? 'BIB' : cat === 'Booklet' ? 'BKL' : 'TR';
+  const catStr = String(cat);
+  const prefix = catStr === 'Bible' ? 'BIB' : catStr === 'Booklet' ? 'BKL' : 'TR';
   const fallbackCode = `${prefix}-${titleSlug || 'ITEM'}`;
-  const baseName = item.baseName || item.title?.replace(/\s*\((English|Spanish|EN|ES)\)/i, '').trim() || item.title;
+  const baseName = item.baseName || (!isCodeLikeTitle(item.title) ? item.title : fallbackCode);
   
   return { baseCode: fallbackCode, baseName, category: cat };
+}
+
+/**
+ * Programmatically generates the next available base Code for a title based on its category
+ * and existing titles/items (e.g. TR-014, BIB-003, BKL-005).
+ * The user does NOT have to come up with codes manually.
+ */
+export function generateProgrammaticCode(
+  category: Category | string,
+  existingList: Array<{ code?: string; sku?: string; [key: string]: any }> = []
+): string {
+  const normCat = (category || 'Tract').toString().toLowerCase();
+  const prefix = normCat.includes('bible') ? 'BIB' : normCat.includes('booklet') ? 'BKL' : 'TR';
+  
+  const regex = new RegExp(`^${prefix}-(\\d+)`, 'i');
+  let maxNum = 0;
+
+  // Check Catalog Registry items for baseline maximum sequence
+  CATALOG_REGISTRY.forEach(c => {
+    if (c.baseCode.startsWith(prefix)) {
+      const match = c.baseCode.match(regex);
+      if (match && match[1]) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxNum) maxNum = num;
+      }
+    }
+  });
+
+  // Check existing titles/items in the database/workspace
+  existingList.forEach(item => {
+    const codeStr = item.code || item.sku || item.baseCode || '';
+    const match = codeStr.match(regex);
+    if (match && match[1]) {
+      const num = parseInt(match[1], 10);
+      if (!isNaN(num) && num > maxNum) {
+        maxNum = num;
+      }
+    }
+  });
+
+  const nextNum = maxNum + 1;
+  const padded = String(nextNum).padStart(3, '0');
+  return `${prefix}-${padded}`;
+}
+
+/**
+ * Programmatically generates a full edition SKU in the standard format:
+ * [Category]-[Sequence]-[ItemNumber]-[Language] (e.g. TR-009-001-EN, TR-009-002-ES)
+ * where 001 is English and 002 is Spanish.
+ */
+export function generateEditionSku(
+  baseCode: string,
+  language: string = 'EN'
+): string {
+  const langUpper = (language || 'EN').toUpperCase().slice(0, 2);
+  const itemNum = langUpper === 'ES' ? '002' : '001';
+
+  // Strip any existing edition suffix or language code to obtain the pure base code (e.g. TR-009)
+  const cleanBase = baseCode
+    .replace(/-(001|002)?-(EN|ES)$/i, '')
+    .replace(/-(001|002)$/i, '')
+    .replace(/-(EN|ES)$/i, '');
+
+  return `${cleanBase}-${itemNum}-${langUpper}`;
 }
 
 export function extractTimestampMs(doc: any): number {
@@ -307,7 +980,7 @@ export function analyzeInventory(rawInventory: any[], options: AnalyzeOptions = 
       const docsForLang = group.editionsMap.get(lang) || [];
       if (docsForLang.length === 0) continue;
 
-      const canonicalSku = `${baseCode}-${lang}`;
+      const canonicalSku = generateEditionSku(baseCode, lang);
       
       // Calculate Sum across all duplicates
       let sumStock = 0;
@@ -365,17 +1038,19 @@ export function analyzeInventory(rawInventory: any[], options: AnalyzeOptions = 
         redundantDocs.forEach(d => docsToDelete.push(d.id));
       }
 
+      const titleName = resolveHumanTitle(primaryDoc.title, lang, group.baseName, baseCode);
+
       // Check if primary doc needs updating
       const needsUpdate = 
         primaryDoc.sku !== canonicalSku ||
         primaryDoc.baseCode !== baseCode ||
         primaryDoc.baseName !== group.baseName ||
+        isCodeLikeTitle(primaryDoc.title) ||
         Number(primaryDoc.stockLevel) !== effectiveStock ||
         primaryDoc.language !== (lang === 'ES' ? 'Spanish' : 'English');
 
       if (needsUpdate || redundantDocs.length > 0) {
         const catStr = group.category === 'Bible' ? 'Bibles' : group.category === 'Booklet' ? 'Booklets' : 'Tracts';
-        const titleName = primaryDoc.title || (lang === 'ES' ? `${group.baseName} (Spanish)` : group.baseName);
 
         docsToUpdate.push({
           id: primaryDoc.id,
@@ -430,7 +1105,7 @@ export function analyzeInventory(rawInventory: any[], options: AnalyzeOptions = 
       const sourceDocs: SourceDocument[] = docsForLang.map((d) => ({
         id: d.id,
         sku: d.sku || d.id,
-        title: d.title || group.baseName,
+        title: resolveHumanTitle(d.title, lang, group.baseName, baseCode),
         language: d.language || (lang === 'ES' ? 'Spanish' : 'English'),
         category: d.category || group.category,
         stockLevel: Number(d.stockLevel ?? d.stock ?? 0),
@@ -447,7 +1122,7 @@ export function analyzeInventory(rawInventory: any[], options: AnalyzeOptions = 
       editionsResult.push({
         lang,
         canonicalSku,
-        title: primaryDoc.title || group.baseName,
+        title: titleName,
         stockLevel: effectiveStock,
         latestStock,
         sumStock,
@@ -600,4 +1275,147 @@ export async function executeInventoryCleanup(plan: CleanupPlan): Promise<{
     console.error('Failed to execute inventory cleanup:', error);
     throw error;
   }
+}
+
+export interface CodeMigrationItemPlan {
+  id: string;
+  currentSku: string;
+  targetSku: string;
+  currentTitle: string;
+  targetTitle: string;
+  currentBaseCode?: string;
+  targetBaseCode: string;
+  targetBaseName: string;
+  category: string;
+  language: string;
+  needsUpdate: boolean;
+  reason: string;
+}
+
+export interface CodeMigrationPlan {
+  totalDocs: number;
+  itemsToUpdate: CodeMigrationItemPlan[];
+  itemsUnchanged: CodeMigrationItemPlan[];
+  hasChanges: boolean;
+}
+
+/**
+ * Analyzes existing inventory documents to identify items that need programmatic item code
+ * formatting ([Category]-[Sequence]-[ItemNumber]-[Language]) or title cleanup
+ * (e.g. replacing raw codes like TR-009-001-EN with "The Third Part").
+ */
+export function analyzeExistingInventoryCodes(rawInventory: any[]): CodeMigrationPlan {
+  const itemsToUpdate: CodeMigrationItemPlan[] = [];
+  const itemsUnchanged: CodeMigrationItemPlan[] = [];
+
+  rawInventory.forEach(doc => {
+    const lang = normalizeLang(doc);
+    const cat = normalizeCategory(doc.category || doc.cat);
+    const { baseCode, baseName } = extractBaseCode(doc);
+    const targetSku = generateEditionSku(baseCode, lang);
+    const targetTitle = resolveHumanTitle(doc.title, lang, baseName, baseCode);
+    const targetBaseCode = baseCode;
+    const targetBaseName = baseName;
+
+    const currentSku = String(doc.sku || '').trim();
+    const currentTitle = String(doc.title || '').trim();
+    const currentBaseCode = String(doc.baseCode || '').trim();
+    const currentBaseName = String(doc.baseName || '').trim();
+
+    const skuChanged = currentSku !== targetSku;
+    const titleChanged = currentTitle !== targetTitle;
+    const baseCodeChanged = currentBaseCode !== targetBaseCode;
+    const baseNameChanged = currentBaseName !== targetBaseName;
+
+    const needsUpdate = skuChanged || titleChanged || baseCodeChanged || baseNameChanged;
+    const reasons: string[] = [];
+    if (titleChanged) {
+      reasons.push(isCodeLikeTitle(currentTitle) ? `Fixed code title (${currentTitle} → ${targetTitle})` : `Updated title to canonical name`);
+    }
+    if (skuChanged) {
+      reasons.push(`Standardized SKU (${currentSku || 'none'} → ${targetSku})`);
+    }
+    if (baseCodeChanged) {
+      reasons.push(`Assigned base code (${targetBaseCode})`);
+    }
+
+    const itemPlan: CodeMigrationItemPlan = {
+      id: doc.id,
+      currentSku,
+      targetSku,
+      currentTitle,
+      targetTitle,
+      currentBaseCode,
+      targetBaseCode,
+      targetBaseName,
+      category: cat === 'Bible' ? 'Bibles' : cat === 'Booklet' ? 'Booklets' : 'Tracts',
+      language: lang === 'ES' ? 'Spanish' : 'English',
+      needsUpdate,
+      reason: reasons.join(' • ') || 'Already standardized'
+    };
+
+    if (needsUpdate) {
+      itemsToUpdate.push(itemPlan);
+    } else {
+      itemsUnchanged.push(itemPlan);
+    }
+  });
+
+  return {
+    totalDocs: rawInventory.length,
+    itemsToUpdate,
+    itemsUnchanged,
+    hasChanges: itemsToUpdate.length > 0
+  };
+}
+
+/**
+ * Executes migration of existing inventory items to standard programmatic code and title formatting in Firestore
+ */
+export async function executeInventoryCodeMigration(plan: CodeMigrationPlan): Promise<{
+  success: boolean;
+  updatedCount: number;
+}> {
+  if (!plan.hasChanges || plan.itemsToUpdate.length === 0) {
+    return { success: true, updatedCount: 0 };
+  }
+
+  const BATCH_SIZE = 400;
+  for (let i = 0; i < plan.itemsToUpdate.length; i += BATCH_SIZE) {
+    const chunk = plan.itemsToUpdate.slice(i, i + BATCH_SIZE);
+    const batch = writeBatch(db);
+    for (const item of chunk) {
+      const docRef = doc(db, 'inventory', item.id);
+      batch.update(docRef, {
+        sku: item.targetSku,
+        title: item.targetTitle,
+        baseCode: item.targetBaseCode,
+        baseName: item.targetBaseName,
+        category: item.category,
+        language: item.language,
+        updatedAt: serverTimestamp()
+      });
+    }
+    await batch.commit();
+  }
+
+  try {
+    await createAuditLog(
+      'STOCK_UPDATE',
+      'inventory_system',
+      'inventory',
+      `Migrated ${plan.itemsToUpdate.length} existing inventory records to programmatic item code format [Category]-[Seq]-[ItemNumber]-[Lang] and resolved human titles (e.g. TR-009-001-EN → The Third Part).`,
+      {
+        migratedCount: plan.itemsToUpdate.length,
+        items: plan.itemsToUpdate.map(i => ({ id: i.id, oldSku: i.currentSku, newSku: i.targetSku, newTitle: i.targetTitle }))
+      }
+    );
+  } catch (err) {
+    console.warn('Audit log write after code migration encountered non-blocking warning:', err);
+  }
+
+  return {
+    success: true,
+    updatedCount: plan.itemsToUpdate.length
+  };
 }
