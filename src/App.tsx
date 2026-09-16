@@ -244,11 +244,14 @@ export function App() {
         ? ev.materialsDistributed 
         : (typeof ev.totalPassed === 'number' ? ev.totalPassed : 0);
 
+      const isCompleted = ev.status === 'Completed' || ev.planned === false;
+      const isPlanned = !isCompleted && (ev.planned === true || ev.status === 'Scheduled' || ev.status === 'Drafting');
+
       return {
         id: ev.id,
         date: dateStr,
         location: ev.location || ev.name || 'Outreach Event',
-        planned: ev.planned !== undefined ? ev.planned : (ev.status === 'Scheduled' || ev.status === 'Drafting'),
+        planned: isPlanned,
         lines,
         materialsDistributed: distributed,
         totalPassed: distributed,
@@ -525,7 +528,55 @@ export function App() {
       const eventDate = activeCountEvent?.date || getTodayIso();
       const eventId = activeCountEvent?.id;
 
+      // Safely parse date
+      let eventDateTimestamp: Timestamp;
+      try {
+        const parsed = new Date(eventDate);
+        if (isNaN(parsed.getTime())) {
+          eventDateTimestamp = Timestamp.fromDate(new Date());
+        } else {
+          eventDateTimestamp = Timestamp.fromDate(parsed);
+        }
+      } catch {
+        eventDateTimestamp = Timestamp.fromDate(new Date());
+      }
+
+      // Calculate category breakdown
+      const categoryStats = {
+        bibles: 0,
+        bibles_en: 0,
+        bibles_es: 0,
+        tracts: 0,
+        tracts_en: 0,
+        tracts_es: 0,
+        booklets: 0,
+        booklets_en: 0,
+        booklets_es: 0,
+        total: totalPassed
+      };
+      for (const line of lines) {
+        const passed = Math.max(0, line.took - line.back);
+        if (passed <= 0) continue;
+        const item = rawInventory.find(i => i.sku === line.code || i.sku === line.key || i.id === line.key);
+        const cat = (item?.category || '').toLowerCase();
+        const lang = (line.lang || item?.language || 'EN').toUpperCase();
+        if (cat.includes('bible')) {
+          categoryStats.bibles += passed;
+          if (lang.includes('ES')) categoryStats.bibles_es += passed;
+          else categoryStats.bibles_en += passed;
+        } else if (cat.includes('booklet')) {
+          categoryStats.booklets += passed;
+          if (lang.includes('ES')) categoryStats.booklets_es += passed;
+          else categoryStats.booklets_en += passed;
+        } else {
+          categoryStats.tracts += passed;
+          if (lang.includes('ES')) categoryStats.tracts_es += passed;
+          else categoryStats.tracts_en += passed;
+        }
+      }
+
       // 2. Save / update event in Firestore
+      let savedEventId = eventId;
       if (eventId) {
         const eventRef = doc(db, 'events', eventId);
         await updateDoc(eventRef, {
@@ -533,25 +584,35 @@ export function App() {
           status: 'Completed',
           materialsDistributed: totalPassed,
           lines,
+          categoryStats,
           updatedAt: serverTimestamp()
         });
       } else {
-        await addEvent({
+        const docRef = await addEvent({
           name: eventName,
           location: eventName,
-          date: Timestamp.fromDate(new Date(eventDate)),
+          date: eventDateTimestamp,
           planned: false,
           status: 'Completed',
           materialsDistributed: totalPassed,
-          lines
+          lines,
+          categoryStats
         });
+        if (docRef?.id) {
+          savedEventId = docRef.id;
+        }
       }
 
       // 3. Log movement in Firestore audit logs
-      await createAuditLog('COUNT_POSTED', eventId || 'event', 'event', `Count posted — ${eventName}. ${totalPassed} items passed out.`, {
+      await createAuditLog('COUNT_POSTED', savedEventId || 'event', 'event', `Count posted — ${eventName}. ${totalPassed} items passed out.`, {
         delta: -totalPassed,
-        linesCount: lines.length
+        linesCount: lines.length,
+        materialsDistributed: totalPassed
       });
+
+      if (savedEventId) {
+        setSelectedEventIdForRecord(savedEventId);
+      }
 
       // 4. Clean up active count session storage
       try {
@@ -560,6 +621,21 @@ export function App() {
       } catch {}
     } catch (err) {
       console.error('Failed to post count to database:', err);
+      throw err;
+    }
+  };
+
+  const handleCompleteEvent = async (eventId: string) => {
+    try {
+      const eventRef = doc(db, 'events', eventId);
+      await updateDoc(eventRef, {
+        planned: false,
+        status: 'Completed',
+        updatedAt: serverTimestamp()
+      });
+      await createAuditLog('EVENT_UPDATED', eventId, 'event', `Completed event`);
+    } catch (err) {
+      console.error('Failed to complete event:', err);
     }
   };
 
@@ -819,6 +895,7 @@ export function App() {
               }
             }}
             onPostCorrection={handlePostCorrection}
+            onCompleteEvent={handleCompleteEvent}
             selectedEventId={selectedEventIdForRecord}
             onClearSelectedEvent={() => setSelectedEventIdForRecord(null)}
           />
@@ -855,7 +932,7 @@ export function App() {
         <CountEventFlow
           titles={titles}
           eventName={activeCountEvent?.name || 'CISA outreach distribution'}
-          eventDate={activeCountEvent?.date || getTodayFormatted()}
+          eventDate={activeCountEvent?.date || getTodayIso()}
           eventId={activeCountEvent?.id}
           onPostCount={handlePostCount}
           onLeave={() => {

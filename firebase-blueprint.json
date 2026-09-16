@@ -29,6 +29,9 @@
         "location": { "type": "string" },
         "materialsDistributed": { "type": "number", "description": "Total count of materials distributed" },
         "status": { "type": "string", "enum": ["Scheduled", "Stock Alert", "Drafting", "Completed"] },
+        "planned": { "type": "boolean" },
+        "lines": { "type": "array" },
+        "corrections": { "type": "array" },
         "categoryStats": {
           "type": "object",
           "properties": {
@@ -44,7 +47,8 @@
             "total": { "type": "number" }
           }
         },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "date", "location", "materialsDistributed", "status"]
     },

@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { EventItem, Correction, EventLine } from '../types';
-import { Plus, Calendar, ArrowLeft, AlertCircle, History, Check } from 'lucide-react';
+import { Plus, Calendar, ArrowLeft, AlertCircle, History, Check, CheckCircle2 } from 'lucide-react';
 
 interface EventsViewProps {
   events: EventItem[];
   onStartCountForEvent: (event: EventItem) => void;
   onSavePlannedEvent: (date: string, location: string) => void;
   onPostCorrection: (eventId: string, note: string, changes: { key: string; from: number; to: number }[]) => void;
+  onCompleteEvent?: (eventId: string) => void;
   selectedEventId?: string | null;
   onClearSelectedEvent?: () => void;
 }
@@ -23,10 +24,17 @@ export const EventsView: React.FC<EventsViewProps> = ({
   onStartCountForEvent,
   onSavePlannedEvent,
   onPostCorrection,
+  onCompleteEvent,
   selectedEventId: initialSelectedEventId,
   onClearSelectedEvent
 }) => {
   const [viewingEventId, setViewingEventId] = useState<string | null>(initialSelectedEventId || null);
+
+  useEffect(() => {
+    if (initialSelectedEventId) {
+      setViewingEventId(initialSelectedEventId);
+    }
+  }, [initialSelectedEventId]);
   const [showPlanForm, setShowPlanForm] = useState(false);
   const [planDate, setPlanDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [planLocation, setPlanLocation] = useState('');
@@ -145,12 +153,23 @@ export const EventsView: React.FC<EventsViewProps> = ({
               </p>
             </div>
             {viewingEvent.planned && (
-              <button
-                onClick={() => onStartCountForEvent(viewingEvent)}
-                className="px-4 py-2 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13px] rounded-md transition-colors cursor-pointer shadow-xs"
-              >
-                Count this event
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onStartCountForEvent(viewingEvent)}
+                  className="px-4 py-2 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13px] rounded-md transition-colors cursor-pointer shadow-xs"
+                >
+                  Count this event
+                </button>
+                {onCompleteEvent && (
+                  <button
+                    onClick={() => onCompleteEvent(viewingEvent.id)}
+                    className="px-3.5 py-2 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] font-semibold text-[13px] rounded-md transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#2e7d32]" />
+                    <span>Complete event</span>
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -344,20 +363,55 @@ export const EventsView: React.FC<EventsViewProps> = ({
               )}
             </>
           ) : (
-            <div className="p-8 border border-dashed border-[#c9cbd2] rounded-lg text-center max-w-md mx-auto space-y-3">
-              <Calendar className="w-8 h-8 text-[#8b8e96] mx-auto" />
-              <div className="font-bold text-[16px] text-[#191c20]">
-                Event is scheduled
+            <div className="space-y-6 max-w-xl mx-auto">
+              {viewingEvent.lines && viewingEvent.lines.length > 0 && (
+                <div className="p-4 bg-[#eff6ff] border border-[#bfdbfe] rounded-lg flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-[13.5px] font-semibold text-[#1e40af]">
+                      Count sheet recorded ({viewingEvent.lines.length} items)
+                    </div>
+                    <div className="text-[12px] text-[#3b82f6] mt-0.5">
+                      Counts have been saved for this event. Click below to close and complete this record.
+                    </div>
+                  </div>
+                  {onCompleteEvent && (
+                    <button
+                      onClick={() => onCompleteEvent(viewingEvent.id)}
+                      className="px-3.5 py-2 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[12.5px] rounded-md transition-colors cursor-pointer whitespace-nowrap shadow-xs inline-flex items-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Complete event</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <div className="p-8 border border-dashed border-[#c9cbd2] rounded-lg text-center space-y-3">
+                <Calendar className="w-8 h-8 text-[#8b8e96] mx-auto" />
+                <div className="font-bold text-[16px] text-[#191c20]">
+                  Event is scheduled
+                </div>
+                <p className="text-[13px] text-[#6c6f77] leading-relaxed">
+                  When you are ready to prepare literature or count the returned materials, click below.
+                </p>
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  <button
+                    onClick={() => onStartCountForEvent(viewingEvent)}
+                    className="px-4 py-2 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13px] rounded-md transition-colors cursor-pointer shadow-xs"
+                  >
+                    Start count for this event
+                  </button>
+                  {onCompleteEvent && (
+                    <button
+                      onClick={() => onCompleteEvent(viewingEvent.id)}
+                      className="px-4 py-2 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] font-semibold text-[13px] rounded-md transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#2e7d32]" />
+                      <span>Mark completed</span>
+                    </button>
+                  )}
+                </div>
               </div>
-              <p className="text-[13px] text-[#6c6f77] leading-relaxed">
-                When you are ready to prepare literature or count the returned materials, click below.
-              </p>
-              <button
-                onClick={() => onStartCountForEvent(viewingEvent)}
-                className="px-4 py-2 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13px] rounded-md transition-colors cursor-pointer shadow-xs"
-              >
-                Start count for this event
-              </button>
             </div>
           )}
         </div>
@@ -521,23 +575,41 @@ export const EventsView: React.FC<EventsViewProps> = ({
                       )}
 
                       {ev.planned ? (
-                        <button
-                          onClick={() => onStartCountForEvent(ev)}
-                          className="px-3.5 py-2 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[12.5px] rounded-md transition-colors cursor-pointer shadow-xs"
-                        >
-                          {(() => {
-                            try {
-                              const raw = localStorage.getItem(`lit_ledger_count_draft_event_${ev.id}`);
-                              if (raw) {
-                                const parsed = JSON.parse(raw);
-                                if (parsed?.itemsData && Object.values(parsed.itemsData).some((v: any) => v.took > 0)) {
-                                  return 'Resume count';
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => onStartCountForEvent(ev)}
+                            className="px-3.5 py-2 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[12.5px] rounded-md transition-colors cursor-pointer shadow-xs"
+                          >
+                            {(() => {
+                              try {
+                                const raw = localStorage.getItem(`lit_ledger_count_draft_event_${ev.id}`);
+                                if (raw) {
+                                  const parsed = JSON.parse(raw);
+                                  if (parsed?.itemsData && Object.values(parsed.itemsData).some((v: any) => v.took > 0)) {
+                                    return 'Resume count';
+                                  }
                                 }
-                              }
-                            } catch {}
-                            return 'Count event';
-                          })()}
-                        </button>
+                              } catch {}
+                              return 'Count event';
+                            })()}
+                          </button>
+                          {ev.lines && ev.lines.length > 0 && onCompleteEvent && (
+                            <button
+                              onClick={() => onCompleteEvent(ev.id)}
+                              title="Count was posted — click to complete event"
+                              className="px-3 py-2 border border-[#2e7d32] bg-[#f1f8f1] hover:bg-[#e4f2e4] text-[#1b5e20] font-semibold text-[12px] rounded-md transition-colors cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Complete</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setViewingEventId(ev.id)}
+                            className="px-2.5 py-2 text-[#6c6f77] hover:text-[#191c20] text-[12px] font-medium transition-colors cursor-pointer"
+                          >
+                            Details
+                          </button>
+                        </div>
                       ) : (
                         <button
                           onClick={() => setViewingEventId(ev.id)}

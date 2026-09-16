@@ -74,6 +74,10 @@ service cloud.firestore {
              data.materialsDistributed is number && data.materialsDistributed >= 0 &&
              data.status in ['Scheduled', 'Stock Alert', 'Drafting', 'Completed'] &&
              (data.categoryStats is map || !('categoryStats' in data)) &&
+             (data.lines is list || !('lines' in data)) &&
+             (data.corrections is list || !('corrections' in data)) &&
+             (data.planned is bool || !('planned' in data)) &&
+             (data.updatedAt is timestamp || !('updatedAt' in data)) &&
              (data.createdAt is timestamp || !('createdAt' in data));
     }
 
@@ -127,18 +131,25 @@ service cloud.firestore {
 
     match /events/{eventId} {
       allow read: if isMember();
-      allow create: if isAdmin() && isValidId(eventId) && isValidEvent(incoming()) &&
-                    isServerTimestamp(incoming().createdAt);
+      allow create: if (isAdmin() || isMember()) && isValidId(eventId) && isValidEvent(incoming()) &&
+                    (!('createdAt' in incoming()) || isServerTimestamp(incoming().createdAt));
       allow update: if (isAdmin() || isMember()) && isValidEvent(incoming()) && (
-        // Terminal State Lock: Cannot edit completed events unless admin
-        (existing().status != 'Completed' || isAdmin()) &&
+        // Terminal State Lock: Cannot edit completed events unless admin, filing a correction, or posting count/completing
+        (existing().status != 'Completed' || isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['corrections', 'lines', 'updatedAt'])) &&
         (
           // Action: Update Status
-          incoming().diff(existing()).affectedKeys().hasOnly(['status']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) ||
           // Action: Update Distribution
-          incoming().diff(existing()).affectedKeys().hasOnly(['materialsDistributed', 'categoryStats']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['materialsDistributed', 'categoryStats', 'updatedAt']) ||
+          // Action: Post Count & Complete Event
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'planned', 'materialsDistributed', 'lines', 'categoryStats', 'updatedAt']) ||
+          // Action: File Correction
+          incoming().diff(existing()).affectedKeys().hasOnly(['lines', 'corrections', 'updatedAt']) ||
           // Action: Full Edit
-          (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'date', 'location', 'status', 'materialsDistributed', 'categoryStats']))
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'date', 'location', 'status', 'planned', 'materialsDistributed', 
+            'lines', 'categoryStats', 'corrections', 'updatedAt'
+          ])
         )
       );
       allow delete: if isAdmin();

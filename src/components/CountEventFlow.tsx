@@ -7,7 +7,7 @@ interface CountEventFlowProps {
   eventName: string;
   eventDate: string;
   eventId?: string;
-  onPostCount: (lines: EventLine[]) => void;
+  onPostCount: (lines: EventLine[]) => Promise<void> | void;
   onLeave: () => void;
   onViewRecord: () => void;
   onGoOrderList: () => void;
@@ -137,6 +137,8 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
   });
 
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Auto-save draft on every change so user never loses progress
   useEffect(() => {
@@ -233,29 +235,38 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
     }
   };
 
-  const handlePostSubmit = () => {
-    if (!allCounted) return;
-    const lines: EventLine[] = takenItems.map(i => ({
-      key: i.code,
-      code: i.code,
-      lang: i.lang,
-      title: i.title,
-      before: i.inStore,
-      took: i.took,
-      back: i.returned || 0
-    }));
-
-    // Post to backend
-    onPostCount(lines);
-
-    // Clean up draft from storage
+  const handlePostSubmit = async () => {
+    if (!allCounted || isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
     try {
-      localStorage.removeItem(storageKey);
-      localStorage.removeItem('lit_ledger_is_counting');
-      localStorage.removeItem('lit_ledger_active_count_event');
-    } catch (err) {}
+      const lines: EventLine[] = takenItems.map(i => ({
+        key: i.code,
+        code: i.code,
+        lang: i.lang,
+        title: i.title,
+        before: i.inStore,
+        took: i.took,
+        back: i.returned || 0
+      }));
 
-    setStep(4);
+      // Post to backend and await database persistence
+      await onPostCount(lines);
+
+      // Clean up draft from storage
+      try {
+        localStorage.removeItem(storageKey);
+        localStorage.removeItem('lit_ledger_is_counting');
+        localStorage.removeItem('lit_ledger_active_count_event');
+      } catch (err) {}
+
+      setStep(4);
+    } catch (err: any) {
+      console.error('Failed to post count:', err);
+      setSubmitError(err?.message || 'Failed to post count to the database. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDiscardDraft = () => {
@@ -882,11 +893,17 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                 )}
               </div>
 
-              <div className="flex items-center gap-2.5 flex-none">
+              <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2.5 flex-none">
+                {submitError && (
+                  <div className="text-[12px] text-[#b3261e] font-medium bg-[#fdf2f2] px-3 py-1.5 border border-[#f8b4b4] rounded-md">
+                    {submitError}
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="px-4 py-2 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] font-semibold text-[13px] rounded-md transition-colors cursor-pointer"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] font-semibold text-[13px] rounded-md transition-colors cursor-pointer disabled:opacity-50"
                 >
                   ← Back to counting
                 </button>
@@ -894,16 +911,16 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                 <button
                   type="button"
                   onClick={handlePostSubmit}
-                  disabled={!allCounted}
+                  disabled={!allCounted || isSubmitting}
                   className={`
-                    px-5 py-2 rounded-md font-semibold text-[13.5px] transition-colors cursor-pointer shadow-xs
-                    ${allCounted
-                      ? 'bg-[#1f5f8b] hover:bg-[#17496c] text-white border border-[#1f5f8b]'
+                    px-5 py-2 rounded-md font-semibold text-[13.5px] transition-colors shadow-xs
+                    ${allCounted && !isSubmitting
+                      ? 'bg-[#1f5f8b] hover:bg-[#17496c] text-white border border-[#1f5f8b] cursor-pointer'
                       : 'bg-[#f6f7f9] text-[#a3a6ad] border border-[#dcdee3] cursor-not-allowed'
                     }
                   `}
                 >
-                  Post count
+                  {isSubmitting ? 'Posting count...' : 'Post count'}
                 </button>
               </div>
             </div>
