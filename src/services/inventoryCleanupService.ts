@@ -627,9 +627,9 @@ export function resolveHumanTitle(
 }
 
 export function normalizeLang(item: any): Language {
-  const langRaw = String(item.language || '').toLowerCase().trim();
-  const skuRaw = String(item.sku || '').toUpperCase();
-  const titleRaw = String(item.title || '').toLowerCase();
+  const langRaw = String(item.language || item.lang || '').toLowerCase().trim();
+  const skuRaw = String(item.sku || item.code || item.id || '').toUpperCase();
+  const titleRaw = String(item.title || item.name || '').toLowerCase();
 
   if (
     langRaw.includes('es') || 
@@ -639,17 +639,21 @@ export function normalizeLang(item: any): Language {
     skuRaw.includes('-002-') ||
     skuRaw.endsWith('-002') ||
     skuRaw.includes('_ES') ||
+    skuRaw.endsWith('ES') ||
+    skuRaw.includes('SPANISH') ||
     titleRaw.includes('(spanish)') ||
     titleRaw.includes('(es)') ||
-    titleRaw.includes('spanish bible') ||
-    titleRaw.includes('spanish bibles') ||
-    titleRaw.includes('spanish booklet') ||
-    titleRaw.includes('spanish booklets') ||
+    titleRaw.includes('- spanish') ||
+    titleRaw.includes('- es') ||
+    titleRaw.includes('spanish') ||
+    titleRaw.includes('español') ||
+    titleRaw.includes('espanol') ||
     titleRaw.includes('biblia') ||
     titleRaw.includes('recobro') ||
     titleRaw.includes('elementos') ||
     titleRaw.includes('básicos') ||
     titleRaw.includes('basicos') ||
+    titleRaw.includes('cristiana') ||
     titleRaw.includes('tomo')
   ) {
     return 'ES';
@@ -1436,22 +1440,19 @@ export function findMatchingInventoryItem(
   const targetKey = String(codeOrKey).trim();
   const targetKeyUpper = targetKey.toUpperCase();
 
-  // 1. Direct match on id or exact sku (case-insensitive)
-  const directMatch = items.find(i => 
-    i.id === targetKey || 
-    (i.sku && i.sku.toUpperCase() === targetKeyUpper)
-  );
-  if (directMatch) return directMatch;
+  // 1. Detect language first so language hint is respected in all steps
+  let detectedLang: 'EN' | 'ES' | undefined = langHint 
+    ? (langHint.toUpperCase().includes('ES') ? 'ES' : 'EN') 
+    : undefined;
 
-  // 2. Detect language:
-  let detectedLang: 'EN' | 'ES' | undefined = langHint ? (langHint.toUpperCase().includes('ES') ? 'ES' : 'EN') : undefined;
   if (!detectedLang) {
     if (
       targetKeyUpper.endsWith('-ES') || 
       targetKeyUpper.endsWith('_ES') || 
       targetKeyUpper.includes('-002-') || 
       targetKeyUpper.includes('_002_') ||
-      targetKeyUpper.includes('-SPANISH')
+      targetKeyUpper.includes('-SPANISH') ||
+      targetKeyUpper.includes('_SPANISH')
     ) {
       detectedLang = 'ES';
     } else if (
@@ -1459,13 +1460,40 @@ export function findMatchingInventoryItem(
       targetKeyUpper.endsWith('_EN') || 
       targetKeyUpper.includes('-001-') || 
       targetKeyUpper.includes('_001_') ||
-      targetKeyUpper.includes('-ENGLISH')
+      targetKeyUpper.includes('-ENGLISH') ||
+      targetKeyUpper.includes('_ENGLISH')
     ) {
       detectedLang = 'EN';
+    } else if (titleHint) {
+      const thLower = titleHint.toLowerCase();
+      if (
+        thLower.includes('spanish') || 
+        thLower.includes('español') || 
+        thLower.includes('espanol') || 
+        thLower.includes('elementos') || 
+        thLower.includes('básicos') || 
+        thLower.includes('basicos') || 
+        thLower.includes('tomo') ||
+        thLower.includes('recobro') ||
+        thLower.includes('biblia')
+      ) {
+        detectedLang = 'ES';
+      }
     }
   }
 
-  // 3. Extract clean base code:
+  // 2. Direct match on id or exact sku - BUT verify language if detectedLang is set
+  const directMatch = items.find(i => 
+    i.id === targetKey || 
+    (i.sku && i.sku.toUpperCase() === targetKeyUpper)
+  );
+  if (directMatch) {
+    if (!detectedLang || normalizeLang(directMatch) === detectedLang) {
+      return directMatch;
+    }
+  }
+
+  // 3. Extract clean base code and canonical base code
   const cleanBase = targetKeyUpper
     .replace(/-(001|002)?-(EN|ES)$/i, '')
     .replace(/-(EN|ES)$/i, '')
@@ -1473,7 +1501,13 @@ export function findMatchingInventoryItem(
     .replace(/_(EN|ES)$/i, '')
     .trim();
 
-  // 4. Match using extractBaseCode & normalizeLang:
+  const { baseCode: extractedBase } = extractBaseCode({
+    sku: targetKeyUpper,
+    title: titleHint,
+    baseCode: cleanBase
+  });
+
+  // 4. Match using extractBaseCode & normalizeLang
   const baseAndLangMatch = items.find(i => {
     const { baseCode } = extractBaseCode(i);
     const iLang = normalizeLang(i);
@@ -1485,7 +1519,10 @@ export function findMatchingInventoryItem(
       .replace(/_(EN|ES)$/i, '')
       .trim();
 
-    const matchesBase = itemCleanBase === cleanBase || 
+    const matchesBase = 
+      baseCode === extractedBase ||
+      itemCleanBase === cleanBase || 
+      itemCleanBase === extractedBase ||
       (i.sku && i.sku.toUpperCase().includes(cleanBase)) ||
       (i.baseCode && i.baseCode.toUpperCase() === cleanBase);
 
@@ -1500,6 +1537,7 @@ export function findMatchingInventoryItem(
   // 5. Match using CATALOG_REGISTRY legacyCodes and aliases
   const registryEntry = CATALOG_REGISTRY.find(reg => 
     reg.baseCode.toUpperCase() === cleanBase ||
+    reg.baseCode.toUpperCase() === extractedBase ||
     reg.legacyCodes.some(lc => lc.toUpperCase() === cleanBase) ||
     reg.aliases.some(al => al.toUpperCase() === cleanBase)
   );
@@ -1529,17 +1567,38 @@ export function findMatchingInventoryItem(
 
   // 6. Match by title if titleHint is present
   if (titleHint) {
-    const hintLower = titleHint.trim().toLowerCase();
+    const hintClean = titleHint
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s*\((english|spanish|en|es)\)/gi, '')
+      .trim();
+
     const titleMatch = items.find(i => {
-      const iTitle = (i.title || i.name || '').trim().toLowerCase();
+      const iTitle = String(i.title || i.name || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s*\((english|spanish|en|es)\)/gi, '')
+        .trim();
       const iLang = normalizeLang(i);
-      if (iTitle === hintLower || (hintLower.length > 5 && iTitle.includes(hintLower))) {
+      const matched = iTitle === hintClean || 
+        (hintClean.length > 5 && (iTitle.includes(hintClean) || hintClean.includes(iTitle)));
+      if (matched) {
         if (detectedLang) return iLang === detectedLang;
         return true;
       }
       return false;
     });
     if (titleMatch) return titleMatch;
+  }
+
+  // 7. Dedicated fallback for Spanish Basic Elements (Booklets)
+  if (detectedLang === 'ES' && (extractedBase === 'BKL-001' || cleanBase.includes('BKL-001') || cleanBase.includes('BE1') || (titleHint && titleHint.toLowerCase().includes('element')))) {
+    const esBeMatch = items.find(i => {
+      const iLang = normalizeLang(i);
+      const { baseCode: itemBase } = extractBaseCode(i);
+      return iLang === 'ES' && (itemBase === 'BKL-001' || (i.category || '').toLowerCase().includes('book'));
+    });
+    if (esBeMatch) return esBeMatch;
   }
 
   return undefined;

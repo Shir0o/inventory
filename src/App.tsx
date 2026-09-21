@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Title, 
   EventItem, 
@@ -45,6 +45,7 @@ import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
 import { CountEventFlow } from './components/CountEventFlow';
 import { humanizeAuditLog } from './lib/humanizeHistory';
+import { isSept18DeliveryReconciled, reconcileSept18Delivery } from './services/historyReconciliationService';
 import { AlertTriangle, Database, RefreshCw, ShieldAlert, PlusCircle } from 'lucide-react';
 
 export function App() {
@@ -65,6 +66,7 @@ export function App() {
   // Navigation State
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [reconciliationStatus, setReconciliationStatus] = useState<{ checked: boolean; reconciling: boolean; message?: string }>({ checked: false, reconciling: false });
 
   // Active Count Flow State - loads saved count session if one was in progress
   const [isCounting, setIsCounting] = useState<boolean>(() => {
@@ -332,6 +334,11 @@ export function App() {
         detail: humanized.detail,
         delta: humanized.delta
       };
+    }).sort((a, b) => {
+      if (a.iso && b.iso && a.iso !== b.iso) {
+        return b.iso.localeCompare(a.iso);
+      }
+      return 0;
     });
   }, [rawLogs, rawInventory, rawEvents, rawOrders]);
 
@@ -343,6 +350,44 @@ export function App() {
   };
 
   const getTodayIso = () => new Date().toISOString().slice(0, 10);
+
+  // Auto-reconciliation check for the 9/18/26 delivery (32 Bible EN, 32 Bible ES, 30 Basic Elements EN, 30 Basic Elements ES)
+  useEffect(() => {
+    if (!isAuthorized || !rawInventory || rawInventory.length === 0 || !rawLogs) {
+      return;
+    }
+
+    const sessionKey = 'has_checked_sept18_reconciliation_v2';
+    if (sessionStorage.getItem(sessionKey)) {
+      return;
+    }
+
+    if (!isSept18DeliveryReconciled(rawInventory, rawLogs)) {
+      setReconciliationStatus(prev => ({ ...prev, reconciling: true }));
+      reconcileSept18Delivery(rawInventory, rawLogs)
+        .then(res => {
+          sessionStorage.setItem(sessionKey, 'true');
+          setReconciliationStatus({ checked: true, reconciling: false, message: res.message });
+        })
+        .catch(err => {
+          console.warn('Auto reconciliation check error:', err);
+          setReconciliationStatus({ checked: true, reconciling: false });
+        });
+    } else {
+      sessionStorage.setItem(sessionKey, 'true');
+      setReconciliationStatus({ checked: true, reconciling: false });
+    }
+  }, [isAuthorized, rawInventory, rawLogs]);
+
+  const handleManualReconcileSept18 = async () => {
+    setReconciliationStatus(prev => ({ ...prev, reconciling: true }));
+    try {
+      const res = await reconcileSept18Delivery(rawInventory, rawLogs);
+      setReconciliationStatus({ checked: true, reconciling: false, message: res.message });
+    } catch (err: any) {
+      setReconciliationStatus({ checked: true, reconciling: false, message: err?.message || 'Reconciliation failed' });
+    }
+  };
 
   // Calculate flagged items count for Sidebar badge
   const flaggedOrderCount = useMemo(() => {
@@ -697,26 +742,108 @@ export function App() {
 
   const handleReceiveDelivery = async (
     receipts: { code: string; title: string; lang: 'EN' | 'ES'; qty: number }[],
-    remainingOrders: OrderItem[]
+    remainingOrders: OrderItem[],
+    checkInDate?: string
   ) => {
     try {
+      const effectiveDate = checkInDate || getTodayIso();
       let totalReceived = 0;
 
       // Increment stocks in Firestore
       for (const r of receipts) {
         totalReceived += r.qty;
-        const item = findMatchingInventoryItem(rawInventory, r.code, r.lang, r.title);
+        let item = findMatchingInventoryItem(rawInventory, r.code, r.lang, r.title);
+
         if (item) {
-          const currentStock = Number(item.stockLevel || 0);
-          await updateInventoryItem(item.id, { stockLevel: currentStock + r.qty });
+          const currentStock = Number(item.stockLevel ?? item.stock ?? 0);
+          const newStock = currentStock + r.qty;
+          const updatePayload: any = { stockLevel: newStock, stock: newStock, lang: r.lang };
+
+          if (Array.isArray(item.editions) && item.editions.length > 0) {
+            updatePayload.editions = item.editions.map((ed: any) => {
+              const edLang = String(ed.lang || '').toUpperCase().includes('ES') ? 'ES' : 'EN';
+              if (edLang === r.lang) {
+                const currentEdStock = Number(ed.stock ?? ed.stockLevel ?? 0);
+                return { ...ed, stock: currentEdStock + r.qty, stockLevel: currentEdStock + r.qty };
+              }
+              return ed;
+            });
+          }
+          await updateInventoryItem(item.id, updatePayload);
+
+          await createAuditLog('STOCK_UPDATE', item.id, 'inventory', `Delivery check-in: +${r.qty} units received (${r.title})`, {
+            delta: r.qty,
+            previousStock: currentStock,
+            newStock: newStock,
+            sku: item.sku || r.code,
+            title: r.title,
+            lang: r.lang,
+            occurredAt: effectiveDate,
+            note: `Delivery check-in received on ${effectiveDate}`
+          });
+        } else {
+          // If not existing yet in Firestore, create it
+          const { baseCode: cleanBaseCode, baseName, category } = extractBaseCode({
+            sku: r.code,
+            title: r.title,
+            category: r.code.startsWith('BIB') ? 'Bible' : (r.code.startsWith('BKL') || (r.title && r.title.toLowerCase().includes('element'))) ? 'Booklet' : undefined
+          });
+
+          const targetTitle = titles.find(t => t.code === cleanBaseCode);
+          const titleName = r.title || 
+            (targetTitle 
+              ? (r.lang === 'ES' 
+                  ? (targetTitle.editions.find(e => e.lang === 'ES')?.title || resolveHumanTitle('', 'ES', targetTitle.name, cleanBaseCode))
+                  : (targetTitle.editions.find(e => e.lang === 'EN')?.title || targetTitle.name))
+              : resolveHumanTitle(r.code, r.lang, undefined, cleanBaseCode));
+
+          const cat = targetTitle?.cat || category || 'Booklet';
+          const canonicalSku = generateEditionSku(cleanBaseCode, r.lang);
+
+          const docRef = await addInventoryItem({
+            sku: canonicalSku,
+            title: titleName,
+            category: cat === 'Bible' ? 'Bibles' : cat === 'Booklet' ? 'Booklets' : 'Tracts',
+            language: r.lang === 'ES' ? 'Spanish' : 'English',
+            stockLevel: r.qty,
+            stock: r.qty,
+            status: r.qty === 0 ? 'Out' : r.qty < 100 ? 'Low' : 'Healthy',
+            unitPrice: 0,
+            baseCode: cleanBaseCode,
+            baseName: targetTitle?.name || baseName || titleName
+          });
+
+          if (docRef) {
+            await createAuditLog('STOCK_UPDATE', docRef.id, 'inventory', `Initial stock received via delivery check-in: +${r.qty} units (${titleName})`, {
+              delta: r.qty,
+              previousStock: 0,
+              newStock: r.qty,
+              sku: canonicalSku,
+              title: titleName,
+              lang: r.lang,
+              occurredAt: effectiveDate,
+              note: `Delivery check-in received on ${effectiveDate}`
+            });
+          }
         }
       }
 
       // Update remaining orders in Firestore
       for (const r of receipts) {
-        const orderDoc = rawOrders.find(o => o.code === r.code || o.key === r.code);
+        const orderDoc = rawOrders.find(o => 
+          o.code === r.code || 
+          o.key === r.code || 
+          o.key === `${r.code}-${r.lang}` ||
+          (o.code && `${o.code}-${o.lang || 'EN'}` === r.code) ||
+          (o.title === r.title && (o.lang === r.lang || !o.lang))
+        );
         if (orderDoc) {
-          const remaining = remainingOrders.find(o => o.code === r.code || o.key === orderDoc.key);
+          const remaining = remainingOrders.find(o => 
+            o.code === r.code || 
+            o.key === orderDoc.key || 
+            o.key === `${r.code}-${r.lang}` ||
+            (o.code && `${o.code}-${o.lang || 'EN'}` === r.code)
+          );
           if (!remaining) {
             await deleteOrderItem(orderDoc.id);
           } else {
@@ -725,9 +852,14 @@ export function App() {
         }
       }
 
-      await createAuditLog('DELIVERY_RECEIVED', 'delivery', 'inventory', `Delivery check-in: ${totalReceived} units received into inventory`, {
+      const itemsSummary = receipts.map(r => `${r.qty} ${r.title} (${r.lang})`).join(', ');
+      await createAuditLog('DELIVERY_RECEIVED', 'delivery', 'inventory', `Delivery check-in: ${totalReceived} units received into inventory (${itemsSummary})`, {
         delta: totalReceived,
-        receiptsCount: receipts.length
+        receiptsCount: receipts.length,
+        occurredAt: effectiveDate,
+        orderTitle: `Literature delivery (${effectiveDate})`,
+        itemsSummary,
+        items: receipts.map(r => ({ ...r }))
       });
     } catch (err) {
       console.error('Failed to receive delivery in database:', err);
@@ -890,6 +1022,9 @@ export function App() {
         {activeTab === 'history' && (
           <HistoryView
             movements={movements}
+            onReconcile={handleManualReconcileSept18}
+            isReconciling={reconciliationStatus.reconciling}
+            reconciliationMessage={reconciliationStatus.message}
           />
         )}
 

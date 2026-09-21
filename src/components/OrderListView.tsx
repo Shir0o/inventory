@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Title, OrderItem } from '../types';
-import { ShoppingCart, PackageCheck, Plus, Check, Trash2, ArrowLeft, Layers, RotateCcw, Search, Sparkles } from 'lucide-react';
+import { ShoppingCart, PackageCheck, Plus, Check, Trash2, ArrowLeft, Layers, RotateCcw, Search, Sparkles, Calendar } from 'lucide-react';
 import { calculateSuggestedOrderQty } from '../lib/utils';
 
 interface OrderListViewProps {
   titles: Title[];
   orders: OrderItem[];
   onMarkOrdered: (items: { code: string; title: string; lang?: string; qty: number; packs?: number; bundle?: string }[]) => void;
-  onReceiveDelivery: (receipts: { code: string; title: string; lang: 'EN' | 'ES'; qty: number }[], remainingOrders: OrderItem[]) => void;
+  onReceiveDelivery: (receipts: { code: string; title: string; lang: 'EN' | 'ES'; qty: number }[], remainingOrders: OrderItem[], checkInDate?: string) => void;
   onCancelOrder: (code: string) => void;
   reorderSensitivity?: number;
 }
@@ -28,6 +28,7 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   // Check-in state
+  const [checkInDate, setCheckInDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [checkInQuantities, setCheckInQuantities] = useState<Record<string, number>>({});
   const [extraItemCode, setExtraItemCode] = useState('');
   const [extraItemQty, setExtraItemQty] = useState('');
@@ -228,10 +229,22 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
         });
       } else {
         // Regular single title edition
-        const lang = (o.lang || (o.key.endsWith('-ES') ? 'ES' : 'EN')) as 'EN' | 'ES';
+        const isSpanish = (o.lang && o.lang.toUpperCase().includes('ES')) || 
+          o.key.endsWith('-ES') || 
+          (o.code && o.code.endsWith('-ES')) || 
+          o.key.includes('_ES') ||
+          (o.title && (
+            o.title.toLowerCase().includes('spanish') ||
+            o.title.toLowerCase().includes('elementos') ||
+            o.title.toLowerCase().includes('básicos') ||
+            o.title.toLowerCase().includes('basicos') ||
+            o.title.toLowerCase().includes('biblia') ||
+            o.title.toLowerCase().includes('tomo')
+          ));
+        const lang: 'EN' | 'ES' = isSpanish ? 'ES' : 'EN';
         if (arrivedQty > 0) {
           receipts.push({
-            code: o.code,
+            code: o.code || o.key,
             title: o.title,
             lang,
             qty: arrivedQty
@@ -253,7 +266,7 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
       receipts.push(extra);
     });
 
-    onReceiveDelivery(receipts, remainingOrders);
+    onReceiveDelivery(receipts, remainingOrders, checkInDate);
     setCheckingIn(false);
   };
 
@@ -284,6 +297,66 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
         {/* Form Body */}
         <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-6 space-y-6">
           <div className="max-w-3xl space-y-6">
+            {/* Delivery Date Tagging Card */}
+            <div className="border border-[#dcdee3] rounded-lg p-4 bg-white shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-[#1f5f8b]" />
+                    <label htmlFor="delivery-date-input" className="text-[13px] font-bold text-[#191c20]">
+                      Delivery / Arrival Date
+                    </label>
+                  </div>
+                  <p className="text-[12px] text-[#6c6f77] mt-0.5">
+                    Tag the physical date this shipment arrived. History records and movements will use this date.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    id="delivery-date-input"
+                    type="date"
+                    value={checkInDate}
+                    onChange={(e) => setCheckInDate(e.target.value)}
+                    className="px-3 py-1.5 border border-[#c9cbd2] rounded-md font-mono text-[13px] text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCheckInDate(new Date().toISOString().slice(0, 10))}
+                    className={`px-2.5 py-1.5 text-[11.5px] font-medium rounded border cursor-pointer transition-colors ${
+                      checkInDate === new Date().toISOString().slice(0, 10)
+                        ? 'bg-[#1f5f8b] text-white border-[#1f5f8b]'
+                        : 'bg-[#f6f7f9] text-[#44474e] border-[#dcdee3] hover:bg-[#eef0f3]'
+                    }`}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() - 1);
+                      setCheckInDate(d.toISOString().slice(0, 10));
+                    }}
+                    className="px-2.5 py-1.5 text-[11.5px] font-medium rounded border border-[#dcdee3] bg-[#f6f7f9] text-[#44474e] hover:bg-[#eef0f3] cursor-pointer transition-colors"
+                  >
+                    Yesterday
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCheckInDate('2026-09-18')}
+                    className={`px-2.5 py-1.5 text-[11.5px] font-medium rounded border cursor-pointer transition-colors ${
+                      checkInDate === '2026-09-18'
+                        ? 'bg-[#1f5f8b] text-white border-[#1f5f8b]'
+                        : 'bg-[#f6f7f9] text-[#44474e] border-[#dcdee3] hover:bg-[#eef0f3]'
+                    }`}
+                  >
+                    9/18/26
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* On order check-off */}
             <div className="border border-[#dcdee3] rounded-lg overflow-hidden bg-white shadow-xs">
               <div className="px-4 py-3 bg-[#f6f7f9] border-b border-[#dcdee3] text-[11px] font-bold tracking-wider uppercase text-[#6c6f77]">
@@ -405,7 +478,7 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
         {/* Bottom Actions */}
         <div className="px-6 py-4 border-t border-[#dcdee3] bg-[#f6f7f9] flex items-center justify-between gap-4">
           <div className="text-[13px] text-[#44474e]">
-            Receiving <strong>{totalArriving.toLocaleString()}</strong> pieces into inventory.
+            Receiving <strong>{totalArriving.toLocaleString()}</strong> pieces into inventory for <strong>{checkInDate}</strong>.
           </div>
           <div className="flex items-center gap-2.5 flex-none">
             <button

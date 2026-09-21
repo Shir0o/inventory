@@ -147,7 +147,16 @@ export async function createAuditLog(action: AuditAction, targetId: string, targ
   }
 }
 
-export function subscribeToAuditLogs(callback: (logs: any[]) => void, limitCount: number = 50) {
+export async function deleteAuditLog(id: string) {
+  const path = `audit_logs/${id}`;
+  try {
+    await deleteDoc(doc(db, 'audit_logs', id));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+export function subscribeToAuditLogs(callback: (logs: any[]) => void, limitCount: number = 100) {
   const path = 'audit_logs';
   const q = query(collection(db, path), orderBy('timestamp', 'desc'), limit(limitCount));
   
@@ -161,7 +170,7 @@ export function subscribeToAuditLogs(callback: (logs: any[]) => void, limitCount
 
 export function subscribeToItemHistory(itemId: string, callback: (logs: any[]) => void) {
   const path = 'audit_logs';
-  const q = query(collection(db, path), orderBy('timestamp', 'desc'), limit(100));
+  const q = query(collection(db, path), orderBy('timestamp', 'desc'), limit(150));
   
   return onSnapshot(q, (snapshot) => {
     const logs = snapshot.docs
@@ -172,7 +181,11 @@ export function subscribeToItemHistory(itemId: string, callback: (logs: any[]) =
                              log.metadata?.itemIds && 
                              Array.isArray(log.metadata.itemIds) && 
                              log.metadata.itemIds.includes(itemId);
-        return isTarget || inDistribution;
+        const inDelivery = (log.action === 'DELIVERY_RECEIVED' || log.action === 'STOCK_UPDATE' || log.action === 'STOCK_ADJUSTED') && (
+          log.targetId === itemId ||
+          (log.metadata?.items && Array.isArray(log.metadata.items) && log.metadata.items.some((i: any) => i.itemId === itemId || i.sku === itemId || i.code === itemId))
+        );
+        return isTarget || inDistribution || inDelivery;
       });
     callback(logs);
   }, (error: FirestoreError) => {
@@ -282,9 +295,17 @@ export async function addInventoryItem(item: any, thresholds?: { warning: number
     }
 
     // Check for SKU uniqueness
-    const existing = await getInventoryItemBySku(item.sku);
+    const existing = (await getInventoryItemBySku(item.sku)) as any;
     if (existing) {
-      throw new Error(`SKU "${item.sku}" already exists in the inventory.`);
+      const current = Number(existing.stockLevel ?? existing.stock ?? 0);
+      const incomingStock = Number(item.stockLevel ?? item.stock ?? 0);
+      const newStock = current + incomingStock;
+      await updateInventoryItem(existing.id, {
+        stockLevel: newStock,
+        stock: newStock,
+        status: newStock === 0 ? 'Out' : newStock < 100 ? 'Low' : 'Healthy'
+      });
+      return { id: existing.id } as any;
     }
 
     // Determine system status
@@ -368,6 +389,25 @@ export async function updateInventoryItem(
 
       if (item.unitPrice !== undefined) updatePayload.unitPrice = Number(item.unitPrice);
       else if (existingData.unitPrice !== undefined) updatePayload.unitPrice = existingData.unitPrice;
+    }
+
+    if (item.stock !== undefined) {
+      updatePayload.stock = Number(item.stock);
+    } else if (item.stockLevel !== undefined) {
+      updatePayload.stock = Number(item.stockLevel);
+    }
+
+    if (item.editions !== undefined) {
+      updatePayload.editions = item.editions;
+    } else if (Array.isArray(existingData.editions) && existingData.editions.length > 0 && item.lang) {
+      const targetLang = String(item.lang).toUpperCase().includes('ES') ? 'ES' : 'EN';
+      updatePayload.editions = existingData.editions.map((ed: any) => {
+        const edLang = String(ed.lang || '').toUpperCase().includes('ES') ? 'ES' : 'EN';
+        if (edLang === targetLang) {
+          return { ...ed, stock: Number(item.stockLevel), stockLevel: Number(item.stockLevel) };
+        }
+        return ed;
+      });
     }
 
     await updateDoc(itemRef, updatePayload);

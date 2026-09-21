@@ -181,6 +181,7 @@ service cloud.firestore {
     match /audit_logs/{logId} {
       allow read: if isAdmin() || isMember();
       allow create: if isMember() && isValidId(logId) && (!('timestamp' in incoming()) || isServerTimestamp(incoming().timestamp));
+      allow update, delete: if isAdmin();
     }
 
     match /notifications/{notificationId} {

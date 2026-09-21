@@ -239,7 +239,13 @@ export function humanizeAuditLog(log: any, options?: HumanizeOptions): Humanized
 
     case 'DELIVERY_RECEIVED': {
       what = `Stock received — ${metadata.orderTitle || itemTitle || 'Literature order'}`;
-      detail = log.details ? sanitizeDetailText(log.details, options) : 'Restock arrived on shelves';
+      if (metadata.itemsSummary) {
+        detail = metadata.itemsSummary;
+      } else if (log.details) {
+        detail = sanitizeDetailText(log.details, options);
+      } else {
+        detail = 'Restock arrived on shelves';
+      }
       break;
     }
 

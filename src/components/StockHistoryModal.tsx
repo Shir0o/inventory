@@ -28,7 +28,16 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings, onLogMovement }: S
     }
   }, [isOpen, item?.id]);
 
-  const formatDate = (timestamp: any) => {
+  const formatDate = (timestamp: any, log?: any) => {
+    if (log?.metadata?.occurredAt) {
+      const occ = String(log.metadata.occurredAt).slice(0, 10);
+      try {
+        const [y, m, d] = occ.split('-').map(Number);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        if (d && m) return `${months[m - 1]} ${d}, ${y}`;
+      } catch {}
+      return occ;
+    }
     if (!timestamp) return '---';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return new Intl.DateTimeFormat('en-US', {
@@ -42,6 +51,9 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings, onLogMovement }: S
   };
 
   const getLogTypeInfo = (log: any) => {
+    if (log.action === 'DELIVERY_RECEIVED' || log.metadata?.note?.toLowerCase().includes('delivery') || log.details?.toLowerCase().includes('delivery')) {
+      return { label: 'Delivery Receipt', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
+    }
     if (log.metadata?.isDirectMovement) {
       if (log.metadata.movementType === 'SUBTRACT') {
         return { label: 'Direct Outflow / Giving', color: 'bg-amber-100 text-amber-800 border-amber-300' };
@@ -55,7 +67,8 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings, onLogMovement }: S
       case 'ITEM_CREATED':
         return { label: 'Created', color: 'bg-green-100 text-green-700 border-green-200' };
       case 'STOCK_UPDATE':
-        return { label: 'Manual Adjustment', color: 'bg-blue-100 text-blue-700 border-blue-200' };
+      case 'STOCK_ADJUSTED':
+        return { label: 'Stock Adjustment', color: 'bg-blue-100 text-blue-700 border-blue-200' };
       case 'DISTRIBUTION':
         return { label: 'Event Distribution', color: 'bg-purple-100 text-purple-700 border-purple-200' };
       default:
@@ -203,7 +216,7 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings, onLogMovement }: S
                             </div>
                             <div className="flex items-center gap-1.5 text-on-surface-variant">
                               <Calendar className="w-3 h-3" />
-                              <span className="text-[10px] font-mono leading-none">{formatDate(log.timestamp)}</span>
+                              <span className="text-[10px] font-mono leading-none">{formatDate(log.timestamp, log)}</span>
                             </div>
                           </div>
                           
