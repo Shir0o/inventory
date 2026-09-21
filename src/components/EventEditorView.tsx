@@ -32,6 +32,7 @@ import {
 } from '../services/firestoreService';
 import { Timestamp } from 'firebase/firestore';
 import { cn } from '../lib/utils';
+import { calculateCategoryStatsFromLines } from '../services/inventoryCleanupService';
 
 interface EventEditorViewProps {
   event?: any;
@@ -580,48 +581,55 @@ export const EventEditorView: React.FC<EventEditorViewProps> = ({
                 </div>
               </div>
 
-              {event?.categoryStats && (
-                <div className="p-4 bg-surface-container-low border border-outline-variant/30 rounded-2xl space-y-3 mt-4">
-                  <h4 className="font-headline font-bold text-[10px] text-primary uppercase tracking-widest border-b border-outline-variant/30 pb-2">
-                    Coverage Breakdown
-                  </h4>
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div>
-                      <p className="font-headline font-bold text-base text-primary">{event.categoryStats.bibles || 0}</p>
-                      <p className="text-[9px] font-mono text-on-surface-variant uppercase">Bibles</p>
-                      {(event.categoryStats.bibles_en > 0 || event.categoryStats.bibles_es > 0) && (
-                        <div className="flex justify-center gap-1 mt-0.5 text-[8px] font-bold text-slate-400 uppercase">
-                          <span>EN:{event.categoryStats.bibles_en || 0}</span>
-                          <span>•</span>
-                          <span>ES:{event.categoryStats.bibles_es || 0}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="border-l border-r border-outline-variant/30">
-                      <p className="font-headline font-bold text-base text-primary">{event.categoryStats.tracts || 0}</p>
-                      <p className="text-[9px] font-mono text-on-surface-variant uppercase">Tracts</p>
-                      {(event.categoryStats.tracts_en > 0 || event.categoryStats.tracts_es > 0) && (
-                        <div className="flex justify-center gap-1 mt-0.5 text-[8px] font-bold text-slate-400 uppercase">
-                          <span>EN:{event.categoryStats.tracts_en || 0}</span>
-                          <span>•</span>
-                          <span>ES:{event.categoryStats.tracts_es || 0}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-headline font-bold text-base text-primary">{event.categoryStats.booklets || 0}</p>
-                      <p className="text-[9px] font-mono text-on-surface-variant uppercase">Booklets</p>
-                      {(event.categoryStats.booklets_en > 0 || event.categoryStats.booklets_es > 0) && (
-                        <div className="flex justify-center gap-1 mt-0.5 text-[8px] font-bold text-slate-400 uppercase">
-                          <span>EN:{event.categoryStats.booklets_en || 0}</span>
-                          <span>•</span>
-                          <span>ES:{event.categoryStats.booklets_es || 0}</span>
-                        </div>
-                      )}
+              {(() => {
+                const displayStats = (event?.categoryStats && (event.categoryStats.bibles > 0 || event.categoryStats.booklets > 0 || !event.lines || event.lines.length === 0))
+                  ? event.categoryStats
+                  : (event?.lines && event.lines.length > 0 ? calculateCategoryStatsFromLines(event.lines, inventory) : event?.categoryStats);
+                if (!displayStats) return null;
+
+                return (
+                  <div className="p-4 bg-surface-container-low border border-outline-variant/30 rounded-2xl space-y-3 mt-4">
+                    <h4 className="font-headline font-bold text-[10px] text-primary uppercase tracking-widest border-b border-outline-variant/30 pb-2">
+                      Coverage Breakdown
+                    </h4>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <p className="font-headline font-bold text-base text-primary">{displayStats.bibles || 0}</p>
+                        <p className="text-[9px] font-mono text-on-surface-variant uppercase">Bibles</p>
+                        {(displayStats.bibles_en > 0 || displayStats.bibles_es > 0) && (
+                          <div className="flex justify-center gap-1 mt-0.5 text-[8px] font-bold text-slate-400 uppercase">
+                            <span>EN:{displayStats.bibles_en || 0}</span>
+                            <span>•</span>
+                            <span>ES:{displayStats.bibles_es || 0}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="border-l border-r border-outline-variant/30">
+                        <p className="font-headline font-bold text-base text-primary">{displayStats.tracts || 0}</p>
+                        <p className="text-[9px] font-mono text-on-surface-variant uppercase">Tracts</p>
+                        {(displayStats.tracts_en > 0 || displayStats.tracts_es > 0) && (
+                          <div className="flex justify-center gap-1 mt-0.5 text-[8px] font-bold text-slate-400 uppercase">
+                            <span>EN:{displayStats.tracts_en || 0}</span>
+                            <span>•</span>
+                            <span>ES:{displayStats.tracts_es || 0}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-headline font-bold text-base text-primary">{displayStats.booklets || 0}</p>
+                        <p className="text-[9px] font-mono text-on-surface-variant uppercase">Booklets</p>
+                        {(displayStats.booklets_en > 0 || displayStats.booklets_es > 0) && (
+                          <div className="flex justify-center gap-1 mt-0.5 text-[8px] font-bold text-slate-400 uppercase">
+                            <span>EN:{displayStats.booklets_en || 0}</span>
+                            <span>•</span>
+                            <span>ES:{displayStats.booklets_es || 0}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </form>
           </div>
 

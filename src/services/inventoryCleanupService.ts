@@ -1,7 +1,7 @@
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { createAuditLog } from './firestoreService';
-import { Category, Language } from '../types';
+import { Category, Language, EventLine } from '../types';
 
 export interface SourceDocument {
   id: string;
@@ -1418,4 +1418,237 @@ export async function executeInventoryCodeMigration(plan: CodeMigrationPlan): Pr
     success: true,
     updatedCount: plan.itemsToUpdate.length
   };
+}
+
+/**
+ * Resolves a raw inventory item document across varying SKU formats, base codes,
+ * language suffixes, programmatic codes (e.g. BIB-001-002-ES vs BIB-001-ES),
+ * legacy codes (e.g. BIB-NTRV-ES, BKL-BE1-ES), and titles.
+ */
+export function findMatchingInventoryItem(
+  items: any[],
+  codeOrKey: string,
+  langHint?: string,
+  titleHint?: string
+): any | undefined {
+  if (!items || items.length === 0 || !codeOrKey) return undefined;
+
+  const targetKey = String(codeOrKey).trim();
+  const targetKeyUpper = targetKey.toUpperCase();
+
+  // 1. Direct match on id or exact sku (case-insensitive)
+  const directMatch = items.find(i => 
+    i.id === targetKey || 
+    (i.sku && i.sku.toUpperCase() === targetKeyUpper)
+  );
+  if (directMatch) return directMatch;
+
+  // 2. Detect language:
+  let detectedLang: 'EN' | 'ES' | undefined = langHint ? (langHint.toUpperCase().includes('ES') ? 'ES' : 'EN') : undefined;
+  if (!detectedLang) {
+    if (
+      targetKeyUpper.endsWith('-ES') || 
+      targetKeyUpper.endsWith('_ES') || 
+      targetKeyUpper.includes('-002-') || 
+      targetKeyUpper.includes('_002_') ||
+      targetKeyUpper.includes('-SPANISH')
+    ) {
+      detectedLang = 'ES';
+    } else if (
+      targetKeyUpper.endsWith('-EN') || 
+      targetKeyUpper.endsWith('_EN') || 
+      targetKeyUpper.includes('-001-') || 
+      targetKeyUpper.includes('_001_') ||
+      targetKeyUpper.includes('-ENGLISH')
+    ) {
+      detectedLang = 'EN';
+    }
+  }
+
+  // 3. Extract clean base code:
+  const cleanBase = targetKeyUpper
+    .replace(/-(001|002)?-(EN|ES)$/i, '')
+    .replace(/-(EN|ES)$/i, '')
+    .replace(/-(001|002)$/i, '')
+    .replace(/_(EN|ES)$/i, '')
+    .trim();
+
+  // 4. Match using extractBaseCode & normalizeLang:
+  const baseAndLangMatch = items.find(i => {
+    const { baseCode } = extractBaseCode(i);
+    const iLang = normalizeLang(i);
+    const itemCleanBase = (baseCode || i.baseCode || i.sku || '')
+      .toUpperCase()
+      .replace(/-(001|002)?-(EN|ES)$/i, '')
+      .replace(/-(EN|ES)$/i, '')
+      .replace(/-(001|002)$/i, '')
+      .replace(/_(EN|ES)$/i, '')
+      .trim();
+
+    const matchesBase = itemCleanBase === cleanBase || 
+      (i.sku && i.sku.toUpperCase().includes(cleanBase)) ||
+      (i.baseCode && i.baseCode.toUpperCase() === cleanBase);
+
+    if (matchesBase) {
+      if (detectedLang) return iLang === detectedLang;
+      return true;
+    }
+    return false;
+  });
+  if (baseAndLangMatch) return baseAndLangMatch;
+
+  // 5. Match using CATALOG_REGISTRY legacyCodes and aliases
+  const registryEntry = CATALOG_REGISTRY.find(reg => 
+    reg.baseCode.toUpperCase() === cleanBase ||
+    reg.legacyCodes.some(lc => lc.toUpperCase() === cleanBase) ||
+    reg.aliases.some(al => al.toUpperCase() === cleanBase)
+  );
+
+  if (registryEntry) {
+    const allKnownCodes = [registryEntry.baseCode, ...registryEntry.legacyCodes].map(c => c.toUpperCase());
+    const regMatch = items.find(i => {
+      const { baseCode } = extractBaseCode(i);
+      const iLang = normalizeLang(i);
+      const itemClean = (baseCode || i.baseCode || i.sku || '')
+        .toUpperCase()
+        .replace(/-(001|002)?-(EN|ES)$/i, '')
+        .replace(/-(EN|ES)$/i, '')
+        .replace(/-(001|002)$/i, '')
+        .replace(/_(EN|ES)$/i, '')
+        .trim();
+
+      const codeMatches = allKnownCodes.includes(itemClean) || allKnownCodes.some(c => (i.sku || '').toUpperCase().includes(c));
+      if (codeMatches) {
+        if (detectedLang) return iLang === detectedLang;
+        return true;
+      }
+      return false;
+    });
+    if (regMatch) return regMatch;
+  }
+
+  // 6. Match by title if titleHint is present
+  if (titleHint) {
+    const hintLower = titleHint.trim().toLowerCase();
+    const titleMatch = items.find(i => {
+      const iTitle = (i.title || i.name || '').trim().toLowerCase();
+      const iLang = normalizeLang(i);
+      if (iTitle === hintLower || (hintLower.length > 5 && iTitle.includes(hintLower))) {
+        if (detectedLang) return iLang === detectedLang;
+        return true;
+      }
+      return false;
+    });
+    if (titleMatch) return titleMatch;
+  }
+
+  return undefined;
+}
+
+/**
+ * Accurately determines category ('Bible' | 'Booklet' | 'Tract') and language ('EN' | 'ES')
+ * for an event line or order item, ensuring Spanish Bibles and Spanish Booklets
+ * (Basic Elements) are never erroneously misclassified as tracts.
+ */
+export function resolveItemCategoryAndLang(
+  code: string,
+  title?: string,
+  langHint?: string,
+  item?: any
+): { category: Category; lang: Language } {
+  const codeUpper = (code || item?.sku || '').toUpperCase();
+  const titleLower = (title || item?.title || item?.name || '').toLowerCase();
+  
+  // 1. Language determination
+  let lang: Language = (langHint?.toUpperCase().includes('ES') || codeUpper.endsWith('-ES') || codeUpper.includes('-002-') || codeUpper.includes('_ES')) ? 'ES' : 'EN';
+  if (item) {
+    lang = normalizeLang(item);
+  } else if (titleLower.includes('español') || titleLower.includes('versión recobro') || titleLower.includes('elementos básicos') || titleLower.includes('tomo')) {
+    lang = 'ES';
+  }
+
+  // 2. Category determination
+  let category: Category | null = null;
+  if (item?.category) {
+    const rawCat = (item.category || '').toLowerCase();
+    if (rawCat.includes('bible')) category = 'Bible';
+    else if (rawCat.includes('booklet')) category = 'Booklet';
+    else if (rawCat.includes('tract')) category = 'Tract';
+  }
+
+  if (!category) {
+    if (
+      codeUpper.startsWith('BIB') ||
+      titleLower.includes('bible') ||
+      titleLower.includes('biblia') ||
+      titleLower.includes('recobro') ||
+      titleLower.includes('recovery version') ||
+      titleLower.includes('testament') ||
+      titleLower.includes('testamento')
+    ) {
+      category = 'Bible';
+    } else if (
+      codeUpper.startsWith('BKL') ||
+      titleLower.includes('booklet') ||
+      titleLower.includes('basic elements') ||
+      titleLower.includes('elementos básicos') ||
+      titleLower.includes('tomo')
+    ) {
+      category = 'Booklet';
+    } else {
+      category = 'Tract';
+    }
+  }
+
+  return { category, lang };
+}
+
+/**
+ * Accurately computes the category statistics breakdown from a list of event lines,
+ * guaranteeing that Spanish Bibles (Versión Recobro) and Spanish Basic Elements (vol 1-3)
+ * properly increment Bible and Booklet counts instead of being misassigned to Tracts.
+ */
+export function calculateCategoryStatsFromLines(
+  lines: EventLine[],
+  inventoryItems?: any[]
+) {
+  const stats = {
+    bibles: 0,
+    bibles_en: 0,
+    bibles_es: 0,
+    tracts: 0,
+    tracts_en: 0,
+    tracts_es: 0,
+    booklets: 0,
+    booklets_en: 0,
+    booklets_es: 0,
+    total: 0
+  };
+
+  if (!lines || lines.length === 0) return stats;
+
+  for (const line of lines) {
+    const passed = Math.max(0, line.took - line.back);
+    if (passed <= 0) continue;
+    stats.total += passed;
+
+    const item = inventoryItems ? findMatchingInventoryItem(inventoryItems, line.code, line.lang, line.title) : undefined;
+    const { category, lang } = resolveItemCategoryAndLang(line.code, line.title, line.lang, item);
+
+    if (category === 'Bible') {
+      stats.bibles += passed;
+      if (lang === 'ES') stats.bibles_es += passed;
+      else stats.bibles_en += passed;
+    } else if (category === 'Booklet') {
+      stats.booklets += passed;
+      if (lang === 'ES') stats.booklets_es += passed;
+      else stats.booklets_en += passed;
+    } else {
+      stats.tracts += passed;
+      if (lang === 'ES') stats.tracts_es += passed;
+      else stats.tracts_en += passed;
+    }
+  }
+
+  return stats;
 }

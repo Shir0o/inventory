@@ -52,6 +52,18 @@ export interface EventItem {
   materialsDistributed?: number;
   totalPassed?: number;
   corrections?: Correction[];
+  categoryStats?: {
+    bibles: number;
+    bibles_en: number;
+    bibles_es: number;
+    tracts: number;
+    tracts_en: number;
+    tracts_es: number;
+    booklets: number;
+    booklets_en: number;
+    booklets_es: number;
+    total: number;
+  };
 }
 
 export interface Movement {

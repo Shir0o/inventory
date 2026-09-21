@@ -29,7 +29,9 @@ import {
   generateProgrammaticCode, 
   generateEditionSku, 
   resolveHumanTitle,
-  isCodeLikeTitle 
+  isCodeLikeTitle,
+  findMatchingInventoryItem,
+  calculateCategoryStatsFromLines
 } from './services/inventoryCleanupService';
 import { doc, updateDoc, Timestamp, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
@@ -240,12 +242,18 @@ export function App() {
       }
 
       const lines = Array.isArray(ev.lines) ? ev.lines : [];
+      const computedStats = calculateCategoryStatsFromLines(lines, rawInventory);
       const distributed = typeof ev.materialsDistributed === 'number' 
         ? ev.materialsDistributed 
-        : (typeof ev.totalPassed === 'number' ? ev.totalPassed : 0);
+        : (typeof ev.totalPassed === 'number' ? ev.totalPassed : computedStats.total);
 
       const isCompleted = ev.status === 'Completed' || ev.planned === false;
       const isPlanned = !isCompleted && (ev.planned === true || ev.status === 'Scheduled' || ev.status === 'Drafting');
+
+      // Use stored categoryStats if valid and detailed, or fallback to accurately computed stats from lines
+      const categoryStats = (ev.categoryStats && (ev.categoryStats.bibles > 0 || ev.categoryStats.booklets > 0 || lines.length === 0))
+        ? ev.categoryStats
+        : (lines.length > 0 ? computedStats : ev.categoryStats);
 
       return {
         id: ev.id,
@@ -255,10 +263,11 @@ export function App() {
         lines,
         materialsDistributed: distributed,
         totalPassed: distributed,
-        corrections: Array.isArray(ev.corrections) ? ev.corrections : []
+        corrections: Array.isArray(ev.corrections) ? ev.corrections : [],
+        categoryStats
       };
     });
-  }, [rawEvents]);
+  }, [rawEvents, rawInventory]);
 
   // Map real Firestore orders
   const orders: OrderItem[] = useMemo(() => {
@@ -356,12 +365,7 @@ export function App() {
         .replace(/-(EN|ES)$/i, '')
         .trim();
 
-      const item = rawInventory.find(i => 
-        i.sku === codeKey || 
-        i.id === codeKey || 
-        (extractBaseCode(i).baseCode === cleanBaseCode && normalizeLang(i) === lang) ||
-        (i.baseCode === cleanBaseCode && (i.language?.toLowerCase().includes(lang.toLowerCase()) || i.sku?.endsWith(`-${lang}`)))
-      );
+      const item = findMatchingInventoryItem(rawInventory, codeKey);
 
       if (item) {
         const prevStock = Number(item.stockLevel || 0);
@@ -516,7 +520,7 @@ export function App() {
         const passed = Math.max(0, line.took - line.back);
         totalPassed += passed;
 
-        const item = rawInventory.find(i => i.sku === line.code || i.sku === line.key || i.id === line.key);
+        const item = findMatchingInventoryItem(rawInventory, line.code, line.lang, line.title);
         if (item) {
           const currentStock = Number(item.stockLevel || 0);
           const newStock = Math.max(0, currentStock - passed);
@@ -541,38 +545,10 @@ export function App() {
         eventDateTimestamp = Timestamp.fromDate(new Date());
       }
 
-      // Calculate category breakdown
-      const categoryStats = {
-        bibles: 0,
-        bibles_en: 0,
-        bibles_es: 0,
-        tracts: 0,
-        tracts_en: 0,
-        tracts_es: 0,
-        booklets: 0,
-        booklets_en: 0,
-        booklets_es: 0,
-        total: totalPassed
-      };
-      for (const line of lines) {
-        const passed = Math.max(0, line.took - line.back);
-        if (passed <= 0) continue;
-        const item = rawInventory.find(i => i.sku === line.code || i.sku === line.key || i.id === line.key);
-        const cat = (item?.category || '').toLowerCase();
-        const lang = (line.lang || item?.language || 'EN').toUpperCase();
-        if (cat.includes('bible')) {
-          categoryStats.bibles += passed;
-          if (lang.includes('ES')) categoryStats.bibles_es += passed;
-          else categoryStats.bibles_en += passed;
-        } else if (cat.includes('booklet')) {
-          categoryStats.booklets += passed;
-          if (lang.includes('ES')) categoryStats.booklets_es += passed;
-          else categoryStats.booklets_en += passed;
-        } else {
-          categoryStats.tracts += passed;
-          if (lang.includes('ES')) categoryStats.tracts_es += passed;
-          else categoryStats.tracts_en += passed;
-        }
+      // Calculate category breakdown accurately
+      const categoryStats = calculateCategoryStatsFromLines(lines, rawInventory);
+      if (totalPassed > 0 && categoryStats.total === 0) {
+        categoryStats.total = totalPassed;
       }
 
       // 2. Save / update event in Firestore
@@ -677,7 +653,7 @@ export function App() {
         const delta = ch.to - ch.from;
         netDelta += delta;
 
-        const item = rawInventory.find(i => i.sku === ch.key || i.id === ch.key);
+        const item = findMatchingInventoryItem(rawInventory, ch.key);
         if (item) {
           const currentStock = Number(item.stockLevel || 0);
           const newStock = Math.max(0, currentStock + delta);
@@ -729,7 +705,7 @@ export function App() {
       // Increment stocks in Firestore
       for (const r of receipts) {
         totalReceived += r.qty;
-        const item = rawInventory.find(i => i.sku === r.code || i.id === r.code);
+        const item = findMatchingInventoryItem(rawInventory, r.code, r.lang, r.title);
         if (item) {
           const currentStock = Number(item.stockLevel || 0);
           await updateInventoryItem(item.id, { stockLevel: currentStock + r.qty });

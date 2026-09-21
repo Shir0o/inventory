@@ -1448,32 +1448,47 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
         const sku = material.sku.toUpperCase();
 
         // High-level stat calculation
-        if (sku === 'BIBLES') stats.bibles += material.quantity;
-        else if (sku === 'BIBLES_EN') { stats.bibles += material.quantity; stats.bibles_en += material.quantity; }
-        else if (sku === 'BIBLES_ES') { stats.bibles += material.quantity; stats.bibles_es += material.quantity; }
-        else if (sku === 'TRACTS') stats.tracts += material.quantity;
-        else if (sku === 'TRACTS_EN') { stats.tracts += material.quantity; stats.tracts_en += material.quantity; }
-        else if (sku === 'TRACTS_ES') { stats.tracts += material.quantity; stats.tracts_es += material.quantity; }
-        else if (sku === 'BOOKLETS') stats.booklets += material.quantity;
-        else if (sku === 'BOOKLETS_EN') { stats.booklets += material.quantity; stats.booklets_en += material.quantity; }
-        else if (sku === 'BOOKLETS_ES') { stats.booklets += material.quantity; stats.booklets_es += material.quantity; }
-        else if (itemInfo) {
-          // If it's a specific item, check its category and language
-          const cat = (itemInfo.category || '').toLowerCase();
-          const lang = (itemInfo.language || '').toLowerCase();
-          
-          if (cat.includes('bible')) {
+        const titleLower = (material.title || itemInfo?.title || itemInfo?.name || '').toLowerCase();
+        const isSpanish = (itemInfo?.language || '').toLowerCase().includes('es') || 
+          sku.endsWith('-ES') || 
+          sku.includes('-002-') || 
+          sku === 'BIBLES_ES' || 
+          sku === 'TRACTS_ES' || 
+          sku === 'BOOKLETS_ES' ||
+          titleLower.includes('español') || 
+          titleLower.includes('recobro') || 
+          titleLower.includes('elementos básicos');
+
+        if (sku === 'BIBLES' || sku === 'BIBLES_EN' || sku === 'BIBLES_ES') {
+          stats.bibles += material.quantity;
+          if (sku === 'BIBLES_ES') stats.bibles_es += material.quantity;
+          else if (sku === 'BIBLES_EN') stats.bibles_en += material.quantity;
+        } else if (sku === 'TRACTS' || sku === 'TRACTS_EN' || sku === 'TRACTS_ES') {
+          stats.tracts += material.quantity;
+          if (sku === 'TRACTS_ES') stats.tracts_es += material.quantity;
+          else if (sku === 'TRACTS_EN') stats.tracts_en += material.quantity;
+        } else if (sku === 'BOOKLETS' || sku === 'BOOKLETS_EN' || sku === 'BOOKLETS_ES') {
+          stats.booklets += material.quantity;
+          if (sku === 'BOOKLETS_ES') stats.booklets_es += material.quantity;
+          else if (sku === 'BOOKLETS_EN') stats.booklets_en += material.quantity;
+        } else {
+          // Detect from itemInfo category or fallback to SKU prefix & title
+          const cat = (itemInfo?.category || '').toLowerCase();
+          const isBible = cat.includes('bible') || sku.startsWith('BIB') || titleLower.includes('bible') || titleLower.includes('biblia') || titleLower.includes('recobro');
+          const isBooklet = !isBible && (cat.includes('booklet') || sku.startsWith('BKL') || titleLower.includes('booklet') || titleLower.includes('basic elements') || titleLower.includes('elementos básicos'));
+
+          if (isBible) {
             stats.bibles += material.quantity;
-            if (lang.includes('english') || lang === 'en') stats.bibles_en += material.quantity;
-            else if (lang.includes('spanish') || lang === 'es') stats.bibles_es += material.quantity;
-          } else if (cat.includes('tract')) {
-            stats.tracts += material.quantity;
-            if (lang.includes('english') || lang === 'en') stats.tracts_en += material.quantity;
-            else if (lang.includes('spanish') || lang === 'es') stats.tracts_es += material.quantity;
-          } else if (cat.includes('booklet')) {
+            if (isSpanish) stats.bibles_es += material.quantity;
+            else stats.bibles_en += material.quantity;
+          } else if (isBooklet) {
             stats.booklets += material.quantity;
-            if (lang.includes('english') || lang === 'en') stats.booklets_en += material.quantity;
-            else if (lang.includes('spanish') || lang === 'es') stats.booklets_es += material.quantity;
+            if (isSpanish) stats.booklets_es += material.quantity;
+            else stats.booklets_en += material.quantity;
+          } else {
+            stats.tracts += material.quantity;
+            if (isSpanish) stats.tracts_es += material.quantity;
+            else stats.tracts_en += material.quantity;
           }
         }
 

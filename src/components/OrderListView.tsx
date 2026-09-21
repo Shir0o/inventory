@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Title, OrderItem } from '../types';
-import { ShoppingCart, PackageCheck, Plus, Check, Trash2, ArrowLeft, Layers, RotateCcw } from 'lucide-react';
+import { ShoppingCart, PackageCheck, Plus, Check, Trash2, ArrowLeft, Layers, RotateCcw, Search, Sparkles } from 'lucide-react';
 import { calculateSuggestedOrderQty } from '../lib/utils';
 
 interface OrderListViewProps {
@@ -23,6 +23,9 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
   const [checkingIn, setCheckingIn] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Record<string, boolean>>({});
   const [customQuantities, setCustomQuantities] = useState<Record<string, number>>({});
+  const [viewFilter, setViewFilter] = useState<'all' | 'low'>('all');
+  const [catFilter, setCatFilter] = useState<string>('All');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Check-in state
   const [checkInQuantities, setCheckInQuantities] = useState<Record<string, number>>({});
@@ -36,7 +39,7 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
   const orderMap: Record<string, OrderItem> = {};
   orders.forEach(o => { orderMap[o.key] = o; });
 
-  // Gather flagged editions
+  // Gather all editions for the order list
   interface Candidate {
     title: Title;
     edition: Title['editions'][0];
@@ -44,44 +47,80 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
     at: number;
     suggest: number;
     pack: number;
+    isLow: boolean;
   }
 
-  const candidates: Candidate[] = [];
+  const allItems: Candidate[] = [];
   titles.forEach(t => {
     t.editions.forEach(ed => {
       const at = reorderAt(t);
-      if (ed.stock < at) {
-        const suggest = calculateSuggestedOrderQty(ed.stock, at, t.pack);
-        const codeKey = `${t.code}-${ed.lang}`;
-        candidates.push({
-          title: t,
-          edition: ed,
-          codeKey,
-          at,
-          suggest,
-          pack: t.pack
-        });
-      }
+      const isLow = ed.stock < at;
+      const suggest = calculateSuggestedOrderQty(ed.stock, at, t.pack);
+      const codeKey = `${t.code}-${ed.lang}`;
+      allItems.push({
+        title: t,
+        edition: ed,
+        codeKey,
+        at,
+        suggest,
+        pack: t.pack,
+        isLow
+      });
     });
+  });
+
+  const lowCount = allItems.filter(i => i.isLow).length;
+
+  const filteredItems = allItems.filter(c => {
+    if (viewFilter === 'low' && !c.isLow) return false;
+    if (catFilter !== 'All' && c.title.cat !== catFilter) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchTitle = c.edition.title.toLowerCase().includes(q);
+      const matchCode = c.codeKey.toLowerCase().includes(q);
+      const matchCat = c.title.cat.toLowerCase().includes(q);
+      if (!matchTitle && !matchCode && !matchCat) return false;
+    }
+    return true;
   });
 
   const handleToggleSelect = (codeKey: string) => {
     setSelectedKeys(prev => ({ ...prev, [codeKey]: !prev[codeKey] }));
   };
 
-  const handleSelectAllCandidates = () => {
-    const next: Record<string, boolean> = {};
-    candidates.forEach(c => {
-      if (!orderMap[c.codeKey]) next[c.codeKey] = true;
+  const handleToggleSelectAllVisible = () => {
+    const selectable = filteredItems.filter(i => !orderMap[i.codeKey]);
+    const allSelected = selectable.length > 0 && selectable.every(i => selectedKeys[i.codeKey]);
+    const next: Record<string, boolean> = { ...selectedKeys };
+    selectable.forEach(i => {
+      next[i.codeKey] = !allSelected;
     });
     setSelectedKeys(next);
   };
 
+  const handleFillAllSuggestions = () => {
+    const nextQtys: Record<string, number> = { ...customQuantities };
+    const nextSelected: Record<string, boolean> = { ...selectedKeys };
+    allItems.forEach(c => {
+      if (c.isLow && c.suggest > 0 && !orderMap[c.codeKey]) {
+        nextQtys[c.codeKey] = c.suggest;
+        nextSelected[c.codeKey] = true;
+      }
+    });
+    setCustomQuantities(nextQtys);
+    setSelectedKeys(nextSelected);
+  };
+
+  const handleResetAllToZero = () => {
+    setCustomQuantities({});
+    setSelectedKeys({});
+  };
+
   const handleOrderSelected = () => {
     const toOrder: { code: string; title: string; lang?: string; qty: number; packs?: number }[] = [];
-    candidates.forEach(c => {
-      if (selectedKeys[c.codeKey]) {
-        const qty = customQuantities[c.codeKey] !== undefined ? customQuantities[c.codeKey] : c.suggest;
+    allItems.forEach(c => {
+      if (selectedKeys[c.codeKey] && !orderMap[c.codeKey]) {
+        const qty = customQuantities[c.codeKey] !== undefined ? customQuantities[c.codeKey] : 0;
         if (qty > 0) {
           toOrder.push({
             code: c.codeKey,
@@ -95,7 +134,14 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
     });
     if (toOrder.length > 0) {
       onMarkOrdered(toOrder);
-      setSelectedKeys({});
+      const nextCustom = { ...customQuantities };
+      const nextSelected = { ...selectedKeys };
+      toOrder.forEach(item => {
+        delete nextCustom[item.code];
+        delete nextSelected[item.code];
+      });
+      setCustomQuantities(nextCustom);
+      setSelectedKeys(nextSelected);
     }
   };
 
@@ -382,7 +428,10 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
   }
 
   // MAIN ORDER LIST VIEW
-  const selectedCount = Object.values(selectedKeys).filter(Boolean).length;
+  const readyToOrderCount = allItems.filter(c => selectedKeys[c.codeKey] && !orderMap[c.codeKey] && (customQuantities[c.codeKey] || 0) > 0).length;
+  const hasCustomQtys = Object.values(customQuantities).some(v => v > 0);
+  const selectableVisible = filteredItems.filter(i => !orderMap[i.codeKey]);
+  const allVisibleSelected = selectableVisible.length > 0 && selectableVisible.every(i => selectedKeys[i.codeKey]);
 
   return (
     <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-white overflow-hidden">
@@ -391,7 +440,7 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
         <div>
           <h1 className="text-[26px] font-bold tracking-tight text-[#191c20]">Order list</h1>
           <p className="text-[13.5px] text-[#44474e] mt-1">
-            {candidates.length} {candidates.length === 1 ? 'edition needs' : 'editions need'} reordering · {orders.length} items currently on order
+            {allItems.length} editions in catalog · {lowCount} {lowCount === 1 ? 'edition needs' : 'editions need'} reordering · {orders.length} items currently on order
           </p>
         </div>
         <button
@@ -413,44 +462,123 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
       {/* Main Body */}
       <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-6 space-y-8">
         {/* TO ORDER SECTION */}
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div className="space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
             <div>
               <h2 className="text-[18px] font-bold tracking-tight text-[#191c20]">To order</h2>
               <p className="text-[13px] text-[#6c6f77] mt-0.5">
-                Editions that have fallen below their reorder threshold. Quantities are smart-calculated to order the minimum full packs needed to reach or exceed the threshold.
+                All order quantities default to 0. Enter your desired quantities or use smart suggestions to order full packs.
               </p>
             </div>
-            <div className="flex items-center gap-2 flex-none">
+            <div className="flex flex-wrap items-center gap-2 flex-none">
               <button
                 type="button"
                 onClick={handleAddBundleEnglishTracts}
-                className="px-3.5 py-1.5 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] text-[12.5px] font-semibold rounded-md transition-colors cursor-pointer flex items-center gap-1.5"
+                className="px-3 py-1.5 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] text-[12.5px] font-semibold rounded-md transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <Layers className="w-3.5 h-3.5 text-[#1f5f8b]" />
                 <span>Bundle: All English tracts (600 pcs)</span>
               </button>
-              {candidates.length > 0 && (
+              {lowCount > 0 && (
                 <button
                   type="button"
-                  onClick={handleOrderSelected}
-                  disabled={selectedCount === 0}
-                  className="px-4 py-1.5 bg-[#1f5f8b] hover:bg-[#17496c] text-white text-[12.5px] font-semibold rounded-md transition-colors cursor-pointer disabled:opacity-40 shadow-xs"
+                  onClick={handleFillAllSuggestions}
+                  title="Fill smart suggested order quantities for all items currently below their reorder threshold"
+                  className="px-3 py-1.5 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#1f5f8b] text-[12.5px] font-semibold rounded-md transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  Mark selected as ordered ({selectedCount})
+                  <Sparkles className="w-3.5 h-3.5 text-[#1f5f8b]" />
+                  <span>Fill low-stock suggestions</span>
                 </button>
               )}
+              {hasCustomQtys && (
+                <button
+                  type="button"
+                  onClick={handleResetAllToZero}
+                  className="px-3 py-1.5 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#8b8e96] hover:text-[#b3261e] text-[12.5px] font-semibold rounded-md transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset all to 0</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleOrderSelected}
+                disabled={readyToOrderCount === 0}
+                className="px-4 py-1.5 bg-[#1f5f8b] hover:bg-[#17496c] text-white text-[12.5px] font-semibold rounded-md transition-colors cursor-pointer disabled:opacity-40 shadow-xs flex items-center gap-1.5"
+              >
+                <ShoppingCart className="w-3.5 h-3.5" />
+                <span>Mark selected as ordered ({readyToOrderCount})</span>
+              </button>
             </div>
           </div>
 
-          {/* Table of Flagged Items to order */}
+          {/* Filter Bar: Tabs + Search + Category */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+            {/* View Mode Tabs */}
+            <div className="inline-flex rounded-lg border border-[#dcdee3] bg-[#f6f7f9] p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewFilter('all')}
+                className={`px-3.5 py-1.5 text-[12.5px] font-semibold rounded-md transition-colors cursor-pointer ${
+                  viewFilter === 'all'
+                    ? 'bg-white text-[#191c20] shadow-xs'
+                    : 'text-[#6c6f77] hover:text-[#191c20]'
+                }`}
+              >
+                All items ({allItems.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewFilter('low')}
+                className={`px-3.5 py-1.5 text-[12.5px] font-semibold rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  viewFilter === 'low'
+                    ? 'bg-white text-[#191c20] shadow-xs'
+                    : 'text-[#6c6f77] hover:text-[#191c20]'
+                }`}
+              >
+                <span>Needs reorder</span>
+                {lowCount > 0 && (
+                  <span className="bg-[#8a5a00]/10 text-[#8a5a00] text-[10.5px] font-bold px-1.5 py-0.2 rounded-full">
+                    {lowCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Search and Category Filter */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 sm:w-56">
+                <Search className="w-3.5 h-3.5 text-[#8b8e96] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search editions or codes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 border border-[#c9cbd2] rounded-md text-[12.5px] text-[#191c20] bg-white outline-none focus:border-[#1f5f8b]"
+                />
+              </div>
+              <select
+                value={catFilter}
+                onChange={(e) => setCatFilter(e.target.value)}
+                className="px-3 py-1.5 border border-[#c9cbd2] rounded-md text-[12.5px] font-medium text-[#191c20] bg-white outline-none focus:border-[#1f5f8b]"
+              >
+                <option value="All">All categories</option>
+                <option value="Bible">Bibles</option>
+                <option value="Booklet">Booklets</option>
+                <option value="Tract">Tracts</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Table of Items to order */}
           <div className="border border-[#dcdee3] rounded-lg overflow-hidden bg-white shadow-xs">
-            <div className="grid grid-cols-[40px_1fr_90px_80px_80px_110px_70px] items-center px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
+            <div className="grid grid-cols-[36px_1fr_80px_68px_68px_165px_60px] items-center px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
               <div>
                 <input
                   type="checkbox"
-                  checked={candidates.length > 0 && selectedCount === candidates.length}
-                  onChange={handleSelectAllCandidates}
+                  checked={allVisibleSelected}
+                  onChange={handleToggleSelectAllVisible}
+                  title="Toggle select all visible items"
                   className="rounded-sm text-[#1f5f8b] focus:ring-0 cursor-pointer"
                 />
               </div>
@@ -458,26 +586,29 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
               <div>Code</div>
               <div className="text-right">In store</div>
               <div className="text-right">Reorder</div>
-              <div className="text-right">Order qty</div>
-              <div className="text-right">Pack size</div>
+              <div className="text-right pr-1">Order qty</div>
+              <div className="text-right">Pack</div>
             </div>
 
-            {candidates.length === 0 ? (
-              <div className="py-8 text-center text-[#6c6f77] text-[13px]">
-                No items are below their reorder points right now.
+            {filteredItems.length === 0 ? (
+              <div className="py-12 text-center text-[#6c6f77] text-[13px]">
+                {viewFilter === 'low'
+                  ? 'No items are below their reorder points right now.'
+                  : 'No editions match your search filter.'}
               </div>
             ) : (
               <div className="divide-y divide-[#eef0f3]">
-                {candidates.map(c => {
+                {filteredItems.map(c => {
                   const isChecked = !!selectedKeys[c.codeKey];
                   const isOnOrder = !!orderMap[c.codeKey];
-                  const qtyVal = customQuantities[c.codeKey] !== undefined ? customQuantities[c.codeKey] : c.suggest;
+                  // Default order quantity is strictly 0 for everything
+                  const qtyVal = customQuantities[c.codeKey] !== undefined ? customQuantities[c.codeKey] : 0;
 
                   return (
                     <div
                       key={c.codeKey}
                       className={`
-                        grid grid-cols-[40px_1fr_90px_80px_80px_110px_70px] items-center px-4 py-3 text-[13px] transition-colors
+                        grid grid-cols-[36px_1fr_80px_68px_68px_165px_60px] items-center px-4 py-3 text-[13px] transition-colors
                         ${isOnOrder ? 'bg-[#fbfbfc] opacity-75' : isChecked ? 'bg-[#f6f9fb]' : 'bg-white'}
                       `}
                     >
@@ -510,9 +641,13 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
                           <div className="text-[11.5px] text-[#8a5a00] font-medium mt-0.5">
                             Already on order ({orderMap[c.codeKey].qty} pcs)
                           </div>
-                        ) : (
-                          <div className="text-[11px] text-[#6c6f77] mt-0.5">
+                        ) : c.isLow ? (
+                          <div className="text-[11px] text-[#8a5a00] font-medium mt-0.5">
                             Deficit: {c.at - c.edition.stock} below threshold ({c.at}) · Smart suggest: {c.suggest} ({Math.round(c.suggest / c.pack)} {Math.round(c.suggest / c.pack) === 1 ? 'pack' : 'packs'}) to reach ≥{c.at}
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-[#8b8e96] mt-0.5">
+                            Healthy stock ({c.edition.stock} on shelf · reorder threshold {c.at})
                           </div>
                         )}
                       </div>
@@ -523,7 +658,7 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
                         </span>
                       </div>
 
-                      <div className="text-right font-mono text-[13.5px] font-bold text-[#8a5a00] tabular-nums">
+                      <div className={`text-right font-mono text-[13.5px] tabular-nums ${c.isLow ? 'font-bold text-[#8a5a00]' : 'text-[#191c20]'}`}>
                         {c.edition.stock}
                       </div>
 
@@ -531,7 +666,20 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
                         {c.at}
                       </div>
 
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="min-w-0 flex items-center justify-end gap-1.5 overflow-visible">
+                        {c.isLow && c.suggest > 0 && qtyVal !== c.suggest && !isOnOrder && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomQuantities(prev => ({ ...prev, [c.codeKey]: c.suggest }));
+                              setSelectedKeys(prev => ({ ...prev, [c.codeKey]: true }));
+                            }}
+                            title={`Set to smart suggested quantity (${c.suggest})`}
+                            className="text-[10.5px] font-bold text-[#1f5f8b] bg-[#e9f1f7] hover:bg-[#d8e8f4] px-1.5 py-0.5 rounded transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                          >
+                            +{c.suggest}
+                          </button>
+                        )}
                         <input
                           type="number"
                           min="0"
@@ -540,24 +688,27 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
                           disabled={isOnOrder}
                           onChange={(e) => {
                             const val = Math.max(0, parseInt(e.target.value, 10) || 0);
-                            setCustomQuantities({ ...customQuantities, [c.codeKey]: val });
+                            setCustomQuantities(prev => ({ ...prev, [c.codeKey]: val }));
+                            if (val > 0) {
+                              setSelectedKeys(prev => ({ ...prev, [c.codeKey]: true }));
+                            }
                           }}
-                          className="w-20 px-2 py-1 border border-[#c9cbd2] rounded-md font-mono text-[13px] font-bold text-right text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none tabular-nums disabled:bg-[#edeef4]"
+                          className="w-16 min-w-[64px] max-w-[68px] px-2 py-1 border border-[#c9cbd2] rounded-md font-mono text-[13px] font-bold text-right text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none tabular-nums disabled:bg-[#edeef4] shrink-0"
                         />
-                        {customQuantities[c.codeKey] !== undefined && customQuantities[c.codeKey] !== c.suggest && !isOnOrder && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const next = { ...customQuantities };
-                              delete next[c.codeKey];
-                              setCustomQuantities(next);
-                            }}
-                            title={`Reset to smart suggest (${c.suggest})`}
-                            className="p-1 text-[#8b8e96] hover:text-[#1f5f8b] cursor-pointer transition-colors"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        <div className="w-5 flex items-center justify-center shrink-0">
+                          {qtyVal > 0 && !isOnOrder && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCustomQuantities(prev => ({ ...prev, [c.codeKey]: 0 }));
+                              }}
+                              title="Reset order quantity to 0"
+                              className="p-1 text-[#8b8e96] hover:text-[#1f5f8b] cursor-pointer transition-colors"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <div className="text-right font-mono text-[12.5px] text-[#8b8e96] tabular-nums">
