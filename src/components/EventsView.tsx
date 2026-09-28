@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { EventItem, Correction, EventLine } from '../types';
-import { Plus, Calendar, ArrowLeft, AlertCircle, History, Check, CheckCircle2 } from 'lucide-react';
+import { Plus, Calendar, ArrowLeft, AlertCircle, History, Check, CheckCircle2, RefreshCw } from 'lucide-react';
 
 interface EventsViewProps {
   events: EventItem[];
@@ -12,13 +12,6 @@ interface EventsViewProps {
   onClearSelectedEvent?: () => void;
 }
 
-const PAST_LOCATIONS = [
-  'Campus gate',
-  'Downtown farmers market',
-  'CISA — open house',
-  'Eastside park'
-];
-
 export const EventsView: React.FC<EventsViewProps> = ({
   events,
   onStartCountForEvent,
@@ -29,6 +22,25 @@ export const EventsView: React.FC<EventsViewProps> = ({
   onClearSelectedEvent
 }) => {
   const [viewingEventId, setViewingEventId] = useState<string | null>(initialSelectedEventId || null);
+
+  // Derive recent locations dynamically from actual user events (excluding legacy defaults)
+  const recentLocations = React.useMemo(() => {
+    const legacyDefaults = new Set([
+      'campus gate',
+      'downtown farmers market',
+      'cisa — open house',
+      'cisa open house',
+      'eastside park'
+    ]);
+    const locs = new Set<string>();
+    events.forEach(e => {
+      const loc = e.location?.trim();
+      if (loc && !legacyDefaults.has(loc.toLowerCase())) {
+        locs.add(loc);
+      }
+    });
+    return Array.from(locs).slice(0, 8);
+  }, [events]);
 
   useEffect(() => {
     if (initialSelectedEventId) {
@@ -44,6 +56,8 @@ export const EventsView: React.FC<EventsViewProps> = ({
   const [correctionKey, setCorrectionKey] = useState('');
   const [correctionTo, setCorrectionTo] = useState('');
   const [correctionNote, setCorrectionNote] = useState('');
+  const [isSavingCorrection, setIsSavingCorrection] = useState(false);
+  const [correctionError, setCorrectionError] = useState<string | null>(null);
 
   const viewingEvent = events.find(e => e.id === viewingEventId);
 
@@ -97,26 +111,47 @@ export const EventsView: React.FC<EventsViewProps> = ({
   };
 
   const handleStartCorrection = (lineKey: string, currentBack: number) => {
+    if (correctionKey === lineKey) {
+      setCorrectionKey('');
+      setShowCorrectionForm(false);
+      setCorrectionError(null);
+      return;
+    }
     setCorrectionKey(lineKey);
     setCorrectionTo(String(currentBack));
     setCorrectionNote('');
+    setCorrectionError(null);
     setShowCorrectionForm(true);
   };
 
-  const handleSubmitCorrection = () => {
-    if (!viewingEvent || !correctionKey || !correctionNote.trim()) return;
-    const targetLine = viewingEvent.lines.find(l => l.key === correctionKey);
+  const handleSubmitCorrection = async () => {
+    if (!viewingEvent || !correctionKey) return;
+    const targetLine = viewingEvent.lines.find(l => l.key === correctionKey || l.code === correctionKey);
     if (!targetLine) return;
     const toNum = Math.max(0, parseInt(correctionTo, 10) || 0);
-    if (toNum === targetLine.back) return;
+    if (toNum === targetLine.back) {
+      setCorrectionKey('');
+      setShowCorrectionForm(false);
+      return;
+    }
 
-    onPostCorrection(viewingEvent.id, correctionNote.trim(), [
-      { key: correctionKey, from: targetLine.back, to: toNum }
-    ]);
-    setShowCorrectionForm(false);
-    setCorrectionKey('');
-    setCorrectionTo('');
-    setCorrectionNote('');
+    setIsSavingCorrection(true);
+    setCorrectionError(null);
+    try {
+      const finalNote = correctionNote.trim() || 'Recount correction';
+      await onPostCorrection(viewingEvent.id, finalNote, [
+        { key: targetLine.key || targetLine.code, from: targetLine.back, to: toNum }
+      ]);
+      setShowCorrectionForm(false);
+      setCorrectionKey('');
+      setCorrectionTo('');
+      setCorrectionNote('');
+    } catch (err: any) {
+      console.error('Failed to post correction:', err);
+      setCorrectionError(err?.message || 'Could not save correction. Please try again.');
+    } finally {
+      setIsSavingCorrection(false);
+    }
   };
 
   // EVENT RECORD VIEW
@@ -158,7 +193,7 @@ export const EventsView: React.FC<EventsViewProps> = ({
                   onClick={() => onStartCountForEvent(viewingEvent)}
                   className="px-4 py-2 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13px] rounded-md transition-colors cursor-pointer shadow-xs"
                 >
-                  Count this event
+                  {totalTook > 0 ? 'Resume count / Count back' : 'Take out literature'}
                 </button>
                 {onCompleteEvent && (
                   <button
@@ -176,7 +211,7 @@ export const EventsView: React.FC<EventsViewProps> = ({
 
         {/* Record Body */}
         <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-6 space-y-6">
-          {!viewingEvent.planned ? (
+          {!viewingEvent.planned || viewingEvent.lines.length > 0 ? (
             <>
               {/* Top Stats Banner */}
               <div className="grid grid-cols-3 gap-px bg-[#dcdee3] border border-[#dcdee3] rounded-lg overflow-hidden max-w-xl">
@@ -187,7 +222,9 @@ export const EventsView: React.FC<EventsViewProps> = ({
                   </div>
                 </div>
                 <div className="bg-white p-4">
-                  <div className="text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">Took out</div>
+                  <div className="text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
+                    {viewingEvent.planned ? 'Took out (reserved)' : 'Took out'}
+                  </div>
                   <div className="font-mono text-[24px] font-bold text-[#44474e] mt-1 tabular-nums">
                     {totalTook}
                   </div>
@@ -200,15 +237,34 @@ export const EventsView: React.FC<EventsViewProps> = ({
                 </div>
               </div>
 
+              {viewingEvent.planned && (
+                <div className="p-4 bg-[#eff6ff] border border-[#bfdbfe] rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[13.5px] font-semibold text-[#1e40af]">
+                      Literature currently reserved ({totalTook} pieces across {viewingEvent.lines.length} items)
+                    </div>
+                    <div className="text-[12px] text-[#3b82f6] mt-0.5">
+                      Your take-out numbers are saved. Click "Resume count" when you are ready to record what came back.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onStartCountForEvent(viewingEvent)}
+                    className="px-4 py-2 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13px] rounded-md transition-colors cursor-pointer shadow-xs whitespace-nowrap"
+                  >
+                    Resume count / Count back →
+                  </button>
+                </div>
+              )}
+
               {/* Count Sheet Table */}
               <div className="border border-[#dcdee3] rounded-lg overflow-hidden bg-white shadow-xs">
                 <div className="px-4 py-3 bg-[#f6f7f9] border-b border-[#dcdee3] flex items-center justify-between">
                   <span className="text-[11px] font-bold tracking-wider uppercase text-[#6c6f77]">
-                    Count sheet
+                    {viewingEvent.planned ? 'Reserved items count sheet' : 'Count sheet'}
                   </span>
                   <span className="text-[12px] text-[#8b8e96]">
                     {viewingEvent.lines.length > 0 
-                      ? `${viewingEvent.lines.length} editions counted` 
+                      ? `${viewingEvent.lines.length} editions recorded` 
                       : 'Summary record'}
                   </span>
                 </div>
@@ -237,108 +293,179 @@ export const EventsView: React.FC<EventsViewProps> = ({
                     <div className="divide-y divide-[#eef0f3]">
                       {viewingEvent.lines.map(line => {
                         const passed = line.took - line.back;
-                        const after = line.before - passed;
+                        const isEditingThisLine = (correctionKey === line.key || correctionKey === line.code);
+                        const parsedTo = parseInt(correctionTo, 10);
+                        const newBack = isNaN(parsedTo) ? line.back : Math.max(0, parsedTo);
+                        const newPassed = Math.max(0, line.took - newBack);
+                        const backDelta = newBack - line.back;
+
                         return (
-                          <div
-                            key={line.key}
-                            className="grid grid-cols-[1fr_80px_80px_80px_100px_70px] items-center px-4 py-3 text-[13px]"
-                          >
-                            <div className="min-w-0 pr-3">
-                              <div className="font-semibold text-[#191c20] truncate">
-                                {line.title}
+                          <React.Fragment key={line.key}>
+                            <div className={`
+                              grid grid-cols-[1fr_80px_80px_80px_100px_70px] items-center px-4 py-3 text-[13px] transition-colors
+                              ${isEditingThisLine ? 'bg-[#fffdf7]' : ''}
+                            `}>
+                              <div className="min-w-0 pr-3">
+                                <div className="font-semibold text-[#191c20] truncate">
+                                  {line.title}
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="font-mono text-[11px] text-[#6c6f77]">{line.code}</span>
+                                  <span className={`
+                                    text-[9px] font-bold px-1.5 py-0.5 rounded-xs
+                                    ${line.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}
+                                  `}>
+                                    {line.lang}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="font-mono text-[11px] text-[#6c6f77]">{line.code}</span>
-                                <span className={`
-                                  text-[9px] font-bold px-1.5 py-0.5 rounded-xs
-                                  ${line.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}
-                                `}>
-                                  {line.lang}
-                                </span>
+
+                              <div className="text-right font-mono text-[13px] text-[#6c6f77] tabular-nums">
+                                {line.before}
+                              </div>
+                              <div className="text-right font-mono text-[13px] text-[#44474e] tabular-nums">
+                                {line.took}
+                              </div>
+                              <div className="text-right font-mono text-[13px] text-[#44474e] tabular-nums">
+                                {line.back}
+                              </div>
+                              <div className="text-right font-mono text-[14px] font-bold text-[#1f5f8b] tabular-nums">
+                                {passed}
+                              </div>
+                              <div className="text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartCorrection(line.key, line.back)}
+                                  className={`
+                                    px-2 py-0.5 text-[11.5px] font-semibold rounded-sm transition-colors cursor-pointer
+                                    ${isEditingThisLine 
+                                      ? 'bg-[#8a5a00] text-white' 
+                                      : 'text-[#1f5f8b] hover:bg-[#e9f1f7]'
+                                    }
+                                  `}
+                                >
+                                  {isEditingThisLine ? 'Close' : 'Fix'}
+                                </button>
                               </div>
                             </div>
 
-                            <div className="text-right font-mono text-[13px] text-[#6c6f77] tabular-nums">
-                              {line.before}
-                            </div>
-                            <div className="text-right font-mono text-[13px] text-[#44474e] tabular-nums">
-                              {line.took}
-                            </div>
-                            <div className="text-right font-mono text-[13px] text-[#44474e] tabular-nums">
-                              {line.back}
-                            </div>
-                            <div className="text-right font-mono text-[14px] font-bold text-[#1f5f8b] tabular-nums">
-                              {passed}
-                            </div>
-                            <div className="text-right">
-                              <button
-                                type="button"
-                                onClick={() => handleStartCorrection(line.key, line.back)}
-                                className="px-2 py-0.5 text-[11.5px] font-semibold text-[#1f5f8b] hover:bg-[#e9f1f7] rounded-sm transition-colors cursor-pointer"
-                              >
-                                Fix
-                              </button>
-                            </div>
-                          </div>
+                            {/* Inline Correction Form right under the item being corrected */}
+                            {isEditingThisLine && (
+                              <div className="p-4 border-t border-b border-[#f2d9a8] bg-[#fffdf7] space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-[12px] font-bold uppercase tracking-wider text-[#8a5a00]">
+                                    Fix Return Count for: <span className="text-[#191c20] font-bold">{line.title}</span> ({line.lang})
+                                  </div>
+                                  <span className="font-mono text-[11px] text-[#8b8e96] bg-white px-2 py-0.5 rounded border border-[#dcdee3]">
+                                    {line.code}
+                                  </span>
+                                </div>
+
+                                {correctionError && (
+                                  <div className="p-2 bg-[#fdf2f2] border border-[#f8b4b4] rounded-md text-[12px] text-[#b3261e] flex items-center justify-between">
+                                    <span>{correctionError}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setCorrectionError(null)}
+                                      className="font-bold text-sm cursor-pointer ml-2"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                )}
+
+                                <div className="flex flex-wrap items-center gap-4 text-[13px]">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[#6c6f77]">Came back:</span>
+                                    <span className="font-mono font-bold text-[#44474e]">{line.back}</span>
+                                    <span className="text-[#8b8e96]">→</span>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => setCorrectionTo(String(Math.max(0, newBack - 1)))}
+                                        className="w-6 h-6 border border-[#c9cbd2] bg-white rounded flex items-center justify-center font-bold text-[#44474e] hover:bg-[#f6f7f9] cursor-pointer"
+                                      >
+                                        −
+                                      </button>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max={line.took}
+                                        value={correctionTo}
+                                        onChange={(e) => setCorrectionTo(e.target.value)}
+                                        className="w-16 px-2 py-1 border border-[#c9cbd2] rounded-md font-mono text-[13px] font-bold text-center text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => setCorrectionTo(String(Math.min(line.took, newBack + 1)))}
+                                        className="w-6 h-6 border border-[#c9cbd2] bg-white rounded flex items-center justify-center font-bold text-[#44474e] hover:bg-[#f6f7f9] cursor-pointer"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="text-[12px] text-[#6c6f77] flex items-center gap-1.5">
+                                    <span>Passed out will be:</span>
+                                    <span className="font-mono font-bold text-[#191c20]">{newPassed}</span>
+                                    <span className={`font-mono font-semibold ${backDelta === 0 ? 'text-[#8b8e96]' : backDelta < 0 ? 'text-[#1f5f8b]' : 'text-[#b3261e]'}`}>
+                                      ({backDelta === 0 ? 'no change' : backDelta < 0 ? `+${Math.abs(backDelta)} more passed out` : `−${backDelta} fewer passed out`})
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={correctionNote}
+                                    onChange={(e) => setCorrectionNote(e.target.value)}
+                                    placeholder="Reason for correction (e.g. found extra copies on return, recount verification)"
+                                    className="flex-1 px-3 py-1.5 border border-[#c9cbd2] rounded-md text-[13px] text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none"
+                                  />
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setCorrectionKey('');
+                                        setShowCorrectionForm(false);
+                                        setCorrectionError(null);
+                                      }}
+                                      className="px-3 py-1.5 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] text-[12px] font-semibold rounded-md cursor-pointer transition-colors"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={handleSubmitCorrection}
+                                      disabled={isSavingCorrection || backDelta === 0}
+                                      className={`
+                                        px-3.5 py-1.5 rounded-md text-[12px] font-semibold transition-colors cursor-pointer flex items-center gap-1.5
+                                        ${backDelta !== 0 && !isSavingCorrection
+                                          ? 'bg-[#1f5f8b] hover:bg-[#17496c] text-white shadow-xs'
+                                          : 'bg-[#f6f7f9] text-[#a4a7ae] border border-[#dcdee3] cursor-default'
+                                        }
+                                      `}
+                                    >
+                                      {isSavingCorrection ? (
+                                        <>
+                                          <RefreshCw className="w-3 h-3 animate-spin" />
+                                          <span>Saving...</span>
+                                        </>
+                                      ) : (
+                                        <span>Save correction</span>
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </React.Fragment>
                         );
                       })}
                     </div>
                   </>
                 )}
               </div>
-
-              {/* Correction Form Modal / Drawer */}
-              {showCorrectionForm && (
-                <div className="p-4 border border-[#f2d9a8] bg-[#fffdf7] rounded-lg space-y-3">
-                  <div className="text-[12px] font-bold uppercase tracking-wider text-[#8a5a00]">
-                    File a correction
-                  </div>
-                  <p className="text-[12.5px] text-[#44474e]">
-                    Corrections are additive — the original count record stays intact and an adjustment entry is written to the ledger.
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="text-[13px] font-semibold text-[#191c20]">
-                      {viewingEvent.lines.find(l => l.key === correctionKey)?.title}
-                    </span>
-                    <span className="text-[12.5px] text-[#6c6f77]">
-                      Came back was {viewingEvent.lines.find(l => l.key === correctionKey)?.back} → New count:
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={correctionTo}
-                      onChange={(e) => setCorrectionTo(e.target.value)}
-                      className="w-20 px-2 py-1 border border-[#c9cbd2] rounded-md font-mono text-[13px] font-bold text-right text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none tabular-nums"
-                    />
-                  </div>
-                  <div>
-                    <input
-                      type="text"
-                      value={correctionNote}
-                      onChange={(e) => setCorrectionNote(e.target.value)}
-                      placeholder="Why this is being corrected (e.g. found extra copies on shelf)"
-                      className="w-full px-3 py-1.5 border border-[#c9cbd2] rounded-md text-[13px] text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none"
-                    />
-                  </div>
-                  <div className="flex items-center justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setShowCorrectionForm(false)}
-                      className="px-3 py-1.5 border border-[#c9cbd2] bg-white text-[#44474e] text-[12px] font-semibold rounded-md cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSubmitCorrection}
-                      disabled={!correctionNote.trim()}
-                      className="px-3.5 py-1.5 bg-[#1f5f8b] hover:bg-[#17496c] text-white text-[12px] font-semibold rounded-md cursor-pointer disabled:opacity-40"
-                    >
-                      Post correction
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* Historical Corrections List */}
               {viewingEvent.corrections && viewingEvent.corrections.length > 0 && (
@@ -482,21 +609,23 @@ export const EventsView: React.FC<EventsViewProps> = ({
           </div>
 
           {/* Past location chips */}
-          <div>
-            <span className="text-[11px] text-[#8b8e96] mr-2">Recent locations:</span>
-            <div className="inline-flex flex-wrap gap-1.5 mt-1">
-              {PAST_LOCATIONS.map(loc => (
-                <button
-                  key={loc}
-                  type="button"
-                  onClick={() => setPlanLocation(loc)}
-                  className="px-2.5 py-1 text-[11.5px] font-medium bg-white border border-[#dcdee3] hover:border-[#1f5f8b] rounded-md text-[#44474e] cursor-pointer transition-colors"
-                >
-                  {loc}
-                </button>
-              ))}
+          {recentLocations.length > 0 && (
+            <div>
+              <span className="text-[11px] text-[#8b8e96] mr-2">Recent locations:</span>
+              <div className="inline-flex flex-wrap gap-1.5 mt-1">
+                {recentLocations.map(loc => (
+                  <button
+                    key={loc}
+                    type="button"
+                    onClick={() => setPlanLocation(loc)}
+                    className="px-2.5 py-1 text-[11.5px] font-medium bg-white border border-[#dcdee3] hover:border-[#1f5f8b] rounded-md text-[#44474e] cursor-pointer transition-colors"
+                  >
+                    {loc}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <button
@@ -582,6 +711,9 @@ export const EventsView: React.FC<EventsViewProps> = ({
                           >
                             {(() => {
                               try {
+                                if (ev.lines && ev.lines.some(l => l.took > 0)) {
+                                  return 'Resume count';
+                                }
                                 const raw = localStorage.getItem(`lit_ledger_count_draft_event_${ev.id}`);
                                 if (raw) {
                                   const parsed = JSON.parse(raw);

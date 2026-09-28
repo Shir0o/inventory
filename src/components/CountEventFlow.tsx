@@ -7,6 +7,8 @@ interface CountEventFlowProps {
   eventName: string;
   eventDate: string;
   eventId?: string;
+  initialLines?: EventLine[];
+  onSaveDraft?: (lines: EventLine[], step: number) => Promise<void> | void;
   onPostCount: (lines: EventLine[]) => Promise<void> | void;
   onLeave: () => void;
   onViewRecord: () => void;
@@ -25,6 +27,11 @@ interface WorkingItem {
   alias?: string;
   took: number;
   returned: number | null;
+  baseCode?: string;
+  parentName?: string;
+  siblingTitles?: string[];
+  companionTitle?: string;
+  companionLang?: 'EN' | 'ES';
 }
 
 interface SavedCountDraft {
@@ -55,6 +62,8 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
   eventName,
   eventDate,
   eventId,
+  initialLines,
+  onSaveDraft,
   onPostCount,
   onLeave,
   onViewRecord,
@@ -65,10 +74,42 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
   const reorderAt = (reorder: number) => Math.round(reorder * reorderSensitivity);
   const storageKey = getStorageKey(eventId, eventName, eventDate);
 
-  // Helper to load saved draft from localStorage
+  // Helper to load saved draft from localStorage with comprehensive fallback
   const loadSavedDraft = (): SavedCountDraft | null => {
     try {
-      const raw = localStorage.getItem(storageKey);
+      // 1. Check primary storageKey
+      let raw = localStorage.getItem(storageKey);
+
+      // 2. If not found and eventId exists, try name/date key
+      if (!raw && eventId) {
+        const altKey = getStorageKey(undefined, eventName, eventDate);
+        raw = localStorage.getItem(altKey);
+      }
+
+      // 3. Fallback: check any active draft in localStorage matching this event
+      if (!raw) {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('lit_ledger_count_draft_')) {
+            const val = localStorage.getItem(k);
+            if (val) {
+              try {
+                const parsed = JSON.parse(val);
+                if (parsed && typeof parsed === 'object' && parsed.itemsData) {
+                  if (
+                    (eventId && parsed.eventId === eventId) ||
+                    (eventName && parsed.eventName && parsed.eventName.toLowerCase() === eventName.toLowerCase())
+                  ) {
+                    raw = val;
+                    break;
+                  }
+                }
+              } catch {}
+            }
+          }
+        }
+      }
+
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object' && parsed.itemsData) {
@@ -80,17 +121,68 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
     return null;
   };
 
+  // Helper to find saved took/returned data for an edition across localStorage and initialLines
+  const findSavedItemData = (
+    ed: { lang: 'EN' | 'ES'; title: string; stock: number; code?: string },
+    t: Title,
+    savedCounts: { [code: string]: { took: number; returned: number | null } }
+  ): { took: number; returned: number | null } => {
+    const primaryCode = `${t.code}-${ed.lang}`;
+    const editionCode = ed.code;
+    const baseCode = t.code;
+
+    const candidates = [
+      primaryCode,
+      editionCode,
+      baseCode,
+      ed.title
+    ].filter(Boolean) as string[];
+
+    for (const key of candidates) {
+      if (savedCounts[key] && typeof savedCounts[key].took === 'number') {
+        return savedCounts[key];
+      }
+    }
+
+    // Lookup in initialLines (e.g. from Firestore event document)
+    if (initialLines && initialLines.length > 0) {
+      const match = initialLines.find(l => 
+        (editionCode && (l.code === editionCode || l.key === editionCode)) ||
+        l.code === primaryCode ||
+        l.key === primaryCode ||
+        (l.lang === ed.lang && (l.title === ed.title || (t.name && l.title === t.name)))
+      );
+      if (match) {
+        return {
+          took: typeof match.took === 'number' ? match.took : 0,
+          returned: typeof match.back === 'number' ? match.back : null
+        };
+      }
+    }
+
+    return { took: 0, returned: null };
+  };
+
   // Initialize items from titles, restoring any saved take out or return numbers
-  const buildInitialItems = (): WorkingItem[] => {
+  const buildInitialItems = (titlesList: Title[]): WorkingItem[] => {
     const draft = loadSavedDraft();
     const savedCounts = draft?.itemsData || {};
 
     const list: WorkingItem[] = [];
-    titles.forEach(t => {
+    titlesList.forEach(t => {
       const aliases = t.aliases || (t.alias ? [t.alias] : []);
+      const siblingTitles = (t.editions || []).map(e => e.title).filter(Boolean);
+      const enEdition = (t.editions || []).find(e => e.lang === 'EN');
+      const esEdition = (t.editions || []).find(e => e.lang === 'ES');
+      const enTitle = enEdition?.title || t.name;
+      const esTitle = esEdition?.title || '';
+
       t.editions.forEach(ed => {
         const code = `${t.code}-${ed.lang}`;
-        const saved = savedCounts[code];
+        const saved = findSavedItemData(ed, t, savedCounts);
+        const companionTitle = ed.lang === 'EN' ? esTitle : enTitle;
+        const companionLang: 'EN' | 'ES' = ed.lang === 'EN' ? 'ES' : 'EN';
+
         list.push({
           code,
           title: ed.title,
@@ -99,8 +191,13 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
           inStore: ed.stock,
           reorder: t.reorder,
           alias: aliases.join(', '),
-          took: saved && typeof saved.took === 'number' ? saved.took : 0,
-          returned: saved ? saved.returned : null
+          took: saved.took,
+          returned: saved.returned,
+          baseCode: t.code,
+          parentName: t.name,
+          siblingTitles,
+          companionTitle,
+          companionLang
         });
       });
     });
@@ -112,10 +209,72 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
     if (draft && draft.step >= 1 && draft.step <= 3) {
       return draft.step;
     }
+    if (initialLines && initialLines.some(l => l.took > 0)) {
+      return 2;
+    }
     return 1;
   });
 
-  const [items, setItems] = useState<WorkingItem[]>(buildInitialItems);
+  const [items, setItems] = useState<WorkingItem[]>(() => buildInitialItems(titles));
+
+  // Keep items synchronized with titles when inventory loads or updates
+  useEffect(() => {
+    if (titles.length === 0) return;
+
+    setItems(prevItems => {
+      if (prevItems.length === 0) {
+        return buildInitialItems(titles);
+      }
+
+      // Merge titles while strictly preserving any existing user edits in state
+      const draft = loadSavedDraft();
+      const savedCounts = draft?.itemsData || {};
+
+      const nextList: WorkingItem[] = [];
+      titles.forEach(t => {
+        const aliases = t.aliases || (t.alias ? [t.alias] : []);
+        const siblingTitles = (t.editions || []).map(e => e.title).filter(Boolean);
+        const enEdition = (t.editions || []).find(e => e.lang === 'EN');
+        const esEdition = (t.editions || []).find(e => e.lang === 'ES');
+        const enTitle = enEdition?.title || t.name;
+        const esTitle = esEdition?.title || '';
+
+        t.editions.forEach(ed => {
+          const code = `${t.code}-${ed.lang}`;
+          const existing = prevItems.find(p => p.code === code || (p.title === ed.title && p.lang === ed.lang));
+          const companionTitle = ed.lang === 'EN' ? esTitle : enTitle;
+          const companionLang: 'EN' | 'ES' = ed.lang === 'EN' ? 'ES' : 'EN';
+
+          let took = existing ? existing.took : 0;
+          let returned = existing ? existing.returned : null;
+
+          if (!existing) {
+            const saved = findSavedItemData(ed, t, savedCounts);
+            took = saved.took;
+            returned = saved.returned;
+          }
+
+          nextList.push({
+            code,
+            title: ed.title,
+            lang: ed.lang,
+            cat: t.cat,
+            inStore: ed.stock,
+            reorder: t.reorder,
+            alias: aliases.join(', '),
+            took,
+            returned,
+            baseCode: t.code,
+            parentName: t.name,
+            siblingTitles,
+            companionTitle,
+            companionLang
+          });
+        });
+      });
+      return nextList;
+    });
+  }, [titles, initialLines]);
 
   const [currentIndex, setCurrentIndex] = useState<number>(() => {
     const draft = loadSavedDraft();
@@ -140,9 +299,18 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Category and Language Touch Filter States
+  const [selectedCat, setSelectedCat] = useState<'All' | 'Tract' | 'Bible' | 'Booklet'>('All');
+  const [selectedLang, setSelectedLang] = useState<'All' | 'EN' | 'ES'>('All');
+
   // Auto-save draft on every change so user never loses progress
   useEffect(() => {
     if (step === 4) {
+      return;
+    }
+
+    // CRITICAL: NEVER wipe or save if titles or items haven't loaded yet!
+    if (items.length === 0 || titles.length === 0) {
       return;
     }
 
@@ -172,6 +340,10 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
           lastSavedAt: Date.now()
         };
         localStorage.setItem(storageKey, JSON.stringify(payload));
+        // If eventId exists, also save to event-specific key to guarantee symmetry
+        if (eventId) {
+          localStorage.setItem(`lit_ledger_count_draft_event_${eventId}`, JSON.stringify(payload));
+        }
         localStorage.setItem('lit_ledger_active_count_event', JSON.stringify({
           name: eventName,
           date: eventDate,
@@ -183,12 +355,31 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
       } catch (err) {
         console.warn('Failed to save count draft to localStorage:', err);
       }
+
+      // Also auto-sync draft lines to Firestore if callback provided
+      if (onSaveDraft && hasAnyData) {
+        const lines: EventLine[] = items
+          .filter(i => i.took > 0 || i.returned !== null)
+          .map(i => ({
+            key: i.code,
+            code: i.code,
+            lang: i.lang,
+            title: i.title,
+            before: i.inStore,
+            took: i.took,
+            back: i.returned !== null ? i.returned : 0
+          }));
+        onSaveDraft(lines, step);
+      }
     } else {
       try {
         localStorage.removeItem(storageKey);
+        if (eventId) {
+          localStorage.removeItem(`lit_ledger_count_draft_event_${eventId}`);
+        }
       } catch (err) {}
     }
-  }, [items, step, currentIndex, searchQuery, storageKey, eventId, eventName, eventDate]);
+  }, [items, step, currentIndex, searchQuery, storageKey, eventId, eventName, eventDate, titles.length]);
 
   // Keyboard navigation for step 2
   useEffect(() => {
@@ -221,6 +412,69 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
 
   const updateItem = (code: string, patch: Partial<WorkingItem>) => {
     setItems(prev => prev.map(i => i.code === code ? { ...i, ...patch } : i));
+  };
+
+  // Helper to match search query across English, Spanish, aliases, codes, canonical title, and companion edition
+  // If an English title is searched, both English and Spanish editions of that same item are displayed!
+  const itemMatchesSearch = (item: WorkingItem, query: string): boolean => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+
+    // Direct title, code, or alias match
+    if (item.title && item.title.toLowerCase().includes(q)) return true;
+    if (item.code && item.code.toLowerCase().includes(q)) return true;
+    if (item.alias && item.alias.toLowerCase().includes(q)) return true;
+
+    // Match companion language edition (e.g. typing English name matches Spanish edition, and vice versa)
+    if (item.companionTitle && item.companionTitle.toLowerCase().includes(q)) return true;
+
+    // Match canonical / parent title (e.g. typing English name will match both English & Spanish of that item)
+    if (item.parentName && item.parentName.toLowerCase().includes(q)) return true;
+    if (item.baseCode && item.baseCode.toLowerCase().includes(q)) return true;
+
+    // Match sibling editions of the same item
+    if (item.siblingTitles && item.siblingTitles.some(st => st && st.toLowerCase().includes(q))) return true;
+
+    return false;
+  };
+
+  // Bulk "All" handlers for Step 1, Step 2, and Step 3
+  const handleTakeAllInStore = () => {
+    setItems(prev => prev.map(item => {
+      const matchCat = selectedCat === 'All' || item.cat === selectedCat;
+      const matchLang = selectedLang === 'All' || item.lang === selectedLang;
+      const matches = matchCat && matchLang && itemMatchesSearch(item, searchQuery);
+      if (matches && item.inStore > 0) {
+        return { ...item, took: item.inStore };
+      }
+      return item;
+    }));
+  };
+
+  const handleClearAllTaking = () => {
+    setItems(prev => prev.map(item => ({ ...item, took: 0, returned: null })));
+  };
+
+  const handleSetAllCameBack = (onlyUncounted = false) => {
+    setItems(prev => prev.map(item => {
+      if (item.took > 0) {
+        if (!onlyUncounted || item.returned === null) {
+          return { ...item, returned: item.took };
+        }
+      }
+      return item;
+    }));
+  };
+
+  const handleSetAllPassedOut = (onlyUncounted = false) => {
+    setItems(prev => prev.map(item => {
+      if (item.took > 0) {
+        if (!onlyUncounted || item.returned === null) {
+          return { ...item, returned: 0 };
+        }
+      }
+      return item;
+    }));
   };
 
   const handlePrevItem = () => {
@@ -256,6 +510,10 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
       // Clean up draft from storage
       try {
         localStorage.removeItem(storageKey);
+        if (eventId) {
+          localStorage.removeItem(`lit_ledger_count_draft_event_${eventId}`);
+          localStorage.removeItem(getStorageKey(undefined, eventName, eventDate));
+        }
         localStorage.removeItem('lit_ledger_is_counting');
         localStorage.removeItem('lit_ledger_active_count_event');
       } catch (err) {}
@@ -269,12 +527,22 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
     }
   };
 
-  const handleDiscardDraft = () => {
+  const handleDiscardDraft = async () => {
     try {
       localStorage.removeItem(storageKey);
+      if (eventId) {
+        localStorage.removeItem(`lit_ledger_count_draft_event_${eventId}`);
+        localStorage.removeItem(getStorageKey(undefined, eventName, eventDate));
+      }
       localStorage.removeItem('lit_ledger_is_counting');
       localStorage.removeItem('lit_ledger_active_count_event');
     } catch (err) {}
+
+    if (onSaveDraft && eventId) {
+      try {
+        await onSaveDraft([], 1);
+      } catch {}
+    }
 
     const fresh: WorkingItem[] = [];
     titles.forEach(t => {
@@ -438,14 +706,26 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                       }
                     `}
                   >
-                    <div className="flex items-center gap-2 min-w-0 pr-2">
+                    <div className="flex items-start gap-2 min-w-0 pr-2">
                       <span className={`
-                        w-3.5 h-3.5 rounded-full text-[9px] font-bold flex items-center justify-center flex-none
+                        w-3.5 h-3.5 rounded-full text-[9px] font-bold flex items-center justify-center flex-none mt-0.5
                         ${isDone ? 'bg-[#1f5f8b] text-white' : isCurrent ? 'border-2 border-[#1f5f8b]' : 'border border-[#c9cbd2]'}
                       `}>
                         {isDone && '✓'}
                       </span>
-                      <span className="truncate">{item.title}</span>
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[8.5px] font-bold px-1 rounded-xs flex-none ${item.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}`}>
+                            {item.lang}
+                          </span>
+                          <span className="truncate">{item.title}</span>
+                        </div>
+                        {item.companionTitle && item.companionTitle !== item.title && (
+                          <span className="text-[10.5px] text-[#8b8e96] truncate">
+                            {item.lang === 'ES' ? `EN: ${item.companionTitle}` : `ES: ${item.companionTitle}`}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <span className="font-mono text-[11px] text-[#8b8e96] flex-none tabular-nums">
                       {passed !== null ? passed : ''}
@@ -494,20 +774,98 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                 <span>All entries auto-save immediately. You can safely leave and return at any time.</span>
               </div>
 
-              <div className="mt-4 w-80">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search title, code, or an old name"
-                  className="w-full px-3 py-1.5 border border-[#c9cbd2] rounded-md text-[13px] text-[#191c20] bg-white focus:border-[#1f5f8b] focus:ring-2 focus:ring-[#1f5f8b]/15 outline-none"
-                />
+              <div className="mt-4 flex flex-col gap-3">
+                {/* Category and Language Touch Chips with "All" button */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11.5px] font-bold text-[#6c6f77] uppercase tracking-wider">Type:</span>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {(['All', 'Tract', 'Bible', 'Booklet'] as const).map(cat => {
+                      const active = selectedCat === cat;
+                      const label = cat === 'All' ? 'All types' : cat === 'Bible' ? 'Bibles' : cat === 'Booklet' ? 'Booklets' : 'Tracts';
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setSelectedCat(cat)}
+                          className={`
+                            px-2.5 py-1 rounded-md text-[12px] font-semibold transition-all cursor-pointer
+                            ${active 
+                              ? 'bg-[#1f5f8b] text-white shadow-xs' 
+                              : 'bg-white hover:bg-[#f6f7f9] text-[#44474e] border border-[#dcdee3]'
+                            }
+                          `}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <span className="text-[11.5px] font-bold text-[#6c6f77] uppercase tracking-wider ml-2">Language:</span>
+                  <div className="flex items-center gap-1">
+                    {(['All', 'EN', 'ES'] as const).map(lang => {
+                      const active = selectedLang === lang;
+                      const label = lang === 'All' ? 'All' : lang === 'EN' ? 'English' : 'Spanish';
+                      return (
+                        <button
+                          key={lang}
+                          type="button"
+                          onClick={() => setSelectedLang(lang)}
+                          className={`
+                            px-2.5 py-1 rounded-md text-[12px] font-semibold transition-all cursor-pointer
+                            ${active 
+                              ? 'bg-[#1f5f8b] text-white shadow-xs' 
+                              : 'bg-white hover:bg-[#f6f7f9] text-[#44474e] border border-[#dcdee3]'
+                            }
+                          `}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="w-full sm:w-96">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search in English or Spanish, code, or alias..."
+                      className="w-full px-3 py-1.5 border border-[#c9cbd2] rounded-md text-[13px] text-[#191c20] bg-white focus:border-[#1f5f8b] focus:ring-2 focus:ring-[#1f5f8b]/15 outline-none"
+                    />
+                  </div>
+
+                  {/* Quick Touch Loadout Actions */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleTakeAllInStore}
+                      className="px-3 py-1.5 bg-[#e9f1f7] hover:bg-[#d8e7f3] text-[#1f5f8b] font-semibold text-[12px] rounded-md border border-[#1f5f8b]/20 flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-xs"
+                      title="Take all in-store stock for currently filtered items"
+                    >
+                      <span>Take All Available In Store</span>
+                    </button>
+
+                    {totalLoadoutPieces > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAllTaking}
+                        className="px-2.5 py-1.5 bg-white hover:bg-[#fdf2f2] text-[#6c6f77] hover:text-[#b3261e] font-semibold text-[12px] rounded-md border border-[#dcdee3] cursor-pointer active:scale-95 transition-colors"
+                        title="Reset all taking quantities to 0"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Take out items list */}
             <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-              <div className="sticky top-0 z-10 grid grid-cols-[1fr_100px_160px] items-center px-8 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
+              <div className="sticky top-0 z-10 grid grid-cols-[1fr_80px_200px] items-center px-8 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
                 <div>Item</div>
                 <div className="text-right">In store</div>
                 <div className="text-right">Taking</div>
@@ -515,28 +873,40 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
 
               <div className="divide-y divide-[#eef0f3]">
                 {items
-                  .filter(i => {
-                    const q = searchQuery.trim().toLowerCase();
-                    if (!q) return true;
-                    return (
-                      i.title.toLowerCase().includes(q) ||
-                      i.code.toLowerCase().includes(q) ||
-                      (i.alias && i.alias.toLowerCase().includes(q))
-                    );
+                  .filter(item => {
+                    if (selectedCat !== 'All' && item.cat !== selectedCat) return false;
+                    if (selectedLang !== 'All' && item.lang !== selectedLang) return false;
+                    return itemMatchesSearch(item, searchQuery);
                   })
                   .map(item => (
                     <div
                       key={item.code}
                       className={`
-                        grid grid-cols-[1fr_100px_160px] items-center px-8 py-3 transition-colors
+                        grid grid-cols-[1fr_80px_200px] items-center px-8 py-3 transition-colors
                         ${item.took > 0 ? 'bg-white' : 'bg-[#fcfcfd]'}
                       `}
                     >
-                      {/* Title, Code, Badges */}
+                      {/* Title, Code, Badges, and Dual English / Spanish Display */}
                       <div className="min-w-0 pr-4">
-                        <div className="font-semibold text-[14px] text-[#191c20]">
-                          {item.title}
+                        <div className="font-semibold text-[14px] text-[#191c20] flex items-center gap-2 flex-wrap">
+                          <span>{item.title}</span>
+                          <span className={`
+                            text-[9px] font-bold px-1.5 py-0.5 rounded-xs
+                            ${item.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}
+                          `}>
+                            {item.lang === 'EN' ? 'ENGLISH' : 'SPANISH'}
+                          </span>
                         </div>
+
+                        {/* Display Companion Language (English & Spanish of the same item) */}
+                        {item.companionTitle && item.companionTitle !== item.title && (
+                          <div className="text-[12px] text-[#6c6f77] flex items-center gap-1.5 mt-0.5">
+                            <span className={`font-semibold px-1.5 py-0.2 rounded text-[10px] ${item.lang === 'ES' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}`}>
+                              {item.lang === 'ES' ? 'English title:' : 'Spanish title:'}
+                            </span>
+                            <span className="font-medium text-[#2d3139] truncate">{item.companionTitle}</span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 mt-1">
                           <span className={`
                             text-[9px] font-bold px-1.5 py-0.5 rounded-xs
@@ -560,12 +930,12 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                         {item.inStore}
                       </div>
 
-                      {/* Taking inputs with +/- */}
+                      {/* Taking inputs with +/- and dedicated All button */}
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           type="button"
                           onClick={() => updateItem(item.code, { took: Math.max(0, item.took - 5) })}
-                          className="w-7 h-7 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] font-bold rounded-md flex items-center justify-center cursor-pointer transition-colors"
+                          className="w-7 h-7 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] font-bold rounded-md flex items-center justify-center cursor-pointer transition-colors active:scale-95"
                         >
                           −
                         </button>
@@ -584,9 +954,34 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                         <button
                           type="button"
                           onClick={() => updateItem(item.code, { took: Math.min(item.inStore, item.took + 5) })}
-                          className="w-7 h-7 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] font-bold rounded-md flex items-center justify-center cursor-pointer transition-colors"
+                          className="w-7 h-7 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] font-bold rounded-md flex items-center justify-center cursor-pointer transition-colors active:scale-95"
                         >
                           +
+                        </button>
+
+                        {/* Dedicated "All" Button for Touch and Quick Selection */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (item.took === item.inStore && item.inStore > 0) {
+                              updateItem(item.code, { took: 0 });
+                            } else {
+                              updateItem(item.code, { took: item.inStore });
+                            }
+                          }}
+                          disabled={item.inStore === 0}
+                          title={item.inStore === 0 ? "No stock available in store" : item.took === item.inStore ? "Clear selection" : `Take all ${item.inStore} in store`}
+                          className={`
+                            h-7 px-2.5 rounded-md font-bold text-[11.5px] transition-all cursor-pointer flex items-center justify-center flex-none active:scale-95 select-none
+                            ${item.inStore === 0
+                              ? 'bg-[#f6f7f9] text-[#a3a6ad] border border-[#dcdee3] cursor-not-allowed opacity-50'
+                              : item.took === item.inStore && item.inStore > 0
+                                ? 'bg-[#1f5f8b] text-white shadow-xs border border-[#1f5f8b]'
+                                : 'bg-white hover:bg-[#e9f1f7] text-[#1f5f8b] border border-[#c9cbd2] hover:border-[#1f5f8b]/40'
+                            }
+                          `}
+                        >
+                          All
                         </button>
                       </div>
                     </div>
@@ -639,6 +1034,14 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                   {currentItem.code}
                 </span>
               </div>
+              {currentItem.companionTitle && currentItem.companionTitle !== currentItem.title && (
+                <div className="text-[12.5px] bg-[#f6f7f9] border border-[#dcdee3] px-3 py-1.5 rounded-md inline-flex items-center gap-2 mt-2.5">
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${currentItem.lang === 'ES' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}`}>
+                    {currentItem.lang === 'ES' ? 'English edition:' : 'Spanish edition:'}
+                  </span>
+                  <span className="font-semibold text-[#191c20]">{currentItem.companionTitle}</span>
+                </div>
+              )}
               {currentItem.alias && (
                 <div className="text-[13px] text-[#6c6f77] italic mt-2">
                   Your older sheets may call this “{currentItem.alias}” — same item.
@@ -692,6 +1095,56 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                 </div>
               </div>
 
+              {/* Dedicated High-Touch Action Buttons for Step 2 */}
+              <div className="mt-6 flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => updateItem(currentItem.code, { returned: currentItem.took })}
+                  className={`
+                    px-4 py-2.5 rounded-lg font-bold text-[13px] flex items-center gap-2 cursor-pointer transition-all active:scale-95 shadow-xs
+                    ${currentItem.returned === currentItem.took 
+                      ? 'bg-[#1f5f8b] text-white ring-2 ring-[#1f5f8b]/30' 
+                      : 'bg-[#e9f1f7] hover:bg-[#d8e7f3] text-[#1f5f8b] border border-[#1f5f8b]/20'
+                    }
+                  `}
+                >
+                  <Check className="w-4 h-4" />
+                  <span>All Came Back ({currentItem.took})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => updateItem(currentItem.code, { returned: 0 })}
+                  className={`
+                    px-4 py-2.5 rounded-lg font-bold text-[13px] flex items-center gap-2 cursor-pointer transition-all active:scale-95 shadow-xs
+                    ${currentItem.returned === 0 
+                      ? 'bg-[#191c20] text-white ring-2 ring-black/20' 
+                      : 'bg-white hover:bg-[#f6f7f9] text-[#44474e] border border-[#c9cbd2]'
+                    }
+                  `}
+                >
+                  <span>All Passed Out (0 Back)</span>
+                </button>
+
+                {/* Touch Quick Increments */}
+                <div className="flex items-center gap-1 bg-[#f6f7f9] p-1 rounded-lg border border-[#dcdee3]">
+                  {[-10, -5, -1, 1, 5, 10].map(delta => (
+                    <button
+                      key={delta}
+                      type="button"
+                      onClick={() => {
+                        const cur = currentItem.returned ?? 0;
+                        const nextVal = Math.min(currentItem.took, Math.max(0, cur + delta));
+                        updateItem(currentItem.code, { returned: nextVal });
+                      }}
+                      className="px-2 py-1 bg-white hover:bg-[#eef0f3] text-[#44474e] font-mono text-[11px] font-bold rounded border border-[#dcdee3] cursor-pointer active:scale-90 transition-all select-none"
+                    >
+                      {delta > 0 ? `+${delta}` : delta}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Store impact card */}
               <div className="mt-6 p-4 bg-[#f6f7f9] border border-[#dcdee3] rounded-lg space-y-1.5">
                 <div className="text-[13px] text-[#44474e]">
@@ -712,23 +1165,46 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
 
             {/* Shortcuts & Buttons */}
             <div className="mt-12 pt-6 border-t border-[#eef0f3] space-y-4">
-              <div className="text-[12px] text-[#8b8e96]">
-                Shortcut:{' '}
-                <button
-                  type="button"
-                  onClick={() => updateItem(currentItem.code, { returned: currentItem.took })}
-                  className="text-[#1f5f8b] hover:underline font-medium cursor-pointer"
-                >
-                  all {currentItem.took} came back
-                </button>{' '}
-                ·{' '}
-                <button
-                  type="button"
-                  onClick={() => updateItem(currentItem.code, { returned: 0 })}
-                  className="text-[#1f5f8b] hover:underline font-medium cursor-pointer"
-                >
-                  none came back
-                </button>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[12px] text-[#8b8e96]">
+                <div>
+                  Shortcut:{' '}
+                  <button
+                    type="button"
+                    onClick={() => updateItem(currentItem.code, { returned: currentItem.took })}
+                    className="text-[#1f5f8b] hover:underline font-medium cursor-pointer"
+                  >
+                    all {currentItem.took} came back
+                  </button>{' '}
+                  ·{' '}
+                  <button
+                    type="button"
+                    onClick={() => updateItem(currentItem.code, { returned: 0 })}
+                    className="text-[#1f5f8b] hover:underline font-medium cursor-pointer"
+                  >
+                    none came back
+                  </button>
+                </div>
+
+                {takenItems.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#6c6f77]">Apply to remaining items:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleSetAllCameBack(true)}
+                      className="text-[#1f5f8b] hover:underline font-semibold cursor-pointer"
+                    >
+                      all came back
+                    </button>
+                    <span>·</span>
+                    <button
+                      type="button"
+                      onClick={() => handleSetAllPassedOut(true)}
+                      className="text-[#1f5f8b] hover:underline font-semibold cursor-pointer"
+                    >
+                      all passed out
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between gap-4">
@@ -736,7 +1212,7 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                   type="button"
                   onClick={handlePrevItem}
                   disabled={activeIndex === 0}
-                  className="px-5 py-2.5 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] font-semibold text-[13.5px] rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="px-5 py-2.5 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] font-semibold text-[13.5px] rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
                 >
                   ← Previous
                 </button>
@@ -744,7 +1220,7 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                 <button
                   type="button"
                   onClick={handleNextItem}
-                  className="px-6 py-2.5 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13.5px] rounded-md transition-colors cursor-pointer shadow-xs"
+                  className="px-6 py-2.5 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13.5px] rounded-md transition-colors cursor-pointer shadow-xs active:scale-95"
                 >
                   {activeIndex >= takenItems.length - 1 ? 'Review →' : 'Next item →'}
                 </button>
@@ -767,6 +1243,60 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                 <p className="text-[13.5px] text-[#44474e] mt-1 max-w-xl">
                   Click any number to fix it. Posting writes the movements and updates your shelf counts.
                 </p>
+
+                {/* Step 3 Bulk Actions and Category Filters with "All" button */}
+                <div className="mt-3.5 space-y-2.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11.5px] font-bold text-[#6c6f77] uppercase tracking-wider">Type:</span>
+                    {(['All', 'Tract', 'Bible', 'Booklet'] as const).map(cat => {
+                      const active = selectedCat === cat;
+                      const label = cat === 'All' ? 'All types' : cat === 'Bible' ? 'Bibles' : cat === 'Booklet' ? 'Booklets' : 'Tracts';
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setSelectedCat(cat)}
+                          className={`
+                            px-2.5 py-1 rounded-md text-[12px] font-semibold transition-all cursor-pointer
+                            ${active 
+                              ? 'bg-[#1f5f8b] text-white shadow-xs' 
+                              : 'bg-white hover:bg-[#f6f7f9] text-[#44474e] border border-[#dcdee3]'
+                            }
+                          `}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11.5px] font-semibold text-[#6c6f77]">Set all:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleSetAllCameBack(false)}
+                      className="px-2.5 py-1 bg-[#e9f1f7] hover:bg-[#d8e7f3] text-[#1f5f8b] text-[12px] font-bold rounded border border-[#1f5f8b]/20 cursor-pointer active:scale-95 transition-all"
+                    >
+                      All came back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetAllPassedOut(false)}
+                      className="px-2.5 py-1 bg-white hover:bg-[#f6f7f9] text-[#44474e] text-[12px] font-bold rounded border border-[#c9cbd2] cursor-pointer active:scale-95 transition-all"
+                    >
+                      All passed out
+                    </button>
+                    {takenItems.length - countedItems.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleSetAllCameBack(true)}
+                        className="px-2.5 py-1 bg-white hover:bg-[#eef0f3] text-[#1f5f8b] text-[12px] font-medium rounded border border-[#dcdee3] cursor-pointer active:scale-95 transition-all"
+                      >
+                        Fill remaining {takenItems.length - countedItems.length} as all back
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="text-right flex-none">
                 <div className="text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
@@ -783,7 +1313,7 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
 
             {/* Review table */}
             <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-              <div className="sticky top-0 z-10 grid grid-cols-[1fr_70px_100px_90px_120px] items-center px-8 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
+              <div className="sticky top-0 z-10 grid grid-cols-[1fr_70px_140px_90px_120px] items-center px-8 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
                 <div>Item</div>
                 <div className="text-right">Took</div>
                 <div className="text-right">Came back</div>
@@ -802,7 +1332,7 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                     <div
                       key={item.code}
                       className={`
-                        grid grid-cols-[1fr_70px_100px_90px_120px] items-center px-8 py-3 transition-colors
+                        grid grid-cols-[1fr_70px_140px_90px_120px] items-center px-8 py-3 transition-colors
                         ${isLow ? 'bg-[#fffdf7]' : !isCounted ? 'bg-[#fffcfc]' : 'bg-white'}
                       `}
                     >
@@ -832,8 +1362,8 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                         {item.took}
                       </div>
 
-                      {/* Came Back Editable Input */}
-                      <div className="flex justify-end">
+                      {/* Came Back Editable Input with Touch "All" button */}
+                      <div className="flex items-center justify-end gap-1.5">
                         <input
                           type="number"
                           min="0"
@@ -844,8 +1374,28 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
                             const val = e.target.value === '' ? null : Math.min(item.took, Math.max(0, parseInt(e.target.value, 10) || 0));
                             updateItem(item.code, { returned: val });
                           }}
-                          className="w-20 px-2 py-1 border border-[#c9cbd2] rounded-md font-mono text-[13px] font-bold text-right text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none tabular-nums"
+                          className="w-16 px-2 py-1 border border-[#c9cbd2] rounded-md font-mono text-[13px] font-bold text-right text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none tabular-nums"
                         />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (item.returned === item.took) {
+                              updateItem(item.code, { returned: null });
+                            } else {
+                              updateItem(item.code, { returned: item.took });
+                            }
+                          }}
+                          title={item.returned === item.took ? "Clear came back" : `All ${item.took} came back`}
+                          className={`
+                            h-7 px-2 rounded-md font-bold text-[11px] transition-all cursor-pointer flex items-center justify-center flex-none active:scale-95 select-none
+                            ${item.returned === item.took
+                              ? 'bg-[#1f5f8b] text-white shadow-xs border border-[#1f5f8b]'
+                              : 'bg-white hover:bg-[#e9f1f7] text-[#1f5f8b] border border-[#c9cbd2] hover:border-[#1f5f8b]/40'
+                            }
+                          `}
+                        >
+                          All
+                        </button>
                       </div>
 
                       {/* Passed Out */}
@@ -866,7 +1416,7 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
               </div>
 
               {/* Total Summary Row */}
-              <div className="grid grid-cols-[1fr_70px_100px_90px_120px] items-center px-8 py-3.5 bg-[#f6f7f9] border-t border-[#dcdee3] font-bold text-[13px]">
+              <div className="grid grid-cols-[1fr_70px_140px_90px_120px] items-center px-8 py-3.5 bg-[#f6f7f9] border-t border-[#dcdee3] font-bold text-[13px]">
                 <div className="text-[#44474e]">Total</div>
                 <div className="text-right font-mono tabular-nums">{totalTook}</div>
                 <div className="text-right font-mono tabular-nums pr-2">{totalReturned}</div>

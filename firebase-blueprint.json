@@ -12,6 +12,7 @@
         "language": { "type": "string", "description": "Language of the material" },
         "unitPrice": { "type": "number", "description": "Cost per unit for valuation" },
         "stockLevel": { "type": "number" },
+        "stock": { "type": "number", "description": "Legacy / edition stock count" },
         "status": { "type": "string", "enum": ["Healthy", "Low", "Out"] },
         "baseCode": { "type": "string", "description": "Base title identifier" },
         "baseName": { "type": "string", "description": "Base literature name" },

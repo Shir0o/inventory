@@ -16,6 +16,7 @@ import {
   updateInventoryItem, 
   addInventoryItem, 
   addEvent, 
+  deleteEvent,
   updateSettings as saveSystemSettings,
   addOrderItem,
   updateOrderItem,
@@ -60,7 +61,12 @@ export function App() {
     logout, 
     isAdmin, 
     isAuthorized,
-    loading 
+    loading,
+    isLoggingIn,
+    loginStage,
+    loginStatusMessage,
+    loginError,
+    dismissLoginError
   } = useFirebase();
 
   // Navigation State
@@ -147,7 +153,8 @@ export function App() {
               lang: edLang,
               title: edTitle,
               stock: Number(ed.stock ?? ed.stockLevel ?? 0),
-              code: edCode
+              code: edCode,
+              id: i.id
             };
           })
         };
@@ -175,9 +182,12 @@ export function App() {
           aliases: Array.isArray(item.aliases) ? [...item.aliases] : (item.alias ? [item.alias] : []),
           editions: []
         };
-      } else if (item.aliases && Array.isArray(item.aliases)) {
-        const mergedAliases = Array.from(new Set([...(groups[baseCode].aliases || []), ...item.aliases]));
-        groups[baseCode].aliases = mergedAliases;
+      } else {
+        const itemAliases = Array.isArray(item.aliases) ? item.aliases : (item.alias ? [item.alias] : []);
+        if (itemAliases.length > 0) {
+          const mergedAliases = Array.from(new Set([...(groups[baseCode].aliases || []), ...itemAliases]));
+          groups[baseCode].aliases = mergedAliases;
+        }
       }
 
       const editionTitle = resolveHumanTitle(item.title, lang, resolvedBaseName, baseCode);
@@ -188,6 +198,9 @@ export function App() {
       if (existingEdIndex >= 0) {
         // Consolidate stock from duplicate documents in UI mapping
         groups[baseCode].editions[existingEdIndex].stock += stock;
+        if (!groups[baseCode].editions[existingEdIndex].id) {
+          groups[baseCode].editions[existingEdIndex].id = item.id;
+        }
         const currentTitle = groups[baseCode].editions[existingEdIndex].title || '';
         const isBadTitle = !currentTitle || 
           isCodeLikeTitle(currentTitle) || 
@@ -201,7 +214,8 @@ export function App() {
           lang,
           title: editionTitle,
           stock,
-          code: editionCode
+          code: editionCode,
+          id: item.id
         });
       }
     });
@@ -228,10 +242,24 @@ export function App() {
     });
   }, [rawInventory, settings]);
 
-  // Map real Firestore events
+  // Legacy default locations to exclude and clean up
+  const legacyDefaults = useMemo(() => new Set([
+    'campus gate',
+    'downtown farmers market',
+    'cisa — open house',
+    'cisa open house',
+    'eastside park'
+  ]), []);
+
+  // Map real Firestore events, excluding legacy defaults
   const events: EventItem[] = useMemo(() => {
     if (!rawEvents || rawEvents.length === 0) return [];
-    return rawEvents.map(ev => {
+    return rawEvents
+      .filter(ev => {
+        const loc = (ev.location || ev.name || '').trim().toLowerCase();
+        return !legacyDefaults.has(loc);
+      })
+      .map(ev => {
       let dateStr = '';
       if (ev.date && typeof ev.date.toDate === 'function') {
         dateStr = ev.date.toDate().toISOString().slice(0, 10);
@@ -269,7 +297,30 @@ export function App() {
         categoryStats
       };
     });
-  }, [rawEvents, rawInventory]);
+  }, [rawEvents, rawInventory, legacyDefaults]);
+
+  const activeEventItem = useMemo(() => {
+    if (activeCountEvent?.id) {
+      return events.find(e => e.id === activeCountEvent.id);
+    }
+    return events.find(e => e.planned);
+  }, [events, activeCountEvent]);
+
+  // Clean up any legacy default events from Firestore if present
+  useEffect(() => {
+    if (!rawEvents || rawEvents.length === 0 || !isAdmin) return;
+    const toDelete = rawEvents.filter(ev => {
+      const loc = (ev.location || ev.name || '').trim().toLowerCase();
+      return legacyDefaults.has(loc);
+    });
+    if (toDelete.length > 0) {
+      toDelete.forEach(ev => {
+        deleteEvent(ev.id, ev.location || ev.name).catch(err => {
+          console.warn('Could not delete legacy default event:', ev.id, err);
+        });
+      });
+    }
+  }, [rawEvents, isAdmin, legacyDefaults]);
 
   // Map real Firestore orders
   const orders: OrderItem[] = useMemo(() => {
@@ -399,28 +450,91 @@ export function App() {
   }, [titles, settings]);
 
   // Handlers for Stock Adjustments - writes directly to Firestore
-  const handleAdjustStock = async (codeKey: string, newStock: number, note: string, date?: string) => {
+  const handleAdjustStock = async (
+    codeKey: string, 
+    newStock: number, 
+    note: string, 
+    date?: string,
+    langHint?: Language,
+    targetDocId?: string
+  ) => {
     try {
       const occurredAt = date || getTodayIso();
-      // Derive language and baseCode reliably from 4-segment SKU (e.g. TR-009-001-EN) or legacy (TR-009-EN)
-      const isSpanish = codeKey.endsWith('-ES') || codeKey.includes('-002-');
-      const lang = isSpanish ? 'ES' : 'EN';
+      const codeUpper = codeKey.toUpperCase();
+      let lang: Language = 'EN';
+      if (langHint) {
+        lang = langHint;
+      } else if (
+        codeUpper.endsWith('-EN') || 
+        codeUpper.endsWith('_EN') || 
+        codeUpper.includes('-001-EN') || 
+        codeUpper.includes('-ENGLISH') ||
+        codeUpper.includes('(EN)')
+      ) {
+        lang = 'EN';
+      } else if (
+        codeUpper.endsWith('-ES') || 
+        codeUpper.endsWith('_ES') || 
+        codeUpper.includes('-002-ES') || 
+        codeUpper.includes('-SPANISH') ||
+        codeUpper.includes('(ES)')
+      ) {
+        lang = 'ES';
+      }
+
       const cleanBaseCode = codeKey
         .replace(/-(001|002)-(EN|ES)$/i, '')
         .replace(/-(EN|ES)$/i, '')
         .trim();
 
-      const item = findMatchingInventoryItem(rawInventory, codeKey);
+      let item = targetDocId ? rawInventory.find(i => i.id === targetDocId) : undefined;
+      if (!item) {
+        item = findMatchingInventoryItem(rawInventory, codeKey, lang);
+      }
 
       if (item) {
-        const prevStock = Number(item.stockLevel || 0);
+        let prevStock = Number(item.stockLevel ?? item.stock ?? 0);
+        const hasEditions = Array.isArray(item.editions) && item.editions.length > 0;
+        const reorderThreshold = Number(item.reorder) || 50;
+
+        let updatePayload: any = {
+          stockLevel: newStock,
+          stock: newStock,
+          status: newStock === 0 ? 'Out' : newStock < reorderThreshold ? 'Low' : 'Healthy'
+        };
+
+        if (hasEditions) {
+          const matchedEd = item.editions.find((e: any) => {
+            const edLang = String(e.lang || '').toUpperCase().includes('ES') ? 'ES' : 'EN';
+            return edLang === lang;
+          });
+          if (matchedEd) {
+            prevStock = Number(matchedEd.stock ?? matchedEd.stockLevel ?? prevStock);
+          }
+
+          const updatedEditions = item.editions.map((ed: any) => {
+            const edLang = String(ed.lang || '').toUpperCase().includes('ES') ? 'ES' : 'EN';
+            if (edLang === lang) {
+              return { ...ed, stock: newStock, stockLevel: newStock };
+            }
+            return ed;
+          });
+          updatePayload.editions = updatedEditions;
+          const totalStock = updatedEditions.reduce((sum: number, ed: any) => sum + (Number(ed.stock) || 0), 0);
+          updatePayload.stockLevel = totalStock;
+          updatePayload.stock = totalStock;
+          updatePayload.status = totalStock === 0 ? 'Out' : totalStock < reorderThreshold ? 'Low' : 'Healthy';
+        }
+
         const diff = newStock - prevStock;
-        await updateInventoryItem(item.id, { stockLevel: newStock }, undefined, note, occurredAt);
-        await createAuditLog('STOCK_ADJUSTED', item.id, 'inventory', note || `Stock adjusted from ${prevStock} to ${newStock}`, {
+
+        await updateInventoryItem(item.id, updatePayload, undefined, note, occurredAt);
+        await createAuditLog('STOCK_ADJUSTED', item.id, 'inventory', note || `Stock adjusted from ${prevStock} to ${newStock} (${lang})`, {
           delta: diff,
           previousStock: prevStock,
           newStock,
           sku: item.sku || codeKey,
+          lang,
           occurredAt,
           note: note?.trim() || undefined
         });
@@ -439,16 +553,18 @@ export function App() {
           category: cat === 'Bible' ? 'Bibles' : cat === 'Booklet' ? 'Booklets' : 'Tracts',
           language: lang === 'ES' ? 'Spanish' : 'English',
           stockLevel: newStock,
+          stock: newStock,
           status: newStock === 0 ? 'Out' : newStock < 100 ? 'Low' : 'Healthy',
           unitPrice: 0,
           baseCode: cleanBaseCode,
           baseName: targetTitle?.name || titleName
         });
         if (docRef) {
-          await createAuditLog('STOCK_ADJUSTED', docRef.id, 'inventory', `Initial stock set to ${newStock}`, {
+          await createAuditLog('STOCK_ADJUSTED', docRef.id, 'inventory', `Initial stock set to ${newStock} (${lang})`, {
             delta: newStock,
             newStock,
             sku: codeKey,
+            lang,
             occurredAt,
             note: note?.trim() || undefined
           });
@@ -456,6 +572,7 @@ export function App() {
       }
     } catch (err) {
       console.error('Failed to adjust stock in database:', err);
+      throw err;
     }
   };
 
@@ -466,14 +583,33 @@ export function App() {
       if (!codeToUse || codeToUse.endsWith('-') || codeToUse === 'TR' || codeToUse === 'BIB' || codeToUse === 'BKL') {
         codeToUse = generateProgrammaticCode(nextTitle.cat, titles);
       }
+      const aliasesToSave = nextTitle.aliases || [];
+
+      // 1. Identify all related inventory items in rawInventory
+      const allRelated = rawInventory.filter(i => {
+        const { baseCode } = extractBaseCode(i);
+        return (
+          baseCode === codeToUse || 
+          (originalCode && baseCode === originalCode) || 
+          i.baseCode === codeToUse || 
+          (originalCode && i.baseCode === originalCode) ||
+          i.sku === codeToUse ||
+          (originalCode && i.sku === originalCode) ||
+          (originalCode && i.sku?.startsWith(`${originalCode}-`)) ||
+          i.sku?.startsWith(`${codeToUse}-`)
+        );
+      });
+
+      // 2. Save each edition
       for (const ed of nextTitle.editions) {
         const sku = generateEditionSku(codeToUse, ed.lang);
         const humanTitle = resolveHumanTitle(ed.title || nextTitle.name, ed.lang, nextTitle.name, codeToUse);
-        const existing = rawInventory.find(i => 
-          i.sku === sku || 
-          i.sku === `${codeToUse}-${ed.lang}` || 
-          (originalCode && (i.baseCode === originalCode || i.sku?.startsWith(`${originalCode}-`)) && normalizeLang(i) === ed.lang)
-        );
+        const existing = findMatchingInventoryItem(rawInventory, sku, ed.lang) || 
+          rawInventory.find(i => 
+            i.sku === sku || 
+            i.sku === `${codeToUse}-${ed.lang}` || 
+            (originalCode && (i.baseCode === originalCode || i.sku?.startsWith(`${originalCode}-`)) && normalizeLang(i) === ed.lang)
+          );
         
         const catStr = nextTitle.cat === 'Bible' ? 'Bibles' : nextTitle.cat === 'Booklet' ? 'Booklets' : 'Tracts';
         const payload = {
@@ -481,6 +617,7 @@ export function App() {
           title: humanTitle,
           category: catStr,
           language: ed.lang === 'ES' ? 'Spanish' : 'English',
+          lang: ed.lang,
           stockLevel: ed.stock,
           status: ed.stock === 0 ? 'Out' : ed.stock < nextTitle.reorder ? 'Low' : 'Healthy',
           unitPrice: 0,
@@ -488,7 +625,7 @@ export function App() {
           reorder: nextTitle.reorder,
           baseCode: codeToUse,
           baseName: nextTitle.name,
-          aliases: nextTitle.aliases || []
+          aliases: aliasesToSave
         };
 
         if (existing) {
@@ -503,12 +640,43 @@ export function App() {
           }
         }
       }
+
+      // 3. Update aliases and metadata on any other related documents in Firestore
+      for (const relItem of allRelated) {
+        if (!nextTitle.editions.some(ed => generateEditionSku(codeToUse, ed.lang) === relItem.sku)) {
+          await updateInventoryItem(relItem.id, {
+            aliases: aliasesToSave,
+            baseCode: codeToUse,
+            baseName: nextTitle.name,
+            reorder: nextTitle.reorder,
+            pack: nextTitle.pack
+          });
+        }
+      }
     } catch (err) {
       console.error('Failed to save title in database:', err);
+      throw err;
     }
   };
 
   // Handlers for Count Flow - updates Firestore stock atomically & logs event
+  const handleSaveDraft = async (lines: EventLine[], currentStep: number) => {
+    const targetEventId = activeCountEvent?.id;
+    if (targetEventId) {
+      try {
+        const eventRef = doc(db, 'events', targetEventId);
+        const totalTook = lines.reduce((sum, l) => sum + (l.took || 0), 0);
+        await updateDoc(eventRef, {
+          lines,
+          materialsDistributed: totalTook,
+          updatedAt: serverTimestamp()
+        });
+      } catch (err) {
+        console.warn('Could not auto-sync draft lines to Firestore:', err);
+      }
+    }
+  };
+
   const handleStartCount = (eventItem?: EventItem) => {
     let nextEvent: { name: string; date: string; id?: string };
     if (eventItem) {
@@ -524,7 +692,7 @@ export function App() {
       if (savedEventRaw) {
         try {
           const parsed = JSON.parse(savedEventRaw);
-          if (parsed && parsed.name) {
+          if (parsed && (parsed.name || parsed.id)) {
             nextEvent = parsed;
             restoredFromSaved = true;
           }
@@ -673,7 +841,7 @@ export function App() {
       const targetEvent = events.find(e => e.id === eventId);
       if (targetEvent) {
         const updatedLines = targetEvent.lines.map(l => {
-          const ch = changes.find(c => c.key === l.key);
+          const ch = changes.find(c => c.key === l.key || c.key === l.code);
           return ch ? { ...l, back: ch.to } : l;
         });
 
@@ -685,10 +853,13 @@ export function App() {
           changes
         };
 
+        const totalPassed = updatedLines.reduce((sum, l) => sum + Math.max(0, (l.took || 0) - (l.back || 0)), 0);
+
         const eventRef = doc(db, 'events', eventId);
         await updateDoc(eventRef, {
           lines: updatedLines,
           corrections: [...(targetEvent.corrections || []), newCorrection],
+          materialsDistributed: totalPassed,
           updatedAt: serverTimestamp()
         });
       }
@@ -698,11 +869,38 @@ export function App() {
         const delta = ch.to - ch.from;
         netDelta += delta;
 
-        const item = findMatchingInventoryItem(rawInventory, ch.key);
+        const isEnglish = ch.key.endsWith('-EN') || ch.key.includes('-001-EN') || ch.key.includes('_EN');
+        const isSpanish = !isEnglish && (ch.key.endsWith('-ES') || ch.key.includes('-002-ES') || ch.key.includes('_ES') || ch.key.includes('-SPANISH'));
+        const lang: Language = isSpanish ? 'ES' : 'EN';
+
+        const item = findMatchingInventoryItem(rawInventory, ch.key, lang);
         if (item) {
-          const currentStock = Number(item.stockLevel || 0);
+          const currentStock = Number(item.stockLevel ?? item.stock ?? 0);
           const newStock = Math.max(0, currentStock + delta);
-          await updateInventoryItem(item.id, { stockLevel: newStock });
+          const reorderThreshold = Number(item.reorder) || 50;
+          const status = newStock === 0 ? 'Out' : newStock < reorderThreshold ? 'Low' : 'Healthy';
+          const updatePayload: any = { 
+            stockLevel: newStock, 
+            stock: newStock,
+            status
+          };
+
+          if (Array.isArray(item.editions) && item.editions.length > 0) {
+            updatePayload.editions = item.editions.map((ed: any) => {
+              const edLang = String(ed.lang || '').toUpperCase().includes('ES') ? 'ES' : 'EN';
+              if (edLang === lang) {
+                const currentEdStock = Number(ed.stock ?? ed.stockLevel ?? 0);
+                const nextEdStock = Math.max(0, currentEdStock + delta);
+                return { ...ed, stock: nextEdStock, stockLevel: nextEdStock };
+              }
+              return ed;
+            });
+            const totalStock = updatePayload.editions.reduce((sum: number, ed: any) => sum + (Number(ed.stock) || 0), 0);
+            updatePayload.stockLevel = totalStock;
+            updatePayload.stock = totalStock;
+            updatePayload.status = totalStock === 0 ? 'Out' : totalStock < reorderThreshold ? 'Low' : 'Healthy';
+          }
+          await updateInventoryItem(item.id, updatePayload);
         }
       }
 
@@ -712,6 +910,7 @@ export function App() {
       });
     } catch (err) {
       console.error('Failed to post correction to database:', err);
+      throw err;
     }
   };
 
@@ -913,6 +1112,10 @@ export function App() {
         onLogout={logout}
         isAdmin={isAdmin}
         hasActiveCountDraft={hasActiveCountDraft}
+        isLoggingIn={isLoggingIn}
+        loginStatusMessage={loginStatusMessage}
+        loginError={loginError}
+        onDismissLoginError={dismissLoginError}
       />
 
       {/* Main Content Area */}
@@ -924,7 +1127,38 @@ export function App() {
           user={user}
           onLogin={login}
           onLogout={logout}
+          isLoggingIn={isLoggingIn}
         />
+
+        {/* Login UX Reassurance Overlay Mask */}
+        {isLoggingIn && (
+          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl border border-[#dcdee3] max-w-sm w-full p-6 text-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className="w-14 h-14 mx-auto rounded-full bg-[#e9f1f7] text-[#1f5f8b] flex items-center justify-center">
+                <RefreshCw className="w-7 h-7 animate-spin text-[#1f5f8b]" />
+              </div>
+              <div>
+                <h3 className="text-[17px] font-bold text-[#191c20]">Connecting with Google</h3>
+                <p className="text-[13px] text-[#44474e] mt-1.5 leading-relaxed">
+                  {loginStatusMessage || 'Opening Google sign-in window and synchronizing...'}
+                </p>
+              </div>
+              <div className="bg-[#f6f7f9] border border-[#dcdee3] rounded-lg p-3 text-[12px] text-[#6c6f77] text-left">
+                <p className="font-semibold text-[#191c20] mb-0.5">Check for popup window:</p>
+                <p>If the Google window didn&apos;t appear in front, check if your browser minimized it or blocked popups in the address bar.</p>
+              </div>
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={dismissLoginError}
+                  className="text-[12px] text-[#6c6f77] hover:text-[#191c20] underline cursor-pointer"
+                >
+                  Dismiss this notice
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Database Authorization & Connection State Banner */}
         {!isAuthorized && (
@@ -964,6 +1198,8 @@ export function App() {
             events={events}
             movements={movements}
             orders={orders}
+            rawLogs={rawLogs}
+            rawInventory={rawInventory}
             onNavigate={(tab) => {
               setActiveTab(tab);
               setSelectedEventIdForRecord(null);
@@ -978,6 +1214,8 @@ export function App() {
           <InventoryView
             titles={titles}
             rawInventory={rawInventory}
+            rawLogs={rawLogs}
+            events={events}
             onAdjustStock={handleAdjustStock}
             onSaveTitle={handleSaveTitle}
           />
@@ -1025,6 +1263,10 @@ export function App() {
             onReconcile={handleManualReconcileSept18}
             isReconciling={reconciliationStatus.reconciling}
             reconciliationMessage={reconciliationStatus.message}
+            titles={titles}
+            rawLogs={rawLogs}
+            events={events}
+            rawInventory={rawInventory}
           />
         )}
 
@@ -1042,9 +1284,11 @@ export function App() {
       {isCounting && (
         <CountEventFlow
           titles={titles}
-          eventName={activeCountEvent?.name || 'CISA outreach distribution'}
-          eventDate={activeCountEvent?.date || getTodayIso()}
-          eventId={activeCountEvent?.id}
+          eventName={activeCountEvent?.name || activeEventItem?.location || 'CISA outreach distribution'}
+          eventDate={activeCountEvent?.date || activeEventItem?.date || getTodayIso()}
+          eventId={activeCountEvent?.id || activeEventItem?.id}
+          initialLines={activeEventItem?.lines}
+          onSaveDraft={handleSaveDraft}
           onPostCount={handlePostCount}
           onLeave={() => {
             setIsCounting(false);

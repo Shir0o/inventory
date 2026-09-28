@@ -1,14 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { Title, Category, Language } from '../types';
-import { Search, Plus, Download, Edit2, SlidersHorizontal, ArrowLeft, X, Calendar, Sparkles, AlertCircle } from 'lucide-react';
+import { Search, Plus, Download, Edit2, SlidersHorizontal, ArrowLeft, X, Calendar, Sparkles, AlertCircle, History } from 'lucide-react';
 import { exportToCSV } from '../lib/csvExport';
 import { InventoryCleanupModal } from './InventoryCleanupModal';
+import { ItemTrailModal } from './ItemTrailModal';
 import { analyzeInventory, generateProgrammaticCode } from '../services/inventoryCleanupService';
 
 interface InventoryViewProps {
   titles: Title[];
   rawInventory?: any[];
-  onAdjustStock: (code: string, qty: number, note: string, date?: string) => void;
+  rawLogs?: any[];
+  events?: any[];
+  onAdjustStock: (code: string, qty: number, note: string, date?: string, lang?: Language, docId?: string) => void | Promise<void>;
   onSaveTitle: (originalCode: string | null, nextTitle: Title) => void;
   reorderSensitivity?: number;
 }
@@ -27,6 +30,8 @@ function aliasesOf(t: Title): string[] {
 export const InventoryView: React.FC<InventoryViewProps> = ({
   titles,
   rawInventory = [],
+  rawLogs = [],
+  events = [],
   onAdjustStock,
   onSaveTitle,
   reorderSensitivity = 1
@@ -36,6 +41,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [langFilter, setLangFilter] = useState<string>('All');
   const [lowOnly, setLowOnly] = useState(false);
   const [isCleanupOpen, setIsCleanupOpen] = useState(false);
+  const [trailModalTarget, setTrailModalTarget] = useState<{ title: Title; lang?: Language } | null>(null);
 
   // Compute dry-run analysis on raw inventory
   const cleanupPlan = useMemo(() => {
@@ -44,9 +50,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
   // Inline adjustment state
   const [adjustingKey, setAdjustingKey] = useState<string | null>(null);
+  const [adjustingDocId, setAdjustingDocId] = useState<string | null>(null);
+  const [adjustingLang, setAdjustingLang] = useState<Language | null>(null);
   const [adjustQty, setAdjustQty] = useState<string>('');
   const [adjustNote, setAdjustNote] = useState<string>('');
   const [adjustDate, setAdjustDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [isSavingAdjust, setIsSavingAdjust] = useState<boolean>(false);
+  const [adjustError, setAdjustError] = useState<string | null>(null);
 
   // Title Editor State
   const [mode, setMode] = useState<'list' | 'edit'>('list');
@@ -108,20 +118,36 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   });
 
   // Start adjusting an edition
-  const handleStartAdjust = (code: string, currentStock: number) => {
+  const handleStartAdjust = (code: string, currentStock: number, lang?: Language, docId?: string) => {
     setAdjustingKey(code);
+    setAdjustingLang(lang || null);
+    setAdjustingDocId(docId || null);
     setAdjustQty(String(currentStock));
     setAdjustNote('');
     setAdjustDate(new Date().toISOString().slice(0, 10));
+    setAdjustError(null);
   };
 
-  const handleSaveAdjust = (code: string) => {
+  const handleSaveAdjust = async (code: string, lang?: Language, docId?: string) => {
     const qty = Math.max(0, parseInt(adjustQty, 10) || 0);
-    onAdjustStock(code, qty, adjustNote, adjustDate);
-    setAdjustingKey(null);
-    setAdjustQty('');
-    setAdjustNote('');
-    setAdjustDate(new Date().toISOString().slice(0, 10));
+    const targetLang = lang || adjustingLang || undefined;
+    const targetDocId = docId || adjustingDocId || undefined;
+    setIsSavingAdjust(true);
+    setAdjustError(null);
+    try {
+      await onAdjustStock(code, qty, adjustNote, adjustDate, targetLang, targetDocId);
+      setAdjustingKey(null);
+      setAdjustingLang(null);
+      setAdjustingDocId(null);
+      setAdjustQty('');
+      setAdjustNote('');
+      setAdjustDate(new Date().toISOString().slice(0, 10));
+    } catch (err: any) {
+      console.error('Adjustment failed:', err);
+      setAdjustError(err?.message || 'Could not save stock adjustment. Please try again.');
+    } finally {
+      setIsSavingAdjust(false);
+    }
   };
 
   // Start adding new title
@@ -233,13 +259,20 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     const errors = getDraftErrors();
     if (errors.length > 0) return;
 
+    // Auto-commit any typed alias in the input box if user forgot to click "+ Add"
+    const finalAliases = draftTitle.aliases.slice();
+    const pendingAlias = aliasInput.trim();
+    if (pendingAlias && !finalAliases.some(a => a.toLowerCase() === pendingAlias.toLowerCase())) {
+      finalAliases.push(pendingAlias);
+    }
+
     const nextTitle: Title = {
       code: draftTitle.code.trim().toUpperCase(),
       name: draftTitle.name.trim(),
       cat: draftTitle.cat,
       reorder: Math.max(0, parseInt(draftTitle.reorder, 10) || 0),
       pack: originalTitle?.pack || PACK[draftTitle.cat] || 50,
-      aliases: draftTitle.aliases.slice(),
+      aliases: finalAliases,
       editions: draftTitle.editions.map(ed => ({
         lang: ed.lang,
         title: ed.title.trim(),
@@ -253,6 +286,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     setMode('list');
     setDraftTitle(null);
     setOriginalTitle(null);
+    setAliasInput('');
   };
 
   // CSV Export
@@ -758,7 +792,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
       {/* Main Inventory Table */}
       <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-        <div className="sticky top-0 z-10 grid grid-cols-[1fr_90px_80px_80px_70px_70px] items-center px-6 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
+        <div className="sticky top-0 z-10 grid grid-cols-[1fr_90px_80px_80px_70px_130px] items-center px-6 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
           <div>Title and editions</div>
           <div>Code</div>
           <div className="text-right">In store</div>
@@ -781,7 +815,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               return (
                 <div key={t.code} className="border-b border-[#dcdee3]">
                   {/* Title Header Row */}
-                  <div className="grid grid-cols-[1fr_90px_80px_80px_70px_70px] items-baseline px-6 pt-3.5 pb-2 bg-[#fbfbfc]">
+                  <div className="grid grid-cols-[1fr_90px_80px_80px_70px_130px] items-baseline px-6 pt-3.5 pb-2 bg-[#fbfbfc]">
                     <div className="min-w-0 pr-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-[14.5px] text-[#191c20] tracking-tight">
@@ -807,10 +841,18 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                     </div>
                     <div />
                     <div />
-                    <div className="text-right">
+                    <div className="text-right flex items-center justify-end gap-1.5">
+                      <button
+                        onClick={() => setTrailModalTarget({ title: t })}
+                        className="px-2 py-0.5 text-[12px] font-semibold text-[#1f5f8b] hover:bg-[#e9f1f7] rounded-sm transition-colors cursor-pointer flex items-center gap-1"
+                        title={`View audit trail for ${t.name}`}
+                      >
+                        <History className="w-3 h-3 text-[#1f5f8b]" />
+                        <span>Trail</span>
+                      </button>
                       <button
                         onClick={() => handleStartEdit(t)}
-                        className="px-2 py-0.5 text-[12px] font-semibold text-[#1f5f8b] hover:bg-[#e9f1f7] rounded-sm transition-colors cursor-pointer"
+                        className="px-2 py-0.5 text-[12px] font-semibold text-[#44474e] hover:bg-[#eef0f3] rounded-sm transition-colors cursor-pointer"
                       >
                         Edit
                       </button>
@@ -820,7 +862,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   {/* Editions rows */}
                   <div className="divide-y divide-[#eef0f3]">
                     {eds.map((ed) => {
-                      const codeKey = `${t.code}-${ed.lang}`;
+                      const codeKey = ed.code || `${t.code}-${ed.lang}`;
                       const status = getStatus(t, ed.stock);
                       const isAdjusting = adjustingKey === codeKey;
                       const parsedStock = parseInt(adjustQty, 10);
@@ -829,7 +871,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                       return (
                         <React.Fragment key={codeKey}>
                           <div className={`
-                            grid grid-cols-[1fr_90px_80px_80px_70px_70px] items-center px-6 py-2.5 text-[13px] transition-colors
+                            grid grid-cols-[1fr_90px_80px_80px_70px_130px] items-center px-6 py-2.5 text-[13px] transition-colors
                             ${status === 'out' ? 'bg-[#fffcfc]' : status === 'low' ? 'bg-[#fffdf7]' : 'bg-white'}
                           `}>
                             {/* Edition title & lang badge */}
@@ -882,11 +924,19 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                               )}
                             </div>
 
-                            {/* Adjust button */}
-                            <div className="text-right">
+                            {/* Action buttons (Trail & Adjust) */}
+                            <div className="text-right flex items-center justify-end gap-1.5">
                               <button
-                                onClick={() => handleStartAdjust(codeKey, ed.stock)}
-                                className="px-2 py-0.5 text-[12px] font-semibold text-[#1f5f8b] hover:bg-[#e9f1f7] rounded-sm transition-colors cursor-pointer"
+                                onClick={() => setTrailModalTarget({ title: t, lang: ed.lang })}
+                                className="px-2 py-0.5 text-[12px] font-semibold text-[#1f5f8b] hover:bg-[#e9f1f7] rounded-sm transition-colors cursor-pointer flex items-center gap-1"
+                                title={`View trail for ${ed.title} (${ed.lang})`}
+                              >
+                                <History className="w-3 h-3 text-[#1f5f8b]" />
+                                <span>Trail</span>
+                              </button>
+                              <button
+                                onClick={() => handleStartAdjust(codeKey, ed.stock, ed.lang, ed.id)}
+                                className="px-2 py-0.5 text-[12px] font-semibold text-[#44474e] hover:bg-[#eef0f3] rounded-sm transition-colors cursor-pointer"
                               >
                                 Adjust
                               </button>
@@ -896,6 +946,18 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                           {/* Inline Shelf Adjustment Row */}
                           {isAdjusting && (
                             <div className="px-6 py-3.5 bg-[#f6f9fb] border-t border-b border-[#dcdee3] space-y-2.5">
+                              {adjustError && (
+                                <div className="p-2 bg-[#fdf2f2] border border-[#f8b4b4] rounded-md text-[12px] text-[#b3261e] flex items-center justify-between">
+                                  <span>{adjustError}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setAdjustError(null)}
+                                    className="font-bold text-sm cursor-pointer ml-2"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              )}
                               <div className="flex flex-wrap items-center gap-3">
                                 <div className="flex items-center gap-2 flex-none">
                                   <span className="text-[12px] font-bold text-[#44474e]">
@@ -950,24 +1012,27 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                                 <div className="flex items-center gap-1.5 flex-none">
                                   <button
                                     type="button"
-                                    onClick={() => setAdjustingKey(null)}
+                                    onClick={() => {
+                                      setAdjustingKey(null);
+                                      setAdjustError(null);
+                                    }}
                                     className="px-3 py-1.5 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#44474e] text-[12px] font-semibold rounded-md cursor-pointer transition-colors"
                                   >
                                     Cancel
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => handleSaveAdjust(codeKey)}
-                                    disabled={delta === 0}
+                                    onClick={() => handleSaveAdjust(codeKey, ed.lang, ed.id)}
+                                    disabled={delta === 0 || isSavingAdjust}
                                     className={`
                                       px-3.5 py-1.5 rounded-md text-[12px] font-semibold transition-colors cursor-pointer
-                                      ${delta !== 0 
+                                      ${delta !== 0 && !isSavingAdjust
                                         ? 'bg-[#1f5f8b] hover:bg-[#17496c] text-white border border-[#1f5f8b]' 
                                         : 'bg-[#f6f7f9] text-[#a4a7ae] border border-[#dcdee3] cursor-default'
                                       }
                                     `}
                                   >
-                                    Save adjustment
+                                    {isSavingAdjust ? 'Saving...' : 'Save adjustment'}
                                   </button>
                                 </div>
                               </div>
@@ -1004,6 +1069,20 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         onClose={() => setIsCleanupOpen(false)}
         rawInventory={rawInventory}
       />
+
+      {/* Item Trail Modal */}
+      {trailModalTarget && (
+        <ItemTrailModal
+          isOpen={!!trailModalTarget}
+          onClose={() => setTrailModalTarget(null)}
+          title={trailModalTarget.title}
+          initialLang={trailModalTarget.lang}
+          rawLogs={rawLogs}
+          events={events}
+          rawInventory={rawInventory}
+          onStartAdjust={(code, stock) => handleStartAdjust(code, stock)}
+        />
+      )}
     </div>
   );
 };

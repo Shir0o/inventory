@@ -360,7 +360,13 @@ export async function updateInventoryItem(
       (item.subtitle !== undefined && item.subtitle !== existingData.subtitle) ||
       (item.category !== undefined && item.category !== existingData.category) ||
       (item.language !== undefined && item.language !== existingData.language) ||
-      (item.unitPrice !== undefined && Number(item.unitPrice) !== existingData.unitPrice);
+      (item.unitPrice !== undefined && Number(item.unitPrice) !== existingData.unitPrice) ||
+      (item.aliases !== undefined) ||
+      (item.alias !== undefined) ||
+      (item.reorder !== undefined && Number(item.reorder) !== existingData.reorder) ||
+      (item.pack !== undefined && Number(item.pack) !== existingData.pack) ||
+      (item.baseCode !== undefined && item.baseCode !== existingData.baseCode) ||
+      (item.baseName !== undefined && item.baseName !== existingData.baseName);
 
     let updatePayload: any;
 
@@ -389,11 +395,29 @@ export async function updateInventoryItem(
 
       if (item.unitPrice !== undefined) updatePayload.unitPrice = Number(item.unitPrice);
       else if (existingData.unitPrice !== undefined) updatePayload.unitPrice = existingData.unitPrice;
+
+      if (item.aliases !== undefined) {
+        updatePayload.aliases = Array.isArray(item.aliases) ? item.aliases : (item.aliases ? [item.aliases] : []);
+      } else if (existingData.aliases !== undefined) {
+        updatePayload.aliases = existingData.aliases;
+      }
+
+      if (item.reorder !== undefined) updatePayload.reorder = Number(item.reorder);
+      else if (existingData.reorder !== undefined) updatePayload.reorder = existingData.reorder;
+
+      if (item.pack !== undefined) updatePayload.pack = Number(item.pack);
+      else if (existingData.pack !== undefined) updatePayload.pack = existingData.pack;
+
+      if (item.baseCode !== undefined) updatePayload.baseCode = item.baseCode;
+      else if (existingData.baseCode !== undefined) updatePayload.baseCode = existingData.baseCode;
+
+      if (item.baseName !== undefined) updatePayload.baseName = item.baseName;
+      else if (existingData.baseName !== undefined) updatePayload.baseName = existingData.baseName;
     }
 
     if (item.stock !== undefined) {
       updatePayload.stock = Number(item.stock);
-    } else if (item.stockLevel !== undefined) {
+    } else if (existingData.stock !== undefined && item.stockLevel !== undefined) {
       updatePayload.stock = Number(item.stockLevel);
     }
 
@@ -412,19 +436,22 @@ export async function updateInventoryItem(
 
     await updateDoc(itemRef, updatePayload);
     
+    const title = item.title || existingData.title || 'Item';
+    const sku = item.sku || existingData.sku || '';
+
     // Check thresholds if provided for notifications
     if (item.stockLevel <= criticalLimit) {
-      await createNotification('CRITICAL_STOCK', 'Critical Stock Level', `${item.title} is at critical level (${item.stockLevel} units).`, { itemId: id, sku: item.sku });
+      await createNotification('CRITICAL_STOCK', 'Critical Stock Level', `${title} is at critical level (${item.stockLevel} units).`, { itemId: id, sku });
     } else if (item.stockLevel <= warningLimit) {
-      await createNotification('LOW_STOCK', 'Low Stock Warning', `${item.title} is running low (${item.stockLevel} units).`, { itemId: id, sku: item.sku });
+      await createNotification('LOW_STOCK', 'Low Stock Warning', `${title} is running low (${item.stockLevel} units).`, { itemId: id, sku });
     }
 
     const delta = Number(item.stockLevel) - currentStock;
     const logDetails = note?.trim() 
-      ? `Updated ${item.title} • Note: ${note.trim()}`
+      ? `Updated ${title} • Note: ${note.trim()}`
       : (delta !== 0 
-          ? `Stock adjusted for ${item.title}: ${currentStock} -> ${item.stockLevel} (${delta > 0 ? '+' : ''}${delta})`
-          : `Updated item: ${item.title}`);
+          ? `Stock adjusted for ${title}: ${currentStock} -> ${item.stockLevel} (${delta > 0 ? '+' : ''}${delta})`
+          : `Updated item: ${title}`);
 
     await createAuditLog('STOCK_UPDATE', id, 'inventory', logDetails, { 
       item,
@@ -1489,15 +1516,16 @@ export async function importEventWithMaterials(eventData: any, materials: { sku:
 
         // High-level stat calculation
         const titleLower = (material.title || itemInfo?.title || itemInfo?.name || '').toLowerCase();
-        const isSpanish = (itemInfo?.language || '').toLowerCase().includes('es') || 
+        const isEnglish = sku.endsWith('-EN') || sku.includes('-001-EN') || sku === 'BIBLES_EN' || sku === 'TRACTS_EN' || sku === 'BOOKLETS_EN' || (itemInfo?.language || '').toLowerCase().includes('en');
+        const isSpanish = !isEnglish && ((itemInfo?.language || '').toLowerCase().includes('es') || 
           sku.endsWith('-ES') || 
-          sku.includes('-002-') || 
+          sku.includes('-002-ES') || 
           sku === 'BIBLES_ES' || 
           sku === 'TRACTS_ES' || 
           sku === 'BOOKLETS_ES' ||
           titleLower.includes('español') || 
           titleLower.includes('recobro') || 
-          titleLower.includes('elementos básicos');
+          titleLower.includes('elementos básicos'));
 
         if (sku === 'BIBLES' || sku === 'BIBLES_EN' || sku === 'BIBLES_ES') {
           stats.bibles += material.quantity;

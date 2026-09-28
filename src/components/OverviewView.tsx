@@ -1,14 +1,17 @@
-import React from 'react';
-import { Title, EventItem, Movement, OrderItem } from '../types';
-import { ArrowRight, ShoppingCart, Play, SlidersHorizontal } from 'lucide-react';
+import React, { useState } from 'react';
+import { Title, EventItem, Movement, OrderItem, Language } from '../types';
+import { ArrowRight, ShoppingCart, Play, SlidersHorizontal, History } from 'lucide-react';
 import { calculateSuggestedOrderQty } from '../lib/utils';
+import { ItemTrailModal } from './ItemTrailModal';
 
 interface OverviewViewProps {
   titles: Title[];
   events: EventItem[];
   movements: Movement[];
   orders: OrderItem[];
-  onNavigate: (tab: 'inventory' | 'events' | 'order') => void;
+  rawLogs?: any[];
+  rawInventory?: any[];
+  onNavigate: (tab: 'inventory' | 'events' | 'order' | 'history') => void;
   onStartCount: () => void;
   onAddAllToOrderList: () => void;
   reorderSensitivity?: number;
@@ -20,12 +23,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   events,
   movements,
   orders,
+  rawLogs = [],
+  rawInventory = [],
   onNavigate,
   onStartCount,
   onAddAllToOrderList,
   reorderSensitivity = 1,
   hasActiveCountDraft = false
 }) => {
+  const [trailModalTarget, setTrailModalTarget] = useState<{ title: Title; lang?: Language } | null>(null);
   const reorderAt = (t: Title) => Math.round(t.reorder * reorderSensitivity);
 
   // Map order items by key
@@ -71,6 +77,47 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   // Next planned event & last posted event
   const plannedEvents = events.filter(e => e.planned).sort((a, b) => a.date.localeCompare(b.date));
   const nextEvent = plannedEvents[0];
+
+  const nextEventTookCount: number = React.useMemo(() => {
+    if (!nextEvent) return 0;
+    let total = 0;
+    if (nextEvent.lines && nextEvent.lines.length > 0) {
+      total = nextEvent.lines.reduce((acc, l) => acc + (Number(l.took) || 0), 0);
+      if (total > 0) return total;
+    }
+    try {
+      if (nextEvent.id) {
+        const raw = localStorage.getItem(`lit_ledger_count_draft_event_${nextEvent.id}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed.itemsData === 'object') {
+            for (const key of Object.keys(parsed.itemsData)) {
+              total += Number(parsed.itemsData[key]?.took) || 0;
+            }
+            if (total > 0) return total;
+          }
+        }
+      }
+      const activeRaw = localStorage.getItem('lit_ledger_active_count_event');
+      if (activeRaw) {
+        const activeEv = JSON.parse(activeRaw);
+        if (activeEv && (!nextEvent.id || activeEv.id === nextEvent.id)) {
+          const altKey = `lit_ledger_count_draft_${(activeEv.name || 'outreach').trim().toLowerCase().replace(/[^a-z0-9]/g, '_')}_${(activeEv.date || 'today').trim().replace(/[^a-z0-9]/g, '_')}`;
+          const rawAlt = localStorage.getItem(altKey);
+          if (rawAlt) {
+            const parsedAlt = JSON.parse(rawAlt);
+            if (parsedAlt && typeof parsedAlt.itemsData === 'object') {
+              for (const key of Object.keys(parsedAlt.itemsData)) {
+                total += Number(parsedAlt.itemsData[key]?.took) || 0;
+              }
+              if (total > 0) return total;
+            }
+          }
+        }
+      }
+    } catch {}
+    return total;
+  }, [nextEvent, hasActiveCountDraft]);
 
   const postedEvents = events.filter(e => !e.planned).sort((a, b) => b.date.localeCompare(a.date));
   const lastPosted = postedEvents[0];
@@ -231,8 +278,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       {item.suggest}
                     </div>
 
-                    {/* Status Pill */}
-                    <div className="flex justify-end">
+                    {/* Status Pill & Trail Action */}
+                    <div className="flex items-center justify-end gap-1.5">
                       {onOrder ? (
                         <span className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-xs text-[#44474e] bg-[#eef0f3] border border-[#dcdee3]">
                           On order
@@ -246,6 +293,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                           Low
                         </span>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => setTrailModalTarget({ title: item.title, lang: item.edition.lang })}
+                        className="p-1 text-[#8b8e96] hover:text-[#1f5f8b] hover:bg-[#e9f1f7] rounded transition-colors cursor-pointer"
+                        title={`View item trail for ${item.edition.title}`}
+                      >
+                        <History className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 );
@@ -274,9 +329,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               </div>
               <div className="mt-3.5 p-3.5 bg-[#f6f7f9] border border-[#eef0f3] rounded-md text-[12.5px] text-[#44474e] leading-relaxed">
                 {nextEvent ? (
-                  <>
-                    Nothing taken out yet. Taking literature out <strong>reserves</strong> it — the numbers in store only change when you post the count afterwards.
-                  </>
+                  nextEventTookCount > 0 ? (
+                    <>
+                      <strong className="font-mono text-[#1f5f8b] font-bold">{nextEventTookCount.toLocaleString()} pieces</strong> currently taken out and reserved for this event. Stock numbers only change when you count back and post.
+                    </>
+                  ) : (
+                    <>
+                      Nothing taken out yet. Taking literature out <strong>reserves</strong> it — the numbers in store only change when you post the count afterwards.
+                    </>
+                  )
                 ) : (
                   'No outreach event is currently scheduled. Stock remains unreserved.'
                 )}
@@ -286,7 +347,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   onClick={onStartCount}
                   className="px-3.5 py-2 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13px] rounded-md transition-colors cursor-pointer shadow-xs"
                 >
-                  Take out literature
+                  {nextEventTookCount > 0 || hasActiveCountDraft ? 'Resume count' : 'Take out literature'}
                 </button>
                 <button
                   onClick={() => onNavigate('events')}
@@ -313,8 +374,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
           {/* Recent Movements Card */}
           <div className="border border-[#dcdee3] rounded-lg overflow-hidden bg-white shadow-xs">
-            <div className="px-4 py-3 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
-              Recent movements
+            <div className="px-4 py-3 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77] flex items-center justify-between">
+              <span>Recent movements</span>
+              <button
+                onClick={() => onNavigate('history')}
+                className="text-[11px] text-[#1f5f8b] hover:underline font-semibold cursor-pointer lowercase"
+              >
+                view all history →
+              </button>
             </div>
             <div className="divide-y divide-[#eef0f3]">
               {movements.slice(0, 4).map((m, idx) => (
@@ -345,6 +412,19 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Item Trail Modal */}
+      {trailModalTarget && (
+        <ItemTrailModal
+          isOpen={!!trailModalTarget}
+          onClose={() => setTrailModalTarget(null)}
+          title={trailModalTarget.title}
+          initialLang={trailModalTarget.lang}
+          rawLogs={rawLogs}
+          events={events}
+          rawInventory={rawInventory}
+        />
+      )}
     </div>
   );
 };

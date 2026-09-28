@@ -6,6 +6,7 @@ export interface Edition {
   title: string;
   stock: number;
   code?: string;
+  id?: string;
 }
 
 export interface Title {

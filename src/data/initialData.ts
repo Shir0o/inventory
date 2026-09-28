@@ -222,79 +222,11 @@ export const INITIAL_TITLES: Title[] = [
   }
 ];
 
-export const INITIAL_EVENTS: EventItem[] = [
-  {
-    id: 'ev-0912',
-    date: '2026-09-12',
-    location: 'Campus gate',
-    planned: true,
-    lines: []
-  },
-  {
-    id: 'ev-0816',
-    date: '2026-08-16',
-    location: 'Campus gate',
-    planned: false,
-    lines: [
-      { key: 'TR-FOOL-EN', lang: 'EN', title: 'Foolishness or the Power of God?', code: 'TR-FOOL-EN', before: 718, took: 120, back: 32 },
-      { key: 'TR-FOOL-ES', lang: 'ES', title: 'La palabra de la cruz: ¿locura o sabiduría?', code: 'TR-FOOL-ES', before: 285, took: 60, back: 18 },
-      { key: 'TR-WHO-EN', lang: 'EN', title: 'Who Is Jesus?', code: 'TR-WHO-EN', before: 690, took: 80, back: 25 },
-      { key: 'TR-KNOW-EN', lang: 'EN', title: 'You Can Know God', code: 'TR-KNOW-EN', before: 150, took: 150, back: 0 },
-      { key: 'TR-HEAL-ES', lang: 'ES', title: 'El toque que sana', code: 'TR-HEAL-ES', before: 158, took: 60, back: 12 },
-      { key: 'BKL-BE1-EN', lang: 'EN', title: 'Basic Elements of the Christian Life, vol. 1', code: 'BKL-BE1-EN', before: 160, took: 20, back: 8 }
-    ]
-  },
-  {
-    id: 'ev-0802',
-    date: '2026-08-02',
-    location: 'Downtown farmers market',
-    planned: false,
-    lines: [
-      { key: 'TR-BOAT-EN', lang: 'EN', title: 'Is Jesus in Your Boat?', code: 'TR-BOAT-EN', before: 560, took: 60, back: 14 },
-      { key: 'TR-BOAT-ES', lang: 'ES', title: '¿Está Jesús en su barca?', code: 'TR-BOAT-ES', before: 380, took: 40, back: 12 },
-      { key: 'TR-EXIST-EN', lang: 'EN', title: 'How Can I Know God Exists?', code: 'TR-EXIST-EN', before: 135, took: 50, back: 5 },
-      { key: 'TR-LOST-ES', lang: 'ES', title: 'Perdido y hallado', code: 'TR-LOST-ES', before: 160, took: 30, back: 9 }
-    ]
-  },
-  {
-    id: 'ev-0719',
-    date: '2026-07-19',
-    location: 'CISA — open house',
-    planned: false,
-    lines: [
-      { key: 'BKL-BE2-EN', lang: 'EN', title: 'Basic Elements of the Christian Life, vol. 2', code: 'BKL-BE2-EN', before: 120, took: 40, back: 18 },
-      { key: 'BKL-BE3-ES', lang: 'ES', title: 'Elementos básicos de la vida cristiana, tomo 3', code: 'BKL-BE3-ES', before: 60, took: 30, back: 12 },
-      { key: 'TR-BIGQ-EN', lang: 'EN', title: 'The Big Question', code: 'TR-BIGQ-EN', before: 300, took: 50, back: 16 }
-    ]
-  },
-  {
-    id: 'ev-0712',
-    date: '2026-07-12',
-    location: 'Eastside park',
-    planned: false,
-    lines: [
-      { key: 'TR-THIRD-EN', lang: 'EN', title: 'The Third Part', code: 'TR-THIRD-EN', before: 500, took: 80, back: 34 },
-      { key: 'TR-ENEM-ES', lang: 'ES', title: 'Ya no somos enemigos', code: 'TR-ENEM-ES', before: 240, took: 40, back: 11 }
-    ],
-    corrections: [
-      {
-        id: 'c-0714',
-        when: '14 Jul 2026',
-        by: 'Admin',
-        note: 'Recounted the box on the shelf — eleven had been written down but fourteen came back.',
-        changes: [{ key: 'TR-ENEM-ES', from: 11, to: 14 }]
-      }
-    ]
-  }
-];
+export const INITIAL_EVENTS: EventItem[] = [];
 
 export const INITIAL_MOVEMENTS: Movement[] = [
-  { iso: '2026-08-16', kind: 'count', date: '16 Aug', what: 'Count posted — Campus gate', detail: '6 editions counted back', delta: -395 },
   { iso: '2026-08-02', kind: 'receipt', date: '2 Aug', what: 'Stock received — order 26-07', detail: 'Tracts, 4 titles across both languages', delta: 1200 },
   { iso: '2026-07-29', kind: 'adjust', date: '29 Jul', what: 'Adjusted — You Can Know God (EN)', detail: 'Water damage in the storage closet', delta: -25 },
-  { iso: '2026-07-19', kind: 'count', date: '19 Jul', what: 'Count posted — CISA open house', detail: '3 editions counted back', delta: -74 },
-  { iso: '2026-07-14', kind: 'count', date: '14 Jul', what: 'Correction filed — Eastside park', detail: 'Ya no somos enemigos: came back 11 → 14', delta: 3 },
-  { iso: '2026-07-12', kind: 'count', date: '12 Jul', what: 'Count posted — Eastside park', detail: '2 editions counted back', delta: -75 },
   { iso: '2026-07-04', kind: 'receipt', date: '4 Jul', what: 'Stock received — order 26-06', detail: 'Basic elements, vols. 1–3, both languages', delta: 480 },
   { iso: '2026-06-28', kind: 'adjust', date: '28 Jun', what: 'Adjusted — The Big Question (EN)', detail: 'Shelf recount after the storage move', delta: -12 }
 ];

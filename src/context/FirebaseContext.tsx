@@ -18,6 +18,11 @@ interface FirebaseContextType {
   currentUserProfile: any | null;
   loading: boolean;
   isAuthReady: boolean;
+  isLoggingIn: boolean;
+  loginStage: 'idle' | 'opening' | 'authenticating' | 'syncing' | 'success' | 'error';
+  loginStatusMessage: string;
+  loginError: string | null;
+  dismissLoginError: () => void;
   inventory: any[];
   events: any[];
   orders: any[];
@@ -39,6 +44,10 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loginStage, setLoginStage] = useState<'idle' | 'opening' | 'authenticating' | 'syncing' | 'success' | 'error'>('idle');
+  const [loginStatusMessage, setLoginStatusMessage] = useState<string>('');
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [inventory, setInventory] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
@@ -50,9 +59,16 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [currentUserProfile, setCurrentUserProfile] = useState<any | null>(null);
   const [isAuthorized, setIsAuthorized] = useState(true);
 
+  const dismissLoginError = () => {
+    setLoginError(null);
+    setLoginStage('idle');
+  };
+
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        setLoginStage('syncing');
+        setLoginStatusMessage('Syncing inventory roles & records...');
         try {
           await syncUserProfile(user);
           setIsAuthorized(true);
@@ -64,6 +80,18 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setIsAuthorized(true);
           }
         }
+        setLoginStage('success');
+        setLoginStatusMessage(`Connected as ${user.displayName || user.email}!`);
+        // Smoothly dismiss login transition mask
+        setTimeout(() => {
+          setIsLoggingIn(false);
+          setLoginStage('idle');
+          setLoginStatusMessage('');
+        }, 900);
+      } else {
+        setIsLoggingIn(false);
+        setLoginStage('idle');
+        setLoginStatusMessage('');
       }
       setUser(user);
       setLoading(false);
@@ -146,10 +174,48 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [isAuthReady, user?.uid, isAllowed, isAdmin]);
 
   const login = async () => {
+    setIsLoggingIn(true);
+    setLoginError(null);
+    setLoginStage('opening');
+    setLoginStatusMessage('Opening Google secure sign-in window...');
+
+    // Dynamic reassurance timers to mask popup & network delay
+    const t1 = setTimeout(() => {
+      setLoginStage('authenticating');
+      setLoginStatusMessage('Connecting with Google authentication...');
+    }, 1200);
+
+    const t2 = setTimeout(() => {
+      setLoginStatusMessage('Awaiting authorization in Google pop-up window...');
+    }, 2800);
+
     try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (error) {
-      console.error("Login failed", error);
+      const result = await signInWithPopup(auth, googleProvider);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      setLoginStage('syncing');
+      setLoginStatusMessage(`Signed in as ${result.user.displayName || result.user.email || 'user'}. Synchronizing inventory permissions...`);
+    } catch (error: any) {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      if (error?.code === 'auth/popup-closed-by-user' || error?.message?.includes('closed-by-user')) {
+        console.info('Google sign-in popup was closed by user.');
+        setLoginStage('idle');
+        setLoginStatusMessage('');
+        setIsLoggingIn(false);
+      } else if (error?.code === 'auth/popup-blocked') {
+        setLoginStage('error');
+        setLoginError('The Google sign-in pop-up was blocked by your browser. Please allow popups for this site and try again.');
+        setIsLoggingIn(false);
+      } else if (error?.code === 'auth/cancelled-popup-request') {
+        setLoginStage('idle');
+        setIsLoggingIn(false);
+      } else {
+        console.error('Login failed:', error);
+        setLoginStage('error');
+        setLoginError(error?.message || 'Login was not completed. Please try again.');
+        setIsLoggingIn(false);
+      }
     }
   };
 
@@ -176,6 +242,11 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       currentUserProfile,
       loading, 
       isAuthReady, 
+      isLoggingIn,
+      loginStage,
+      loginStatusMessage,
+      loginError,
+      dismissLoginError,
       inventory, 
       events, 
       orders,

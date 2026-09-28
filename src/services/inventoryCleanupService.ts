@@ -628,36 +628,75 @@ export function resolveHumanTitle(
 
 export function normalizeLang(item: any): Language {
   const langRaw = String(item.language || item.lang || '').toLowerCase().trim();
-  const skuRaw = String(item.sku || item.code || item.id || '').toUpperCase();
+  const skuRaw = String(item.sku || item.code || item.id || '').toUpperCase().trim();
   const titleRaw = String(item.title || item.name || '').toLowerCase();
 
+  // 1. Explicit language field check
+  if (langRaw === 'english' || langRaw === 'en' || langRaw.startsWith('en')) {
+    return 'EN';
+  }
+  if (langRaw === 'spanish' || langRaw === 'es' || langRaw.startsWith('es') || langRaw.includes('span')) {
+    return 'ES';
+  }
+
+  // 2. Structured SKU suffixes and segment checks (must be delimiter-bound)
   if (
-    langRaw.includes('es') || 
-    langRaw.includes('span') || 
+    skuRaw.endsWith('-EN') ||
+    skuRaw.endsWith('_EN') ||
+    skuRaw.endsWith('.EN') ||
+    skuRaw.includes('-EN-') ||
+    skuRaw.includes('-001-') ||
+    skuRaw.endsWith('-001') ||
+    skuRaw.includes('_001_') ||
+    skuRaw.includes('-ENGLISH') ||
+    skuRaw === 'EN'
+  ) {
+    return 'EN';
+  }
+
+  if (
     skuRaw.endsWith('-ES') || 
+    skuRaw.endsWith('_ES') || 
+    skuRaw.endsWith('.ES') || 
     skuRaw.includes('-ES-') || 
-    skuRaw.includes('-002-') ||
-    skuRaw.endsWith('-002') ||
-    skuRaw.includes('_ES') ||
-    skuRaw.endsWith('ES') ||
-    skuRaw.includes('SPANISH') ||
+    skuRaw.includes('-002-ES') ||
+    skuRaw.includes('_002_ES') ||
+    (skuRaw.endsWith('-002') && !skuRaw.startsWith('BKL-') && !skuRaw.startsWith('BIB-') && !skuRaw.startsWith('TR-')) ||
+    skuRaw.includes('-SPANISH') ||
+    skuRaw === 'ES'
+  ) {
+    return 'ES';
+  }
+
+  // 3. Title indicators
+  if (
+    titleRaw.includes('(english)') ||
+    titleRaw.includes('(en)') ||
+    titleRaw.includes('- english') ||
+    titleRaw.includes('- en')
+  ) {
+    return 'EN';
+  }
+
+  if (
     titleRaw.includes('(spanish)') ||
     titleRaw.includes('(es)') ||
     titleRaw.includes('- spanish') ||
     titleRaw.includes('- es') ||
-    titleRaw.includes('spanish') ||
     titleRaw.includes('español') ||
     titleRaw.includes('espanol') ||
-    titleRaw.includes('biblia') ||
-    titleRaw.includes('recobro') ||
-    titleRaw.includes('elementos') ||
-    titleRaw.includes('básicos') ||
-    titleRaw.includes('basicos') ||
-    titleRaw.includes('cristiana') ||
-    titleRaw.includes('tomo')
+    titleRaw.includes('versión recobro') ||
+    titleRaw.includes('version recobro') ||
+    titleRaw.includes('elementos básicos') ||
+    titleRaw.includes('elementos basicos') ||
+    titleRaw.includes('vida cristiana') ||
+    titleRaw.includes('tomo 1') ||
+    titleRaw.includes('tomo 2') ||
+    titleRaw.includes('tomo 3')
   ) {
     return 'ES';
   }
+
   return 'EN';
 }
 
@@ -1446,24 +1485,29 @@ export function findMatchingInventoryItem(
     : undefined;
 
   if (!detectedLang) {
+    // English explicit checks first
     if (
-      targetKeyUpper.endsWith('-ES') || 
-      targetKeyUpper.endsWith('_ES') || 
-      targetKeyUpper.includes('-002-') || 
-      targetKeyUpper.includes('_002_') ||
-      targetKeyUpper.includes('-SPANISH') ||
-      targetKeyUpper.includes('_SPANISH')
-    ) {
-      detectedLang = 'ES';
-    } else if (
       targetKeyUpper.endsWith('-EN') || 
       targetKeyUpper.endsWith('_EN') || 
-      targetKeyUpper.includes('-001-') || 
-      targetKeyUpper.includes('_001_') ||
+      targetKeyUpper.includes('-001-EN') || 
+      targetKeyUpper.includes('_001_EN') ||
       targetKeyUpper.includes('-ENGLISH') ||
-      targetKeyUpper.includes('_ENGLISH')
+      targetKeyUpper.includes('_ENGLISH') ||
+      targetKeyUpper.includes('(EN)') ||
+      targetKeyUpper.includes('(ENGLISH)')
     ) {
       detectedLang = 'EN';
+    } else if (
+      targetKeyUpper.endsWith('-ES') || 
+      targetKeyUpper.endsWith('_ES') || 
+      targetKeyUpper.includes('-002-ES') || 
+      targetKeyUpper.includes('_002_ES') ||
+      targetKeyUpper.includes('-SPANISH') ||
+      targetKeyUpper.includes('_SPANISH') ||
+      targetKeyUpper.includes('(ES)') ||
+      targetKeyUpper.includes('(SPANISH)')
+    ) {
+      detectedLang = 'ES';
     } else if (titleHint) {
       const thLower = titleHint.toLowerCase();
       if (
@@ -1488,7 +1532,8 @@ export function findMatchingInventoryItem(
     (i.sku && i.sku.toUpperCase() === targetKeyUpper)
   );
   if (directMatch) {
-    if (!detectedLang || normalizeLang(directMatch) === detectedLang) {
+    const hasEdMatch = Array.isArray(directMatch.editions) && directMatch.editions.some((e: any) => normalizeLang(e) === detectedLang);
+    if (!detectedLang || normalizeLang(directMatch) === detectedLang || hasEdMatch) {
       return directMatch;
     }
   }
@@ -1527,7 +1572,10 @@ export function findMatchingInventoryItem(
       (i.baseCode && i.baseCode.toUpperCase() === cleanBase);
 
     if (matchesBase) {
-      if (detectedLang) return iLang === detectedLang;
+      if (detectedLang) {
+        const hasEdMatch = Array.isArray(i.editions) && i.editions.some((e: any) => normalizeLang(e) === detectedLang);
+        return iLang === detectedLang || hasEdMatch;
+      }
       return true;
     }
     return false;
@@ -1557,7 +1605,10 @@ export function findMatchingInventoryItem(
 
       const codeMatches = allKnownCodes.includes(itemClean) || allKnownCodes.some(c => (i.sku || '').toUpperCase().includes(c));
       if (codeMatches) {
-        if (detectedLang) return iLang === detectedLang;
+        if (detectedLang) {
+          const hasEdMatch = Array.isArray(i.editions) && i.editions.some((e: any) => normalizeLang(e) === detectedLang);
+          return iLang === detectedLang || hasEdMatch;
+        }
         return true;
       }
       return false;
@@ -1583,7 +1634,10 @@ export function findMatchingInventoryItem(
       const matched = iTitle === hintClean || 
         (hintClean.length > 5 && (iTitle.includes(hintClean) || hintClean.includes(iTitle)));
       if (matched) {
-        if (detectedLang) return iLang === detectedLang;
+        if (detectedLang) {
+          const hasEdMatch = Array.isArray(i.editions) && i.editions.some((e: any) => normalizeLang(e) === detectedLang);
+          return iLang === detectedLang || hasEdMatch;
+        }
         return true;
       }
       return false;
@@ -1619,8 +1673,14 @@ export function resolveItemCategoryAndLang(
   const titleLower = (title || item?.title || item?.name || '').toLowerCase();
   
   // 1. Language determination
-  let lang: Language = (langHint?.toUpperCase().includes('ES') || codeUpper.endsWith('-ES') || codeUpper.includes('-002-') || codeUpper.includes('_ES')) ? 'ES' : 'EN';
-  if (item) {
+  let lang: Language = 'EN';
+  if (langHint) {
+    lang = langHint.toUpperCase().includes('ES') ? 'ES' : 'EN';
+  } else if (codeUpper.endsWith('-EN') || codeUpper.endsWith('_EN') || codeUpper.includes('-001-EN') || codeUpper.includes('-ENGLISH')) {
+    lang = 'EN';
+  } else if (codeUpper.endsWith('-ES') || codeUpper.endsWith('_ES') || codeUpper.includes('-002-ES') || codeUpper.includes('-SPANISH')) {
+    lang = 'ES';
+  } else if (item) {
     lang = normalizeLang(item);
   } else if (titleLower.includes('español') || titleLower.includes('versión recobro') || titleLower.includes('elementos básicos') || titleLower.includes('tomo')) {
     lang = 'ES';

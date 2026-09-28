@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Layers, LogIn, LogOut, Database } from 'lucide-react';
+import { Menu, Layers, LogIn, LogOut, Database, Loader2 } from 'lucide-react';
 
 interface TopNavProps {
   onOpenMobileNav: () => void;
@@ -8,6 +8,7 @@ interface TopNavProps {
   userRole?: string;
   onLogin?: () => void;
   onLogout?: () => void;
+  isLoggingIn?: boolean;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -16,7 +17,8 @@ export const TopNav: React.FC<TopNavProps> = ({
   user,
   userRole = 'Admin',
   onLogin,
-  onLogout
+  onLogout,
+  isLoggingIn = false
 }) => {
   return (
     <header className="lg:hidden h-14 bg-[#f6f7f9] border-b border-[#dcdee3] px-4 flex items-center justify-between flex-none z-30">
@@ -57,10 +59,26 @@ export const TopNav: React.FC<TopNavProps> = ({
         ) : (
           <button
             onClick={onLogin}
-            className="text-[11px] font-semibold text-[#1f5f8b] bg-[#e9f1f7] px-2 py-1 rounded border border-[#1f5f8b]/20 flex items-center gap-1"
+            disabled={isLoggingIn}
+            className={`
+              text-[11px] font-semibold text-[#1f5f8b] px-2.5 py-1 rounded border border-[#1f5f8b]/20 flex items-center gap-1.5 transition-all
+              ${isLoggingIn 
+                ? 'bg-[#d8e7f3] opacity-90 cursor-wait' 
+                : 'bg-[#e9f1f7] hover:bg-[#d8e7f3] active:scale-95 cursor-pointer'
+              }
+            `}
           >
-            <LogIn className="w-3 h-3" />
-            <span>Sign In</span>
+            {isLoggingIn ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin text-[#1f5f8b]" />
+                <span>Signing in...</span>
+              </>
+            ) : (
+              <>
+                <LogIn className="w-3 h-3" />
+                <span>Sign In</span>
+              </>
+            )}
           </button>
         )}
       </div>

@@ -10,7 +10,9 @@ import {
   Layers,
   LogIn,
   LogOut,
-  UserCheck
+  UserCheck,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { ActiveTab } from '../types';
 
@@ -27,6 +29,10 @@ interface SidebarProps {
   onLogout?: () => void;
   isAdmin?: boolean;
   hasActiveCountDraft?: boolean;
+  isLoggingIn?: boolean;
+  loginStatusMessage?: string;
+  loginError?: string | null;
+  onDismissLoginError?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -41,7 +47,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogin,
   onLogout,
   isAdmin,
-  hasActiveCountDraft = false
+  hasActiveCountDraft = false,
+  isLoggingIn = false,
+  loginStatusMessage,
+  loginError,
+  onDismissLoginError
 }) => {
   const mainNavItems = [
     { id: 'overview' as ActiveTab, label: 'Overview', icon: LayoutDashboard },
@@ -180,14 +190,53 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
           ) : (
-            <div>
+            <div className="space-y-2">
               <button
                 onClick={onLogin}
-                className="w-full py-2 px-3 bg-[#e9f1f7] hover:bg-[#d8e7f3] text-[#1f5f8b] font-semibold text-[12px] rounded border border-[#1f5f8b]/20 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                disabled={isLoggingIn}
+                className={`
+                  w-full py-2 px-3 text-[#1f5f8b] font-semibold text-[12px] rounded border border-[#1f5f8b]/20 flex items-center justify-center gap-2 transition-all cursor-pointer
+                  ${isLoggingIn 
+                    ? 'bg-[#d8e7f3] cursor-wait opacity-90 ring-2 ring-[#1f5f8b]/30' 
+                    : 'bg-[#e9f1f7] hover:bg-[#d8e7f3] active:scale-[0.98]'
+                  }
+                `}
               >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Sign In with Google</span>
+                {isLoggingIn ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1f5f8b]" />
+                    <span className="truncate">Connecting to Google...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-3.5 h-3.5" />
+                    <span>Sign In with Google</span>
+                  </>
+                )}
               </button>
+
+              {isLoggingIn && loginStatusMessage && (
+                <div className="text-[10.5px] text-[#1f5f8b] bg-[#e9f1f7]/60 px-2 py-1 rounded text-center leading-tight animate-pulse">
+                  {loginStatusMessage}
+                </div>
+              )}
+
+              {loginError && (
+                <div className="p-2 bg-[#fdf2f2] border border-[#f8b4b4] rounded text-[11px] text-[#b3261e] flex items-start justify-between gap-1.5 leading-tight">
+                  <div className="flex items-start gap-1">
+                    <AlertCircle className="w-3 h-3 flex-none mt-0.5 text-[#b3261e]" />
+                    <span>{loginError}</span>
+                  </div>
+                  {onDismissLoginError && (
+                    <button
+                      onClick={onDismissLoginError}
+                      className="text-[#b3261e] hover:font-bold text-[11px] cursor-pointer ml-1"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
