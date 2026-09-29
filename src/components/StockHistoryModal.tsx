@@ -21,7 +21,12 @@ const StockHistoryModal = ({ isOpen, onClose, item, settings, onLogMovement }: S
     if (isOpen && item?.id) {
       setLoading(true);
       const unsubscribe = subscribeToItemHistory(item.id, (data) => {
-        setLogs(data);
+        const sorted = [...data].sort((a, b) => {
+          const dateA = a.metadata?.occurredAt || (a.timestamp?.toDate ? a.timestamp.toDate().toISOString() : (a.timestamp?.seconds ? new Date(a.timestamp.seconds * 1000).toISOString() : ''));
+          const dateB = b.metadata?.occurredAt || (b.timestamp?.toDate ? b.timestamp.toDate().toISOString() : (b.timestamp?.seconds ? new Date(b.timestamp.seconds * 1000).toISOString() : ''));
+          return dateB.localeCompare(dateA);
+        });
+        setLogs(sorted);
         setLoading(false);
       });
       return () => unsubscribe();

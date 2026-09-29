@@ -13,7 +13,8 @@ import {
   Search,
   Filter,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  ArrowUpDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { buildItemTrail, ItemTrailEntry } from '../services/itemTrailService';
@@ -43,6 +44,7 @@ export const ItemTrailModal: React.FC<ItemTrailModalProps> = ({
   const [selectedLang, setSelectedLang] = useState<Language | 'ALL'>(initialLang || 'ALL');
   const [filterType, setFilterType] = useState<'all' | 'event' | 'delivery' | 'adjustment'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc'); // 'desc' = latest on top
 
   // Keep selectedLang updated if initialLang changes
   React.useEffect(() => {
@@ -64,28 +66,45 @@ export const ItemTrailModal: React.FC<ItemTrailModalProps> = ({
     });
   }, [title, selectedLang, rawLogs, events, rawInventory]);
 
-  if (!isOpen || !title || !trailSummary) return null;
+  // Filter and sort trail entries (default: latest on top)
+  const filteredEntries = useMemo(() => {
+    if (!trailSummary) return [];
+    const list = trailSummary.entries.filter(entry => {
+      if (filterType !== 'all') {
+        if (filterType === 'event' && entry.type !== 'event' && entry.type !== 'outflow') return false;
+        if (filterType === 'delivery' && entry.type !== 'delivery') return false;
+        if (filterType === 'adjustment' && entry.type !== 'adjustment' && entry.type !== 'correction' && entry.type !== 'starting') return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return (
+          entry.title.toLowerCase().includes(q) ||
+          entry.detail.toLowerCase().includes(q) ||
+          entry.date.toLowerCase().includes(q) ||
+          (entry.note && entry.note.toLowerCase().includes(q)) ||
+          (entry.user && entry.user.toLowerCase().includes(q)) ||
+          (entry.location && entry.location.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
 
-  // Filter trail entries by type and search query
-  const filteredEntries = trailSummary.entries.filter(entry => {
-    if (filterType !== 'all') {
-      if (filterType === 'event' && entry.type !== 'event' && entry.type !== 'outflow') return false;
-      if (filterType === 'delivery' && entry.type !== 'delivery') return false;
-      if (filterType === 'adjustment' && entry.type !== 'adjustment' && entry.type !== 'correction' && entry.type !== 'starting') return false;
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
-        entry.title.toLowerCase().includes(q) ||
-        entry.detail.toLowerCase().includes(q) ||
-        entry.date.toLowerCase().includes(q) ||
-        (entry.note && entry.note.toLowerCase().includes(q)) ||
-        (entry.user && entry.user.toLowerCase().includes(q)) ||
-        (entry.location && entry.location.toLowerCase().includes(q))
-      );
-    }
-    return true;
-  });
+    list.sort((a, b) => {
+      const diff = b.timestamp - a.timestamp;
+      if (diff !== 0) {
+        return sortOrder === 'desc' ? diff : -diff;
+      }
+      const isoDiff = (b.isoDate || '').localeCompare(a.isoDate || '');
+      if (isoDiff !== 0) {
+        return sortOrder === 'desc' ? isoDiff : -isoDiff;
+      }
+      return sortOrder === 'desc' ? b.id.localeCompare(a.id) : a.id.localeCompare(b.id);
+    });
+
+    return list;
+  }, [trailSummary, filterType, searchQuery, sortOrder]);
+
+  if (!isOpen || !title || !trailSummary) return null;
 
   const handleExportTrailCSV = () => {
     const rows = filteredEntries.map(e => ({
@@ -294,25 +313,37 @@ export const ItemTrailModal: React.FC<ItemTrailModalProps> = ({
               />
             </div>
 
-            <div className="flex items-center gap-1">
-              {[
-                { id: 'all' as const, label: `All (${trailSummary.totalEntries})` },
-                { id: 'event' as const, label: 'Outreach Events' },
-                { id: 'delivery' as const, label: 'Deliveries' },
-                { id: 'adjustment' as const, label: 'Shelf Recounts' }
-              ].map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => setFilterType(f.id)}
-                  className={`px-2.5 py-1 rounded-md text-[11.5px] font-semibold transition-colors cursor-pointer ${
-                    filterType === f.id
-                      ? 'bg-[#e9f1f7] text-[#1f5f8b] border border-[#1f5f8b]'
-                      : 'bg-white text-[#44474e] border border-[#c9cbd2] hover:bg-[#f6f7f9]'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1">
+                {[
+                  { id: 'all' as const, label: `All (${trailSummary.totalEntries})` },
+                  { id: 'event' as const, label: 'Outreach Events' },
+                  { id: 'delivery' as const, label: 'Deliveries' },
+                  { id: 'adjustment' as const, label: 'Shelf Recounts' }
+                ].map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setFilterType(f.id)}
+                    className={`px-2.5 py-1 rounded-md text-[11.5px] font-semibold transition-colors cursor-pointer ${
+                      filterType === f.id
+                        ? 'bg-[#e9f1f7] text-[#1f5f8b] border border-[#1f5f8b]'
+                        : 'bg-white text-[#44474e] border border-[#c9cbd2] hover:bg-[#f6f7f9]'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Sort Order Toggle */}
+              <button
+                onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                title={sortOrder === 'desc' ? 'Currently sorted latest on top. Click to sort oldest first.' : 'Currently sorted oldest first. Click to sort latest on top.'}
+                className="px-2.5 py-1 border border-[#c9cbd2] bg-white hover:bg-[#f6f7f9] text-[#1f5f8b] text-[11.5px] font-semibold rounded-md transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              >
+                <ArrowUpDown className="w-3.5 h-3.5 text-[#1f5f8b]" />
+                <span>{sortOrder === 'desc' ? 'Latest on top' : 'Oldest first'}</span>
+              </button>
             </div>
           </div>
 
@@ -413,7 +444,7 @@ export const ItemTrailModal: React.FC<ItemTrailModalProps> = ({
           {/* Footer */}
           <div className="px-6 py-3 bg-[#fbfbfc] border-t border-[#dcdee3] flex items-center justify-between gap-4">
             <span className="text-[11.5px] text-[#6c6f77]">
-              Showing {filteredEntries.length} of {trailSummary.totalEntries} trail record{trailSummary.totalEntries === 1 ? '' : 's'}
+              Showing {filteredEntries.length} of {trailSummary.totalEntries} trail record{trailSummary.totalEntries === 1 ? '' : 's'} · {sortOrder === 'desc' ? 'sorted latest on top' : 'sorted oldest first'}
             </span>
             <button
               onClick={onClose}
