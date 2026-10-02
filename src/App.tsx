@@ -21,7 +21,8 @@ import {
   addOrderItem,
   updateOrderItem,
   deleteOrderItem,
-  createAuditLog
+  createAuditLog,
+  batchApplyCountStockUpdates
 } from './services/firestoreService';
 import { 
   extractBaseCode, 
@@ -46,6 +47,7 @@ import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
 import { CountEventFlow } from './components/CountEventFlow';
 import { humanizeAuditLog } from './lib/humanizeHistory';
+import { buildCountStockUpdates } from './lib/countPosting';
 import { isSept18DeliveryReconciled, reconcileSept18Delivery } from './services/historyReconciliationService';
 import { AlertTriangle, Database, RefreshCw, ShieldAlert, PlusCircle } from 'lucide-react';
 
@@ -726,20 +728,10 @@ export function App() {
 
   const handlePostCount = async (lines: EventLine[]) => {
     try {
-      let totalPassed = 0;
-
       // 1. Update shelf stocks in Firestore
-      for (const line of lines) {
-        const passed = Math.max(0, line.took - line.back);
-        totalPassed += passed;
-
-        const item = findMatchingInventoryItem(rawInventory, line.code, line.lang, line.title);
-        if (item) {
-          const currentStock = Number(item.stockLevel || 0);
-          const newStock = Math.max(0, currentStock - passed);
-          await updateInventoryItem(item.id, { stockLevel: newStock });
-        }
-      }
+      const updates = buildCountStockUpdates(lines, rawInventory, findMatchingInventoryItem);
+      const totalPassed = lines.reduce((sum, l) => sum + Math.max(0, (l.took || 0) - (l.back || 0)), 0);
+      await batchApplyCountStockUpdates(updates);
 
       const eventName = activeCountEvent?.name || 'Outreach event';
       const eventDate = activeCountEvent?.date || getTodayIso();

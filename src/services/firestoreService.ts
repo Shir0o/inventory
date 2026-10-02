@@ -15,9 +15,11 @@ import {
   setDoc,
   where,
   getDocs,
-  serverTimestamp
+  serverTimestamp,
+  writeBatch
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { StockUpdate, DEFAULT_WARNING_LIMIT, DEFAULT_CRITICAL_LIMIT } from '../lib/countPosting';
 
 export enum OperationType {
   CREATE = 'create',
@@ -464,6 +466,71 @@ export async function updateInventoryItem(
     return;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function batchApplyCountStockUpdates(updates: StockUpdate[]) {
+  if (!updates || updates.length === 0) return;
+  const CHUNK_SIZE = 400;
+  const userId = auth.currentUser?.uid || null;
+  const userName = auth.currentUser?.displayName || 'Unknown User';
+  const userEmail = auth.currentUser?.email || null;
+  const dateStr = new Date().toISOString().split('T')[0];
+
+  try {
+    for (let i = 0; i < updates.length; i += CHUNK_SIZE) {
+      const batch = writeBatch(db);
+      for (const u of updates.slice(i, i + CHUNK_SIZE)) {
+        batch.update(doc(db, 'inventory', u.id), {
+          stockLevel: u.newStock,
+          status: u.status,
+          updatedAt: serverTimestamp()
+        });
+
+        if (u.newStock <= DEFAULT_CRITICAL_LIMIT) {
+          batch.set(doc(collection(db, 'notifications')), {
+            type: 'CRITICAL_STOCK',
+            title: 'Critical Stock Level',
+            message: `${u.title} is at critical level (${u.newStock} units).`,
+            metadata: { itemId: u.id, sku: u.sku },
+            read: false,
+            createdAt: serverTimestamp(),
+            userId
+          });
+        } else if (u.newStock <= DEFAULT_WARNING_LIMIT) {
+          batch.set(doc(collection(db, 'notifications')), {
+            type: 'LOW_STOCK',
+            title: 'Low Stock Warning',
+            message: `${u.title} is running low (${u.newStock} units).`,
+            metadata: { itemId: u.id, sku: u.sku },
+            read: false,
+            createdAt: serverTimestamp(),
+            userId
+          });
+        }
+
+        batch.set(doc(collection(db, 'audit_logs')), {
+          action: 'STOCK_UPDATE',
+          targetId: u.id,
+          targetType: 'inventory',
+          details: `Stock adjusted for ${u.title}: ${u.previousStock} -> ${u.newStock} (${u.delta > 0 ? '+' : ''}${u.delta})`,
+          userId,
+          userName,
+          userEmail,
+          timestamp: serverTimestamp(),
+          metadata: {
+            item: { stockLevel: u.newStock },
+            previousStock: u.previousStock,
+            newStock: u.newStock,
+            delta: u.delta,
+            occurredAt: dateStr
+          }
+        });
+      }
+      await batch.commit();
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'inventory');
   }
 }
 

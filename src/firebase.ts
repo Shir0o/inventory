@@ -13,10 +13,8 @@ import firebaseConfig from '../firebase-applet-config.json';
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
-// Use experimentalForceLongPolling to avoid 10-second WebChannel stream buffering timeouts in sandbox/proxy environments,
-// paired with persistentLocalCache for reliable offline support across tabs.
+// persistentLocalCache provides reliable offline support across tabs.
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager()
   })
