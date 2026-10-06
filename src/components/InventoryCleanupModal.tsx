@@ -30,7 +30,8 @@ import {
   ReconciliationStrategy,
   analyzeExistingInventoryCodes,
   executeInventoryCodeMigration,
-  CodeMigrationPlan
+  CodeMigrationPlan,
+  formatEventDate
 } from '../services/inventoryCleanupService';
 import { useFirebase } from '../context/FirebaseContext';
 
@@ -973,7 +974,7 @@ export const InventoryCleanupModal: React.FC<InventoryCleanupModalProps> = ({
                               {ed.recentEventCount && (
                                 <div className="text-[11px] text-[#1f5f8b] bg-[#eef4f9] px-2 py-1 rounded flex items-center gap-1.5 border border-[#d2e2ef]">
                                   <History className="w-3.5 h-3.5 flex-none" />
-                                  <span>Verified in {ed.recentEventCount.eventName} ({ed.recentEventCount.date}): {ed.recentEventCount.count} units</span>
+                                  <span>Verified in {ed.recentEventCount.eventName} ({typeof ed.recentEventCount.date === 'string' ? ed.recentEventCount.date : formatEventDate(ed.recentEventCount.date)}): {ed.recentEventCount.count} units</span>
                                 </div>
                               )}
 
