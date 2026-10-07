@@ -728,10 +728,9 @@ export function App() {
 
   const handlePostCount = async (lines: EventLine[]) => {
     try {
-      // 1. Update shelf stocks in Firestore
+      // 1. Prepare shelf stocks in Firestore
       const updates = buildCountStockUpdates(lines, rawInventory, findMatchingInventoryItem);
       const totalPassed = lines.reduce((sum, l) => sum + Math.max(0, (l.took || 0) - (l.back || 0)), 0);
-      await batchApplyCountStockUpdates(updates);
 
       const eventName = activeCountEvent?.name || 'Outreach event';
       const eventDate = activeCountEvent?.date || getTodayIso();
@@ -756,39 +755,38 @@ export function App() {
         categoryStats.total = totalPassed;
       }
 
-      // 2. Save / update event in Firestore
-      let savedEventId = eventId;
-      if (eventId) {
-        const eventRef = doc(db, 'events', eventId);
-        await updateDoc(eventRef, {
-          planned: false,
-          status: 'Completed',
-          materialsDistributed: totalPassed,
-          lines,
-          categoryStats,
-          updatedAt: serverTimestamp()
-        });
-      } else {
-        const docRef = await addEvent({
-          name: eventName,
-          location: eventName,
-          date: eventDateTimestamp,
-          planned: false,
-          status: 'Completed',
-          materialsDistributed: totalPassed,
-          lines,
-          categoryStats
-        });
-        if (docRef?.id) {
-          savedEventId = docRef.id;
-        }
+      // 2. Prepare event payload
+      const eventData: any = {
+        planned: false,
+        status: 'Completed',
+        materialsDistributed: totalPassed,
+        lines,
+        categoryStats,
+        updatedAt: serverTimestamp()
+      };
+
+      if (!eventId) {
+        eventData.name = eventName;
+        eventData.location = eventName;
+        eventData.date = eventDateTimestamp;
+        eventData.createdAt = serverTimestamp();
       }
 
-      // 3. Log movement in Firestore audit logs
-      await createAuditLog('COUNT_POSTED', savedEventId || 'event', 'event', `Count posted — ${eventName}. ${totalPassed} items passed out.`, {
-        delta: -totalPassed,
-        linesCount: lines.length,
-        materialsDistributed: totalPassed
+      // 3. Atomically update shelf stocks, notifications, audit log, and event in a single batch
+      const { savedEventId } = await batchApplyCountStockUpdates(updates, {
+        event: {
+          id: eventId,
+          data: eventData
+        },
+        auditLog: {
+          targetId: eventId || 'event',
+          details: `Count posted — ${eventName}. ${totalPassed} items passed out.`,
+          metadata: {
+            delta: -totalPassed,
+            linesCount: lines.length,
+            materialsDistributed: totalPassed
+          }
+        }
       });
 
       if (savedEventId) {
