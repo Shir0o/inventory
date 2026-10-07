@@ -469,68 +469,124 @@ export async function updateInventoryItem(
   }
 }
 
-export async function batchApplyCountStockUpdates(updates: StockUpdate[]) {
-  if (!updates || updates.length === 0) return;
-  const CHUNK_SIZE = 400;
+export interface CountPostExtras {
+  event?: {
+    id?: string;
+    data: any;
+  };
+  auditLog?: {
+    targetId: string;
+    details: string;
+    metadata?: any;
+  };
+}
+
+export async function batchApplyCountStockUpdates(
+  updates: StockUpdate[],
+  extras?: CountPostExtras
+): Promise<{ savedEventId?: string }> {
+  const CHUNK_SIZE = 120;
   const userId = auth.currentUser?.uid || null;
   const userName = auth.currentUser?.displayName || 'Unknown User';
   const userEmail = auth.currentUser?.email || null;
   const dateStr = new Date().toISOString().split('T')[0];
 
-  try {
-    for (let i = 0; i < updates.length; i += CHUNK_SIZE) {
-      const batch = writeBatch(db);
-      for (const u of updates.slice(i, i + CHUNK_SIZE)) {
-        batch.update(doc(db, 'inventory', u.id), {
-          stockLevel: u.newStock,
-          status: u.status,
-          updatedAt: serverTimestamp()
-        });
+  let savedEventId = extras?.event?.id;
 
-        if (u.newStock <= DEFAULT_CRITICAL_LIMIT) {
-          batch.set(doc(collection(db, 'notifications')), {
-            type: 'CRITICAL_STOCK',
-            title: 'Critical Stock Level',
-            message: `${u.title} is at critical level (${u.newStock} units).`,
-            metadata: { itemId: u.id, sku: u.sku },
-            read: false,
-            createdAt: serverTimestamp(),
-            userId
+  try {
+    const hasUpdates = updates && updates.length > 0;
+    const totalChunks = hasUpdates ? Math.ceil(updates.length / CHUNK_SIZE) : 1;
+
+    for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+      const batch = writeBatch(db);
+      const isFirstBatch = chunkIdx === 0;
+
+      if (hasUpdates) {
+        const slice = updates.slice(chunkIdx * CHUNK_SIZE, (chunkIdx + 1) * CHUNK_SIZE);
+        for (const u of slice) {
+          batch.update(doc(db, 'inventory', u.id), {
+            stockLevel: u.newStock,
+            status: u.status,
+            updatedAt: serverTimestamp()
           });
-        } else if (u.newStock <= DEFAULT_WARNING_LIMIT) {
-          batch.set(doc(collection(db, 'notifications')), {
-            type: 'LOW_STOCK',
-            title: 'Low Stock Warning',
-            message: `${u.title} is running low (${u.newStock} units).`,
-            metadata: { itemId: u.id, sku: u.sku },
-            read: false,
-            createdAt: serverTimestamp(),
-            userId
+
+          if (u.newStock <= DEFAULT_CRITICAL_LIMIT) {
+            batch.set(doc(collection(db, 'notifications')), {
+              type: 'CRITICAL_STOCK',
+              title: 'Critical Stock Level',
+              message: `${u.title} is at critical level (${u.newStock} units).`,
+              metadata: { itemId: u.id, sku: u.sku },
+              read: false,
+              createdAt: serverTimestamp(),
+              userId
+            });
+          } else if (u.newStock <= DEFAULT_WARNING_LIMIT) {
+            batch.set(doc(collection(db, 'notifications')), {
+              type: 'LOW_STOCK',
+              title: 'Low Stock Warning',
+              message: `${u.title} is running low (${u.newStock} units).`,
+              metadata: { itemId: u.id, sku: u.sku },
+              read: false,
+              createdAt: serverTimestamp(),
+              userId
+            });
+          }
+
+          batch.set(doc(collection(db, 'audit_logs')), {
+            action: 'STOCK_UPDATE',
+            targetId: u.id,
+            targetType: 'inventory',
+            details: `Stock adjusted for ${u.title}: ${u.previousStock} -> ${u.newStock} (${u.delta > 0 ? '+' : ''}${u.delta})`,
+            userId,
+            userName,
+            userEmail,
+            timestamp: serverTimestamp(),
+            metadata: {
+              item: { stockLevel: u.newStock },
+              previousStock: u.previousStock,
+              newStock: u.newStock,
+              delta: u.delta,
+              occurredAt: dateStr
+            }
           });
         }
-
-        batch.set(doc(collection(db, 'audit_logs')), {
-          action: 'STOCK_UPDATE',
-          targetId: u.id,
-          targetType: 'inventory',
-          details: `Stock adjusted for ${u.title}: ${u.previousStock} -> ${u.newStock} (${u.delta > 0 ? '+' : ''}${u.delta})`,
-          userId,
-          userName,
-          userEmail,
-          timestamp: serverTimestamp(),
-          metadata: {
-            item: { stockLevel: u.newStock },
-            previousStock: u.previousStock,
-            newStock: u.newStock,
-            delta: u.delta,
-            occurredAt: dateStr
-          }
-        });
       }
+
+      // Consolidate event status update and master audit log into the first batch commit
+      if (isFirstBatch && extras) {
+        if (extras.event) {
+          if (extras.event.id) {
+            batch.update(doc(db, 'events', extras.event.id), extras.event.data);
+          } else {
+            const newEventRef = doc(collection(db, 'events'));
+            savedEventId = newEventRef.id;
+            batch.set(newEventRef, extras.event.data);
+          }
+        }
+
+        if (extras.auditLog) {
+          const auditRef = doc(collection(db, 'audit_logs'));
+          batch.set(auditRef, {
+            action: 'COUNT_POSTED',
+            targetId: savedEventId || extras.auditLog.targetId,
+            targetType: 'event',
+            details: extras.auditLog.details,
+            userId,
+            userName,
+            userEmail,
+            timestamp: serverTimestamp(),
+            metadata: extras.auditLog.metadata ? cleanUndefined(extras.auditLog.metadata) : null
+          });
+        }
+      }
+
       await batch.commit();
     }
+
+    return { savedEventId };
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, 'inventory');
+    return { savedEventId };
   }
 }
 
