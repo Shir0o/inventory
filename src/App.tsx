@@ -94,25 +94,6 @@ export function App() {
   });
   const [selectedEventIdForRecord, setSelectedEventIdForRecord] = useState<string | null>(null);
 
-  // Check whether an in-progress count draft exists in localStorage
-  const hasActiveCountDraft = useMemo(() => {
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('lit_ledger_count_draft_')) {
-          const raw = localStorage.getItem(key);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed && parsed.itemsData && Object.values(parsed.itemsData).some((v: any) => v.took > 0)) {
-              return true;
-            }
-          }
-        }
-      }
-    } catch {}
-    return false;
-  }, [isCounting]);
-
   // Map real Firestore settings
   const settings: SettingsData = useMemo(() => {
     const defaultReorder = { Bible: 20, Booklet: 60, Tract: 200 };
@@ -300,6 +281,65 @@ export function App() {
       };
     });
   }, [rawEvents, rawInventory, legacyDefaults]);
+
+  // Check whether a valid, uncompleted in-progress count draft exists in localStorage
+  const hasActiveCountDraft = useMemo(() => {
+    try {
+      const plannedEventIds = new Set(events.filter(e => e.planned).map(e => e.id));
+      const completedEventIds = new Set(events.filter(e => !e.planned).map(e => e.id));
+
+      let foundValid = false;
+      const keysToRemove: string[] = [];
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('lit_ledger_count_draft_')) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed && parsed.itemsData && Object.values(parsed.itemsData).some((v: any) => v.took > 0)) {
+                // If draft belongs to an event that is now completed, mark it for pruning
+                if (parsed.eventId && completedEventIds.has(parsed.eventId)) {
+                  keysToRemove.push(key);
+                } else if (parsed.eventId && !plannedEventIds.has(parsed.eventId)) {
+                  // Draft belongs to an event ID that no longer exists or isn't planned
+                  keysToRemove.push(key);
+                } else if (!parsed.eventId && events.length > 0 && !events.some(e => e.planned)) {
+                  // No planned events exist anywhere, so any unnamed drafts are stale
+                  keysToRemove.push(key);
+                } else {
+                  foundValid = true;
+                }
+              }
+            } catch {
+              keysToRemove.push(key);
+            }
+          }
+        }
+      }
+
+      // Automatically prune dead drafts
+      keysToRemove.forEach(k => {
+        try { localStorage.removeItem(k); } catch {}
+      });
+
+      // Also verify activeCountEvent
+      const savedActiveRaw = localStorage.getItem('lit_ledger_active_count_event');
+      if (savedActiveRaw) {
+        try {
+          const parsed = JSON.parse(savedActiveRaw);
+          if (parsed?.id && completedEventIds.has(parsed.id)) {
+            localStorage.removeItem('lit_ledger_active_count_event');
+            localStorage.setItem('lit_ledger_is_counting', 'false');
+          }
+        } catch {}
+      }
+
+      return foundValid;
+    } catch {}
+    return false;
+  }, [events, isCounting]);
 
   const activeEventItem = useMemo(() => {
     if (activeCountEvent?.id) {

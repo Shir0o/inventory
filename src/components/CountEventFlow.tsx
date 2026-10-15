@@ -50,7 +50,7 @@ interface SavedCountDraft {
   lastSavedAt: number;
 }
 
-const getStorageKey = (id?: string, name?: string, date?: string) => {
+export const getStorageKey = (id?: string, name?: string, date?: string) => {
   if (id) return `lit_ledger_count_draft_event_${id}`;
   const safeName = (name || 'outreach').trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
   const safeDate = (date || 'today').trim().replace(/[^a-z0-9]/g, '_');
@@ -613,6 +613,15 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
   };
 
   const handleRestart = () => {
+    try {
+      localStorage.removeItem(storageKey);
+      if (eventId) {
+        localStorage.removeItem(`lit_ledger_count_draft_event_${eventId}`);
+        localStorage.removeItem(getStorageKey(undefined, eventName, eventDate));
+      }
+      localStorage.removeItem('lit_ledger_is_counting');
+      localStorage.removeItem('lit_ledger_active_count_event');
+    } catch (err) {}
     handleDiscardDraft();
   };
 
