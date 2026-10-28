@@ -10,7 +10,10 @@ import {
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = initializeApp({
+  ...firebaseConfig,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey || '',
+});
 export const auth = getAuth(app);
 
 // persistentLocalCache provides reliable offline support across tabs.
