@@ -1,4 +1,4 @@
-import { Title, EventItem, Movement, OrderItem, SettingsData } from '../types';
+import { Title, EventItem, Movement, OrderItem, SettingsData, ConsumableItem } from '../types';
 
 export const INITIAL_TITLES: Title[] = [
   {
@@ -240,12 +240,16 @@ export const INITIAL_SETTINGS: SettingsData = {
   reorder: {
     Bible: 20,
     Booklet: 60,
-    Tract: 150
+    Tract: 150,
+    'Cleaning Supply': 1,
+    Consumable: 1
   },
   pack: {
     Bible: 10,
     Booklet: 20,
-    Tract: 50
+    Tract: 50,
+    'Cleaning Supply': 1,
+    Consumable: 1
   },
   people: [
     { id: 'p-you', name: 'Yilong Wang', email: 'YilongWang05@gmail.com', role: 'Admin', self: true },
@@ -254,3 +258,198 @@ export const INITIAL_SETTINGS: SettingsData = {
   ],
   hallName: 'CISA Inventory'
 };
+
+export const INITIAL_CONSUMABLES: ConsumableItem[] = [
+  {
+    id: 'cs-01',
+    name: 'Clorox Bleach 121 oz',
+    category: 'Cleaning Supply',
+    unit: 'fl_oz',
+    unitVolume: 121,
+    fullUnitsCount: 3,
+    partialRemainingVolume: 77,
+    totalVolumeEquivalent: 3 * 121 + 77,
+    reorderThreshold: 1,
+    notes: '3 full + 77 oz partial',
+    lastAuditedDate: '2026-10-07'
+  },
+  {
+    id: 'cs-02',
+    name: 'Pine-Sol Multi-Surface Cleaner 60 oz',
+    category: 'Cleaning Supply',
+    unit: 'fl_oz',
+    unitVolume: 60,
+    fullUnitsCount: 3,
+    partialRemainingVolume: 0,
+    totalVolumeEquivalent: 3 * 60,
+    reorderThreshold: 1,
+    notes: '3 full',
+    lastAuditedDate: '2026-10-07'
+  },
+  {
+    id: 'cs-03',
+    name: 'Lysol Toilet Bowl Cleaner 32 oz',
+    category: 'Cleaning Supply',
+    unit: 'fl_oz',
+    unitVolume: 32,
+    fullUnitsCount: 1,
+    partialRemainingVolume: 0,
+    totalVolumeEquivalent: 1 * 32,
+    reorderThreshold: 1,
+    notes: '1 full',
+    lastAuditedDate: '2026-10-07'
+  },
+  {
+    id: 'cs-04',
+    name: 'Lysol Multi-Surface Cleaner 210/3 oz',
+    category: 'Cleaning Supply',
+    unit: 'fl_oz',
+    unitVolume: 70,
+    fullUnitsCount: 1,
+    partialRemainingVolume: 0,
+    totalVolumeEquivalent: 70,
+    reorderThreshold: 1,
+    notes: '210 / 3 oz concentrate',
+    lastAuditedDate: '2026-10-07'
+  },
+  {
+    id: 'cs-05',
+    name: 'Hand Soap Refill 128 oz',
+    category: 'Cleaning Supply',
+    unit: 'fl_oz',
+    unitVolume: 128,
+    fullUnitsCount: 2,
+    partialRemainingVolume: 0,
+    totalVolumeEquivalent: 2 * 128,
+    reorderThreshold: 1,
+    notes: '2 full',
+    lastAuditedDate: '2026-10-07'
+  },
+  {
+    id: 'cs-06',
+    name: 'Disinfecting Wipes Canisters',
+    category: 'Cleaning Supply',
+    unit: 'count',
+    fullUnitsCount: 7,
+    partialRemainingVolume: 0,
+    totalVolumeEquivalent: 7,
+    reorderThreshold: 2,
+    notes: '2 + 5 added 9/9/26, updated 10/7/26',
+    lastAuditedDate: '2026-10-07'
+  },
+  {
+    id: 'cs-07',
+    name: 'Nitrile Gloves (Large 250ct, Medium 150ct)',
+    category: 'Cleaning Supply',
+    unit: 'box',
+    fullUnitsCount: 2,
+    partialRemainingVolume: 0,
+    totalVolumeEquivalent: 2,
+    reorderThreshold: 1,
+    notes: '250 L, 150 M',
+    lastAuditedDate: '2026-10-07'
+  },
+  {
+    id: 'cs-08',
+    name: 'Swiffer Duster / Sweeper Pads',
+    category: 'Cleaning Supply',
+    unit: 'count',
+    fullUnitsCount: 9,
+    partialRemainingVolume: 0,
+    totalVolumeEquivalent: 9,
+    reorderThreshold: 4,
+    notes: '9 count',
+    lastAuditedDate: '2026-10-07'
+  },
+  {
+    id: 'cs-09',
+    name: 'Scrubbing Bubbles 25 oz',
+    category: 'Cleaning Supply',
+    unit: 'fl_oz',
+    unitVolume: 25,
+    fullUnitsCount: 2,
+    partialRemainingVolume: 0,
+    totalVolumeEquivalent: 2 * 25,
+    reorderThreshold: 1,
+    notes: '2 full',
+    lastAuditedDate: '2026-10-07'
+  },
+  {
+    id: 'cs-10',
+    name: 'Lysol Disinfectant Spray 19 oz',
+    category: 'Cleaning Supply',
+    unit: 'fl_oz',
+    unitVolume: 19,
+    fullUnitsCount: 0,
+    partialRemainingVolume: 19,
+    totalVolumeEquivalent: 19,
+    reorderThreshold: 1,
+    notes: '<19 oz x 2 (2 partial/low)',
+    lastAuditedDate: '2026-10-07'
+  },
+  {
+    id: 'cs-11',
+    name: 'Oven Cleaner 24 oz',
+    category: 'Cleaning Supply',
+    unit: 'fl_oz',
+    unitVolume: 24,
+    fullUnitsCount: 2,
+    partialRemainingVolume: 0,
+    totalVolumeEquivalent: 2 * 24,
+    reorderThreshold: 1,
+    notes: '2 full',
+    lastAuditedDate: '2026-10-07'
+  },
+  {
+    id: 'cs-12',
+    name: 'Multi-Purpose Cleaner',
+    category: 'Cleaning Supply',
+    unit: 'fl_oz',
+    unitVolume: 32,
+    fullUnitsCount: 1,
+    partialRemainingVolume: 16,
+    totalVolumeEquivalent: 48,
+    reorderThreshold: 1,
+    notes: '<16 oz x 3 + 32 oz',
+    lastAuditedDate: '2026-10-07'
+  },
+  {
+    id: 'cs-13',
+    name: 'Carpet Cleaner 32 oz',
+    category: 'Cleaning Supply',
+    unit: 'fl_oz',
+    unitVolume: 32,
+    fullUnitsCount: 0,
+    partialRemainingVolume: 32,
+    totalVolumeEquivalent: 32,
+    reorderThreshold: 1,
+    notes: '<32 oz (1 partial)',
+    lastAuditedDate: '2026-10-07'
+  },
+  {
+    id: 'cs-14',
+    name: 'Hard Water Remover 32 oz',
+    category: 'Cleaning Supply',
+    unit: 'fl_oz',
+    unitVolume: 32,
+    fullUnitsCount: 0,
+    partialRemainingVolume: 32,
+    totalVolumeEquivalent: 32,
+    reorderThreshold: 1,
+    notes: '<32 oz (1 partial)',
+    lastAuditedDate: '2026-10-07'
+  },
+  {
+    id: 'cs-15',
+    name: 'Glass Cleaner 19 oz',
+    category: 'Cleaning Supply',
+    unit: 'fl_oz',
+    unitVolume: 19,
+    fullUnitsCount: 0,
+    partialRemainingVolume: 19,
+    totalVolumeEquivalent: 19,
+    reorderThreshold: 1,
+    notes: '<19 oz (1 partial)',
+    lastAuditedDate: '2026-10-07'
+  }
+];

@@ -1,5 +1,22 @@
-export type Category = 'Bible' | 'Booklet' | 'Tract';
+export type Category = 'Bible' | 'Booklet' | 'Tract' | 'Cleaning Supply' | 'Consumable';
 export type Language = 'EN' | 'ES';
+
+export type UnitType = 'count' | 'fl_oz' | 'oz' | 'box' | 'pack';
+
+export interface ConsumableItem {
+  id: string;
+  name: string;
+  category: 'Cleaning Supply' | 'Consumable';
+  unit: UnitType;
+  fullUnitsCount: number;          // e.g. 3 full bottles
+  unitVolume?: number;             // e.g. 121 (fl oz)
+  partialRemainingVolume?: number; // e.g. 77 (fl oz remaining in open bottle)
+  totalVolumeEquivalent?: number;  // calculated: (fullUnitsCount * unitVolume) + partial
+  reorderThreshold: number;
+  location?: string;
+  notes?: string;
+  lastAuditedDate: string;
+}
 
 export interface Edition {
   lang: Language;
@@ -105,4 +122,4 @@ export interface SettingsData {
   hallName: string;
 }
 
-export type ActiveTab = 'overview' | 'inventory' | 'events' | 'order' | 'history' | 'settings';
+export type ActiveTab = 'overview' | 'inventory' | 'consumables' | 'events' | 'order' | 'history' | 'settings';

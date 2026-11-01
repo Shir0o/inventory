@@ -11,8 +11,14 @@ interface SettingsViewProps {
   onSaveSettings: (next: SettingsData) => void;
 }
 
-const CATS: Category[] = ['Bible', 'Booklet', 'Tract'];
-const PLURAL: Record<Category, string> = { Bible: 'Bibles', Booklet: 'Booklets', Tract: 'Tracts' };
+const CATS: Category[] = ['Bible', 'Booklet', 'Tract', 'Cleaning Supply', 'Consumable'];
+const PLURAL: Record<Category, string> = { 
+  Bible: 'Bibles', 
+  Booklet: 'Booklets', 
+  Tract: 'Tracts',
+  'Cleaning Supply': 'Cleaning Supplies',
+  'Consumable': 'Consumables'
+};
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   titles,

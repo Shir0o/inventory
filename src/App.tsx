@@ -9,12 +9,14 @@ import {
   EventLine,
   Category,
   Language,
-  Edition
+  Edition,
+  ConsumableItem
 } from './types';
 import { useFirebase } from './context/FirebaseContext';
 import { 
   updateInventoryItem, 
   addInventoryItem, 
+  deleteInventoryItem,
   addEvent, 
   deleteEvent,
   updateSettings as saveSystemSettings,
@@ -41,11 +43,13 @@ import { Sidebar } from './components/Sidebar';
 import { TopNav } from './components/TopNav';
 import { OverviewView } from './components/OverviewView';
 import { InventoryView } from './components/InventoryView';
+import { ConsumablesView } from './components/ConsumablesView';
 import { EventsView } from './components/EventsView';
 import { OrderListView } from './components/OrderListView';
 import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
 import { CountEventFlow } from './components/CountEventFlow';
+import { INITIAL_CONSUMABLES } from './data/initialData';
 import { humanizeAuditLog } from './lib/humanizeHistory';
 import { buildCountStockUpdates } from './lib/countPosting';
 import { isSept18DeliveryReconciled, reconcileSept18Delivery } from './services/historyReconciliationService';
@@ -94,10 +98,175 @@ export function App() {
   });
   const [selectedEventIdForRecord, setSelectedEventIdForRecord] = useState<string | null>(null);
 
+  // Consumables state: loaded from localStorage, pre-seeded with INITIAL_CONSUMABLES (15 Keep items)
+  const [consumables, setConsumables] = useState<ConsumableItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('lit_ledger_consumables');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse saved consumables:', e);
+    }
+    return INITIAL_CONSUMABLES;
+  });
+
+  // Save consumables to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('lit_ledger_consumables', JSON.stringify(consumables));
+    } catch (e) {
+      console.warn('Failed to persist consumables to localStorage:', e);
+    }
+  }, [consumables]);
+
+  // Synchronize with Firestore rawInventory items with category 'Cleaning Supply' or 'Consumable'
+  useEffect(() => {
+    if (!rawInventory || rawInventory.length === 0) return;
+    const firestoreConsumables = rawInventory.filter(
+      i => (i.category === 'Cleaning Supply' || i.category === 'Consumable' || i.cat === 'Cleaning Supply' || i.cat === 'Consumable')
+    );
+    if (firestoreConsumables.length === 0) return;
+
+    setConsumables(prev => {
+      let changed = false;
+      const updated = [...prev];
+      firestoreConsumables.forEach(fItem => {
+        const idx = updated.findIndex(u => u.id === fItem.id || u.id === fItem.sku || u.name?.toLowerCase() === (fItem.name || fItem.title || '').toLowerCase());
+        const mapped: ConsumableItem = {
+          id: fItem.id || fItem.sku || `cs-${Date.now()}`,
+          name: fItem.name || fItem.title || 'Unknown Supply',
+          category: fItem.category === 'Consumable' ? 'Consumable' : 'Cleaning Supply',
+          unit: fItem.unit || 'fl_oz',
+          fullUnitsCount: Number(fItem.fullUnitsCount ?? fItem.stockLevel ?? fItem.stock ?? 0),
+          unitVolume: fItem.unitVolume ? Number(fItem.unitVolume) : undefined,
+          partialRemainingVolume: fItem.partialRemainingVolume ? Number(fItem.partialRemainingVolume) : 0,
+          totalVolumeEquivalent: Number(fItem.totalVolumeEquivalent ?? fItem.stockLevel ?? 0),
+          reorderThreshold: Number(fItem.reorderThreshold ?? fItem.reorder ?? 1),
+          location: fItem.location || undefined,
+          notes: fItem.notes || undefined,
+          lastAuditedDate: fItem.lastAuditedDate || new Date().toISOString().slice(0, 10)
+        };
+        if (idx >= 0) {
+          updated[idx] = { ...updated[idx], ...mapped };
+          changed = true;
+        } else {
+          updated.push(mapped);
+          changed = true;
+        }
+      });
+      return changed ? updated : prev;
+    });
+  }, [rawInventory]);
+
+  const handleUpdateConsumable = async (updatedItem: ConsumableItem) => {
+    const unitVol = updatedItem.unitVolume || 0;
+    const full = updatedItem.fullUnitsCount || 0;
+    const partial = updatedItem.partialRemainingVolume || 0;
+    const totalVolumeEquivalent = unitVol > 0 ? (full * unitVol) + partial : full;
+    const itemWithTotal: ConsumableItem = {
+      ...updatedItem,
+      totalVolumeEquivalent,
+      lastAuditedDate: new Date().toISOString().slice(0, 10)
+    };
+
+    setConsumables(prev => prev.map(c => c.id === itemWithTotal.id ? itemWithTotal : c));
+
+    try {
+      await updateInventoryItem(itemWithTotal.id, {
+        sku: itemWithTotal.id,
+        code: itemWithTotal.id,
+        name: itemWithTotal.name,
+        title: itemWithTotal.name,
+        category: itemWithTotal.category,
+        stockLevel: itemWithTotal.fullUnitsCount,
+        stock: itemWithTotal.fullUnitsCount,
+        unit: itemWithTotal.unit,
+        unitVolume: itemWithTotal.unitVolume,
+        partialRemainingVolume: itemWithTotal.partialRemainingVolume,
+        totalVolumeEquivalent: itemWithTotal.totalVolumeEquivalent,
+        reorderThreshold: itemWithTotal.reorderThreshold,
+        reorder: itemWithTotal.reorderThreshold,
+        notes: itemWithTotal.notes,
+        location: itemWithTotal.location,
+        status: itemWithTotal.fullUnitsCount <= itemWithTotal.reorderThreshold ? 'Low' : 'Healthy',
+        updatedAt: serverTimestamp()
+      });
+    } catch (e) {
+      console.info('Consumable updated locally:', e);
+    }
+  };
+
+  const handleAddConsumable = async (newItem: Omit<ConsumableItem, 'id'>) => {
+    const id = `cs-${Date.now()}`;
+    const unitVol = newItem.unitVolume || 0;
+    const full = newItem.fullUnitsCount || 0;
+    const partial = newItem.partialRemainingVolume || 0;
+    const totalVolumeEquivalent = unitVol > 0 ? (full * unitVol) + partial : full;
+    const itemWithId: ConsumableItem = {
+      ...newItem,
+      id,
+      totalVolumeEquivalent,
+      lastAuditedDate: new Date().toISOString().slice(0, 10)
+    };
+
+    setConsumables(prev => [itemWithId, ...prev]);
+
+    try {
+      await addInventoryItem({
+        sku: id,
+        code: id,
+        name: itemWithId.name,
+        title: itemWithId.name,
+        category: itemWithId.category,
+        stockLevel: itemWithId.fullUnitsCount,
+        stock: itemWithId.fullUnitsCount,
+        unit: itemWithId.unit,
+        unitVolume: itemWithId.unitVolume,
+        partialRemainingVolume: itemWithId.partialRemainingVolume,
+        totalVolumeEquivalent: itemWithId.totalVolumeEquivalent,
+        reorderThreshold: itemWithId.reorderThreshold,
+        reorder: itemWithId.reorderThreshold,
+        notes: itemWithId.notes,
+        location: itemWithId.location,
+        status: itemWithId.fullUnitsCount <= itemWithId.reorderThreshold ? 'Low' : 'Healthy',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    } catch (e) {
+      console.info('Consumable created locally:', e);
+    }
+  };
+
+  const handleDeleteConsumable = async (id: string) => {
+    setConsumables(prev => prev.filter(c => c.id !== id));
+    try {
+      await deleteInventoryItem(id);
+    } catch (e) {
+      console.info('Consumable deleted locally:', e);
+    }
+  };
+
+  const handleResetConsumables = () => {
+    setConsumables(INITIAL_CONSUMABLES);
+    localStorage.setItem('lit_ledger_consumables', JSON.stringify(INITIAL_CONSUMABLES));
+  };
+
+  const lowConsumablesCount = useMemo(() => {
+    return consumables.filter(c => {
+      const full = c.fullUnitsCount ?? 0;
+      const threshold = c.reorderThreshold ?? 1;
+      return full <= threshold;
+    }).length;
+  }, [consumables]);
+
   // Map real Firestore settings
   const settings: SettingsData = useMemo(() => {
-    const defaultReorder = { Bible: 20, Booklet: 60, Tract: 200 };
-    const defaultPack = { Bible: 20, Booklet: 50, Tract: 100 };
+    const defaultReorder = { Bible: 20, Booklet: 60, Tract: 200, 'Cleaning Supply': 1, Consumable: 1 };
+    const defaultPack = { Bible: 20, Booklet: 50, Tract: 100, 'Cleaning Supply': 1, Consumable: 1 };
     return {
       hallName: rawSettings?.hallName || rawSettings?.orgName || 'CISA Inventory',
       reorder: rawSettings?.reorder || defaultReorder,
@@ -117,7 +286,9 @@ export function App() {
     // Check if items are already full title documents with an `editions` array
     const hasCompositeEditions = rawInventory.some(i => Array.isArray(i.editions) && i.editions.length > 0);
     if (hasCompositeEditions) {
-      return rawInventory.map(i => {
+      return rawInventory
+        .filter(i => (i.cat || i.category) !== 'Cleaning Supply' && (i.cat || i.category) !== 'Consumable')
+        .map(i => {
         const catNorm = (i.cat || i.category || 'Tract').replace(/s$/, '') as Category;
         const { baseCode, baseName } = extractBaseCode(i);
         const resolvedName = resolveHumanTitle(i.name || i.title, 'EN', baseName, baseCode);
@@ -148,6 +319,10 @@ export function App() {
     const groups: Record<string, Title> = {};
 
     rawInventory.forEach(item => {
+      const rawCat = String(item.category || item.cat || '').trim();
+      if (rawCat === 'Cleaning Supply' || rawCat === 'Consumable') {
+        return;
+      }
       const { baseCode, baseName, category } = extractBaseCode(item);
       const lang = normalizeLang(item);
       const cleanCat = category;
@@ -1134,6 +1309,7 @@ export function App() {
         }}
         hallName={settings.hallName}
         flaggedOrderCount={flaggedOrderCount}
+        lowConsumablesCount={lowConsumablesCount}
         onStartCount={() => handleStartCount()}
         isOpen={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
@@ -1248,6 +1424,17 @@ export function App() {
             events={events}
             onAdjustStock={handleAdjustStock}
             onSaveTitle={handleSaveTitle}
+            onNavigateConsumables={() => setActiveTab('consumables')}
+          />
+        )}
+
+        {activeTab === 'consumables' && (
+          <ConsumablesView
+            items={consumables}
+            onUpdateItem={handleUpdateConsumable}
+            onAddItem={handleAddConsumable}
+            onDeleteItem={handleDeleteConsumable}
+            onResetToSeed={handleResetConsumables}
           />
         )}
 

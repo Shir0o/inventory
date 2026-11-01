@@ -14,13 +14,38 @@ interface InventoryViewProps {
   onAdjustStock: (code: string, qty: number, note: string, date?: string, lang?: Language, docId?: string) => void | Promise<void>;
   onSaveTitle: (originalCode: string | null, nextTitle: Title) => void;
   reorderSensitivity?: number;
+  onNavigateConsumables?: () => void;
 }
 
 const CATS: Category[] = ['Bible', 'Booklet', 'Tract'];
-const PLURAL: Record<Category, string> = { Bible: 'Bibles', Booklet: 'Booklets', Tract: 'Tracts' };
-const PREFIX: Record<Category, string> = { Bible: 'BIB', Booklet: 'BKL', Tract: 'TR' };
-const DEFAULT_REORDER: Record<Category, number> = { Bible: 20, Booklet: 60, Tract: 150 };
-const PACK: Record<Category, number> = { Bible: 10, Booklet: 20, Tract: 50 };
+const PLURAL: Record<Category, string> = { 
+  Bible: 'Bibles', 
+  Booklet: 'Booklets', 
+  Tract: 'Tracts',
+  'Cleaning Supply': 'Cleaning Supplies',
+  'Consumable': 'Consumables'
+};
+const PREFIX: Record<Category, string> = { 
+  Bible: 'BIB', 
+  Booklet: 'BKL', 
+  Tract: 'TR',
+  'Cleaning Supply': 'CLN',
+  'Consumable': 'CON'
+};
+const DEFAULT_REORDER: Record<Category, number> = { 
+  Bible: 20, 
+  Booklet: 60, 
+  Tract: 150,
+  'Cleaning Supply': 1,
+  'Consumable': 1
+};
+const PACK: Record<Category, number> = { 
+  Bible: 10, 
+  Booklet: 20, 
+  Tract: 50,
+  'Cleaning Supply': 1,
+  'Consumable': 1
+};
 const LANG_NAME: Record<Language, string> = { EN: 'English', ES: 'Spanish' };
 
 function aliasesOf(t: Title): string[] {
@@ -34,7 +59,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   events = [],
   onAdjustStock,
   onSaveTitle,
-  reorderSensitivity = 1
+  reorderSensitivity = 1,
+  onNavigateConsumables
 }) => {
   const [query, setQuery] = useState('');
   const [catFilter, setCatFilter] = useState<string>('All');
@@ -750,6 +776,16 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               </button>
             );
           })}
+          {onNavigateConsumables && (
+            <button
+              onClick={onNavigateConsumables}
+              className="px-3 py-1.5 rounded-md text-[12px] font-semibold transition-colors cursor-pointer bg-white text-[#1f5f8b] border border-[#1f5f8b]/40 hover:bg-[#e9f1f7] flex items-center gap-1"
+              title="Switch to cleaning & consumable supplies"
+            >
+              <span>Supplies</span>
+              <span className="text-[10px]">→</span>
+            </button>
+          )}
         </div>
 
         {/* Language Chips */}
