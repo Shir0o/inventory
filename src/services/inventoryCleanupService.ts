@@ -702,6 +702,8 @@ export function normalizeLang(item: any): Language {
 
 export function normalizeCategory(catRaw: any): Category {
   const c = String(catRaw || 'Tract').trim().toLowerCase();
+  if (c.includes('clean') || c.includes('supply')) return 'Cleaning Supply';
+  if (c.includes('consumable')) return 'Consumable';
   if (c.includes('bib')) return 'Bible';
   if (c.includes('book') || c.includes('element') || c.includes('folleto')) return 'Booklet';
   return 'Tract';
@@ -1704,7 +1706,9 @@ export function resolveItemCategoryAndLang(
   let category: Category | null = null;
   if (item?.category) {
     const rawCat = (item.category || '').toLowerCase();
-    if (rawCat.includes('bible')) category = 'Bible';
+    if (rawCat.includes('clean') || rawCat.includes('supply')) category = 'Cleaning Supply';
+    else if (rawCat.includes('consumable')) category = 'Consumable';
+    else if (rawCat.includes('bible')) category = 'Bible';
     else if (rawCat.includes('booklet')) category = 'Booklet';
     else if (rawCat.includes('tract')) category = 'Tract';
   }
