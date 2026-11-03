@@ -11,7 +11,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^2.31.0",
+    "@google/genai": "^2.32.0",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.2",
     "clsx": "^2.1.1",
@@ -20,8 +20,8 @@
     "firebase": "^13.1.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.9",
-    "lucide-react": "^1.61.0",
-    "motion": "^14.6.0",
+    "lucide-react": "^1.65.0",
+    "motion": "^14.9.0",
     "papaparse": "^5.7.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
