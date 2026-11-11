@@ -1,0 +1,46 @@
+name: Release Please
+
+# release-please reads conventional-commit PR titles on main, opens (or updates)
+# a release PR that bumps package.json (and package-lock.json) and regenerates
+# CHANGELOG.md at the repository root, then — once that PR is merged — pushes
+# the version tag (e.g. v0.1.0).
+#
+# RELEASE_PLEASE_TOKEN is used instead of the built-in GITHUB_TOKEN so that the
+# release PR and its tag are attributed to a real actor and remain able to
+# trigger other workflows. GitHub suppresses workflow runs caused by
+# GITHUB_TOKEN-authored tags, so a PAT is the robust default.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Open or update the release PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verify RELEASE_PLEASE_TOKEN is present
+        env:
+          RELEASE_PLEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_PLEASE_TOKEN:-}" ]; then
+            echo "::error::Missing required GitHub secret: RELEASE_PLEASE_TOKEN"
+            echo "::error::A PAT is required because tags created with GITHUB_TOKEN cannot trigger downstream workflows."
+            exit 1
+          fi
+          echo "RELEASE_PLEASE_TOKEN present."
+
+      - uses: googleapis/release-please-action@v5
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
