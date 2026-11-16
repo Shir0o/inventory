@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/Shir0o/inventory/compare/v1.0.0...v1.0.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* **ci:** pin googleapis/release-please-action SHA (alert [#1](https://github.com/Shir0o/inventory/issues/1)) ([#45](https://github.com/Shir0o/inventory/issues/45)) ([6a87842](https://github.com/Shir0o/inventory/commit/6a87842c651033b804385836b42853847b777c3f))
+* **ui:** add responsive table scrolling and empty states across views ([#47](https://github.com/Shir0o/inventory/issues/47)) ([ad6ab8d](https://github.com/Shir0o/inventory/commit/ad6ab8d1fa1e48cafc438ca03aa70ff4e1ed9e7c))
+
 ## 1.0.0 (2026-11-11)
 
 
