@@ -640,7 +640,27 @@ export const EventsView: React.FC<EventsViewProps> = ({
 
       {/* Events List */}
       <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-6 space-y-6">
-        {monthGroups.map(group => (
+        {monthGroups.length === 0 ? (
+          <div className="py-16 px-6">
+            <div className="max-w-md mx-auto p-8 border border-dashed border-[#c9cbd2] rounded-lg text-center space-y-3">
+              <Calendar className="w-8 h-8 text-[#8b8e96] mx-auto" />
+              <div className="font-bold text-[16px] text-[#191c20]">
+                No outreach events yet
+              </div>
+              <p className="text-[13px] text-[#6c6f77] leading-relaxed">
+                Plan distribution events to schedule dates, reserve literature pieces, and record post-event counts.
+              </p>
+              <div className="pt-1">
+                <button
+                  onClick={() => setShowPlanForm(true)}
+                  className="px-4 py-2 bg-[#1f5f8b] hover:bg-[#17496c] text-white font-semibold text-[13px] rounded-md transition-colors cursor-pointer shadow-xs"
+                >
+                  + Plan your first event
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : monthGroups.map(group => (
           <div key={group.month} className="space-y-3">
             {/* Month Header */}
             <div className="flex items-center justify-between text-[13px] font-bold text-[#6c6f77] border-b border-[#dcdee3] pb-1.5">

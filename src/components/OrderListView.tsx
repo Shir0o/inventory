@@ -619,7 +619,7 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
             </div>
 
             {/* Search and Category Filter */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <div className="relative flex-1 sm:w-56">
                 <Search className="w-3.5 h-3.5 text-[#8b8e96] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
@@ -645,153 +645,157 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
 
           {/* Table of Items to order */}
           <div className="border border-[#dcdee3] rounded-lg overflow-hidden bg-white shadow-xs">
-            <div className="grid grid-cols-[36px_1fr_80px_68px_68px_165px_60px] items-center px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
-              <div>
-                <input
-                  type="checkbox"
-                  checked={allVisibleSelected}
-                  onChange={handleToggleSelectAllVisible}
-                  title="Toggle select all visible items"
-                  className="rounded-sm text-[#1f5f8b] focus:ring-0 cursor-pointer"
-                />
-              </div>
-              <div>Edition</div>
-              <div>Code</div>
-              <div className="text-right">In store</div>
-              <div className="text-right">Reorder</div>
-              <div className="text-right pr-1">Order qty</div>
-              <div className="text-right">Pack</div>
-            </div>
+            <div className="overflow-x-auto">
+              <div className="min-w-[680px]">
+                <div className="grid grid-cols-[36px_1fr_80px_68px_68px_165px_60px] items-center px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
+                  <div>
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={handleToggleSelectAllVisible}
+                      title="Toggle select all visible items"
+                      className="rounded-sm text-[#1f5f8b] focus:ring-0 cursor-pointer"
+                    />
+                  </div>
+                  <div>Edition</div>
+                  <div>Code</div>
+                  <div className="text-right">In store</div>
+                  <div className="text-right">Reorder</div>
+                  <div className="text-right pr-1">Order qty</div>
+                  <div className="text-right">Pack</div>
+                </div>
 
-            {filteredItems.length === 0 ? (
-              <div className="py-12 text-center text-[#6c6f77] text-[13px]">
-                {viewFilter === 'low'
-                  ? 'No items are below their reorder points right now.'
-                  : 'No editions match your search filter.'}
-              </div>
-            ) : (
-              <div className="divide-y divide-[#eef0f3]">
-                {filteredItems.map(c => {
-                  const isChecked = !!selectedKeys[c.codeKey];
-                  const isOnOrder = !!orderMap[c.codeKey];
-                  // Default order quantity is strictly 0 for everything
-                  const qtyVal = customQuantities[c.codeKey] !== undefined ? customQuantities[c.codeKey] : 0;
+                {filteredItems.length === 0 ? (
+                  <div className="py-12 text-center text-[#6c6f77] text-[13px]">
+                    {viewFilter === 'low'
+                      ? 'No items are below their reorder points right now.'
+                      : 'No editions match your search filter.'}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-[#eef0f3]">
+                    {filteredItems.map(c => {
+                      const isChecked = !!selectedKeys[c.codeKey];
+                      const isOnOrder = !!orderMap[c.codeKey];
+                      // Default order quantity is strictly 0 for everything
+                      const qtyVal = customQuantities[c.codeKey] !== undefined ? customQuantities[c.codeKey] : 0;
 
-                  return (
-                    <div
-                      key={c.codeKey}
-                      className={`
-                        grid grid-cols-[36px_1fr_80px_68px_68px_165px_60px] items-center px-4 py-3 text-[13px] transition-colors
-                        ${isOnOrder ? 'bg-[#fbfbfc] opacity-75' : isChecked ? 'bg-[#f6f9fb]' : 'bg-white'}
-                      `}
-                    >
-                      <div>
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          disabled={isOnOrder}
-                          onChange={() => handleToggleSelect(c.codeKey)}
-                          className="rounded-sm text-[#1f5f8b] focus:ring-0 cursor-pointer disabled:opacity-40"
-                        />
-                      </div>
-
-                      <div className="min-w-0 pr-3">
-                        <div className="flex items-baseline gap-2">
-                          <span className={`
-                            text-[9px] font-bold px-1.5 py-0.5 rounded-xs flex-none
-                            ${c.edition.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}
-                          `}>
-                            {c.edition.lang}
-                          </span>
-                          <span className="font-semibold text-[#191c20] truncate">
-                            {c.edition.title}
-                          </span>
-                          <span className="font-mono text-[10px] text-[#8b8e96] bg-[#f1f3f5] px-1.5 py-0.5 rounded tracking-tight border border-[#dcdee3]/60 flex-none">
-                            {c.codeKey}
-                          </span>
-                        </div>
-                        {isOnOrder ? (
-                          <div className="text-[11.5px] text-[#8a5a00] font-medium mt-0.5">
-                            Already on order ({orderMap[c.codeKey].qty} pcs)
+                      return (
+                        <div
+                          key={c.codeKey}
+                          className={`
+                            grid grid-cols-[36px_1fr_80px_68px_68px_165px_60px] items-center px-4 py-3 text-[13px] transition-colors
+                            ${isOnOrder ? 'bg-[#fbfbfc] opacity-75' : isChecked ? 'bg-[#f6f9fb]' : 'bg-white'}
+                          `}
+                        >
+                          <div>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={isOnOrder}
+                              onChange={() => handleToggleSelect(c.codeKey)}
+                              className="rounded-sm text-[#1f5f8b] focus:ring-0 cursor-pointer disabled:opacity-40"
+                            />
                           </div>
-                        ) : c.isLow ? (
-                          <div className="text-[11px] text-[#8a5a00] font-medium mt-0.5">
-                            Deficit: {c.at - c.edition.stock} below threshold ({c.at}) · Smart suggest: {c.suggest} ({Math.round(c.suggest / c.pack)} {Math.round(c.suggest / c.pack) === 1 ? 'pack' : 'packs'}) to reach ≥{c.at}
+
+                          <div className="min-w-0 pr-3">
+                            <div className="flex items-baseline gap-2">
+                              <span className={`
+                                text-[9px] font-bold px-1.5 py-0.5 rounded-xs flex-none
+                                ${c.edition.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}
+                              `}>
+                                {c.edition.lang}
+                              </span>
+                              <span className="font-semibold text-[#191c20] truncate">
+                                {c.edition.title}
+                              </span>
+                              <span className="font-mono text-[10px] text-[#8b8e96] bg-[#f1f3f5] px-1.5 py-0.5 rounded tracking-tight border border-[#dcdee3]/60 flex-none">
+                                {c.codeKey}
+                              </span>
+                            </div>
+                            {isOnOrder ? (
+                              <div className="text-[11.5px] text-[#8a5a00] font-medium mt-0.5">
+                                Already on order ({orderMap[c.codeKey].qty} pcs)
+                              </div>
+                            ) : c.isLow ? (
+                              <div className="text-[11px] text-[#8a5a00] font-medium mt-0.5">
+                                Deficit: {c.at - c.edition.stock} below threshold ({c.at}) · Smart suggest: {c.suggest} ({Math.round(c.suggest / c.pack)} {Math.round(c.suggest / c.pack) === 1 ? 'pack' : 'packs'}) to reach ≥{c.at}
+                              </div>
+                            ) : (
+                              <div className="text-[11px] text-[#8b8e96] mt-0.5">
+                                Healthy stock ({c.edition.stock} on shelf · reorder threshold {c.at})
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <div className="text-[11px] text-[#8b8e96] mt-0.5">
-                            Healthy stock ({c.edition.stock} on shelf · reorder threshold {c.at})
+
+                          <div className="font-mono text-[11px] text-[#8b8e96] truncate">
+                            <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
+                              {c.codeKey}
+                            </span>
                           </div>
-                        )}
-                      </div>
 
-                      <div className="font-mono text-[11px] text-[#8b8e96] truncate">
-                        <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
-                          {c.codeKey}
-                        </span>
-                      </div>
+                          <div className={`text-right font-mono text-[13.5px] tabular-nums ${c.isLow ? 'font-bold text-[#8a5a00]' : 'text-[#191c20]'}`}>
+                            {c.edition.stock}
+                          </div>
 
-                      <div className={`text-right font-mono text-[13.5px] tabular-nums ${c.isLow ? 'font-bold text-[#8a5a00]' : 'text-[#191c20]'}`}>
-                        {c.edition.stock}
-                      </div>
+                          <div className="text-right font-mono text-[13px] text-[#6c6f77] tabular-nums">
+                            {c.at}
+                          </div>
 
-                      <div className="text-right font-mono text-[13px] text-[#6c6f77] tabular-nums">
-                        {c.at}
-                      </div>
-
-                      <div className="min-w-0 flex items-center justify-end gap-1.5 overflow-visible">
-                        {c.isLow && c.suggest > 0 && qtyVal !== c.suggest && !isOnOrder && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCustomQuantities(prev => ({ ...prev, [c.codeKey]: c.suggest }));
-                              setSelectedKeys(prev => ({ ...prev, [c.codeKey]: true }));
-                            }}
-                            title={`Set to smart suggested quantity (${c.suggest})`}
-                            className="text-[10.5px] font-bold text-[#1f5f8b] bg-[#e9f1f7] hover:bg-[#d8e8f4] px-1.5 py-0.5 rounded transition-colors cursor-pointer shrink-0 whitespace-nowrap"
-                          >
-                            +{c.suggest}
-                          </button>
-                        )}
-                        <input
-                          type="number"
-                          min="0"
-                          step={c.pack}
-                          value={qtyVal}
-                          disabled={isOnOrder}
-                          onChange={(e) => {
-                            const val = Math.max(0, parseInt(e.target.value, 10) || 0);
-                            setCustomQuantities(prev => ({ ...prev, [c.codeKey]: val }));
-                            if (val > 0) {
-                              setSelectedKeys(prev => ({ ...prev, [c.codeKey]: true }));
-                            }
-                          }}
-                          className="w-16 min-w-[64px] max-w-[68px] px-2 py-1 border border-[#c9cbd2] rounded-md font-mono text-[13px] font-bold text-right text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none tabular-nums disabled:bg-[#edeef4] shrink-0"
-                        />
-                        <div className="w-5 flex items-center justify-center shrink-0">
-                          {qtyVal > 0 && !isOnOrder && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setCustomQuantities(prev => ({ ...prev, [c.codeKey]: 0 }));
+                          <div className="min-w-0 flex items-center justify-end gap-1.5 overflow-visible">
+                            {c.isLow && c.suggest > 0 && qtyVal !== c.suggest && !isOnOrder && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCustomQuantities(prev => ({ ...prev, [c.codeKey]: c.suggest }));
+                                  setSelectedKeys(prev => ({ ...prev, [c.codeKey]: true }));
+                                }}
+                                title={`Set to smart suggested quantity (${c.suggest})`}
+                                className="text-[10.5px] font-bold text-[#1f5f8b] bg-[#e9f1f7] hover:bg-[#d8e8f4] px-1.5 py-0.5 rounded transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                              >
+                                +{c.suggest}
+                              </button>
+                            )}
+                            <input
+                              type="number"
+                              min="0"
+                              step={c.pack}
+                              value={qtyVal}
+                              disabled={isOnOrder}
+                              onChange={(e) => {
+                                const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                                setCustomQuantities(prev => ({ ...prev, [c.codeKey]: val }));
+                                if (val > 0) {
+                                  setSelectedKeys(prev => ({ ...prev, [c.codeKey]: true }));
+                                }
                               }}
-                              title="Reset order quantity to 0"
-                              className="p-1 text-[#8b8e96] hover:text-[#1f5f8b] cursor-pointer transition-colors"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                              className="w-16 min-w-[64px] max-w-[68px] px-2 py-1 border border-[#c9cbd2] rounded-md font-mono text-[13px] font-bold text-right text-[#191c20] bg-white focus:border-[#1f5f8b] outline-none tabular-nums disabled:bg-[#edeef4] shrink-0"
+                            />
+                            <div className="w-5 flex items-center justify-center shrink-0">
+                              {qtyVal > 0 && !isOnOrder && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCustomQuantities(prev => ({ ...prev, [c.codeKey]: 0 }));
+                                  }}
+                                  title="Reset order quantity to 0"
+                                  className="p-1 text-[#8b8e96] hover:text-[#1f5f8b] cursor-pointer transition-colors"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
 
-                      <div className="text-right font-mono text-[12.5px] text-[#8b8e96] tabular-nums">
-                        {c.pack}
-                      </div>
-                    </div>
-                  );
-                })}
+                          <div className="text-right font-mono text-[12.5px] text-[#8b8e96] tabular-nums">
+                            {c.pack}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
 
@@ -800,69 +804,73 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
           <h2 className="text-[18px] font-bold tracking-tight text-[#191c20]">Currently on order</h2>
 
           <div className="border border-[#dcdee3] rounded-lg overflow-hidden bg-white shadow-xs">
-            <div className="grid grid-cols-[1fr_100px_100px_90px_70px] items-center px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
-              <div>Item</div>
-              <div>Code</div>
-              <div>Ordered date</div>
-              <div className="text-right">Quantity</div>
-              <div className="text-right">Actions</div>
-            </div>
+            <div className="overflow-x-auto">
+              <div className="min-w-[560px]">
+                <div className="grid grid-cols-[1fr_100px_100px_90px_70px] items-center px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
+                  <div>Item</div>
+                  <div>Code</div>
+                  <div>Ordered date</div>
+                  <div className="text-right">Quantity</div>
+                  <div className="text-right">Actions</div>
+                </div>
 
-            {orders.length === 0 ? (
-              <div className="py-8 text-center text-[#6c6f77] text-[13px]">
-                No outstanding orders.
-              </div>
-            ) : (
-              <div className="divide-y divide-[#eef0f3]">
-                {orders.map(o => (
-                  <div
-                    key={o.key}
-                    className="grid grid-cols-[1fr_100px_100px_90px_70px] items-center px-4 py-3 text-[13px]"
-                  >
-                    <div className="min-w-0 pr-3">
-                      <div className="flex items-baseline gap-2">
-                        <span className="font-semibold text-[#191c20] truncate">
-                          {o.title}
-                        </span>
-                        <span className="font-mono text-[10px] text-[#8b8e96] bg-[#f1f3f5] px-1.5 py-0.5 rounded tracking-tight border border-[#dcdee3]/60 flex-none">
-                          {o.code}
-                        </span>
-                      </div>
-                      {o.bundle && (
-                        <div className="text-[11.5px] text-[#1f5f8b] font-medium mt-0.5">
-                          Bundle · 1 pack each across 12 titles
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="font-mono text-[11px] text-[#8b8e96] truncate">
-                      <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
-                        {o.code}
-                      </span>
-                    </div>
-
-                    <div className="text-[12.5px] text-[#6c6f77]">
-                      {o.orderedDate}
-                    </div>
-
-                    <div className="text-right font-mono text-[14px] font-bold text-[#191c20] tabular-nums">
-                      {o.qty}
-                    </div>
-
-                    <div className="text-right">
-                      <button
-                        type="button"
-                        onClick={() => onCancelOrder(o.key)}
-                        className="text-[#8b8e96] hover:text-[#b3261e] p-1 cursor-pointer transition-colors"
-                        title="Cancel this order"
-                      >
-                        <Trash2 className="w-4 h-4 ml-auto" />
-                      </button>
-                    </div>
+                {orders.length === 0 ? (
+                  <div className="py-8 text-center text-[#6c6f77] text-[13px]">
+                    No outstanding orders.
                   </div>
-                ))}
+                ) : (
+                  <div className="divide-y divide-[#eef0f3]">
+                    {orders.map(o => (
+                      <div
+                        key={o.key}
+                        className="grid grid-cols-[1fr_100px_100px_90px_70px] items-center px-4 py-3 text-[13px]"
+                      >
+                        <div className="min-w-0 pr-3">
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-semibold text-[#191c20] truncate">
+                              {o.title}
+                            </span>
+                            <span className="font-mono text-[10px] text-[#8b8e96] bg-[#f1f3f5] px-1.5 py-0.5 rounded tracking-tight border border-[#dcdee3]/60 flex-none">
+                              {o.code}
+                            </span>
+                          </div>
+                          {o.bundle && (
+                            <div className="text-[11.5px] text-[#1f5f8b] font-medium mt-0.5">
+                              Bundle · 1 pack each across 12 titles
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="font-mono text-[11px] text-[#8b8e96] truncate">
+                          <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
+                            {o.code}
+                          </span>
+                        </div>
+
+                        <div className="text-[12.5px] text-[#6c6f77]">
+                          {o.orderedDate}
+                        </div>
+
+                        <div className="text-right font-mono text-[14px] font-bold text-[#191c20] tabular-nums">
+                          {o.qty}
+                        </div>
+
+                        <div className="text-right">
+                          <button
+                            type="button"
+                            onClick={() => onCancelOrder(o.key)}
+                            className="text-[#8b8e96] hover:text-[#b3261e] p-1 cursor-pointer transition-colors"
+                            title="Cancel this order"
+                          >
+                            <Trash2 className="w-4 h-4 ml-auto" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

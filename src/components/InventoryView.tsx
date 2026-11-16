@@ -803,8 +803,17 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
         {visibleGroups.length === 0 ? (
           <div className="py-16 text-center text-[#6c6f77]">
-            <p className="font-semibold text-[15px] text-[#191c20]">Nothing matches &ldquo;{query}&rdquo;</p>
-            <p className="text-[13px] mt-1">Former names are searched too, so an old sheet name should still find the title.</p>
+            {query.trim() ? (
+              <>
+                <p className="font-semibold text-[15px] text-[#191c20]">Nothing matches &ldquo;{query}&rdquo;</p>
+                <p className="text-[13px] mt-1">Former names are searched too, so an old sheet name should still find the title.</p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold text-[15px] text-[#191c20]">No literature items in inventory yet</p>
+                <p className="text-[13px] mt-1">Add titles or import records to begin tracking store counts and reorder thresholds.</p>
+              </>
+            )}
           </div>
         ) : (
           <div>
