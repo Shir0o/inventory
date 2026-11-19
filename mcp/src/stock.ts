@@ -56,8 +56,10 @@ export function serialize(value: unknown, seen: WeakSet<object> = new WeakSet())
       if (typeof record.toBase64 === 'function') {
         return (record as { toBase64: () => string }).toBase64();
       }
-      if (Buffer.isBuffer(value)) {
-        return value.toString('base64');
+      if (value instanceof Uint8Array) {
+        let binary = '';
+        for (const byte of value) binary += String.fromCharCode(byte);
+        return btoa(binary);
       }
     }
 

@@ -1,7 +1,15 @@
 # Lit-Ledger MCP server
 
-A stdio [Model Context Protocol](https://modelcontextprotocol.io) server that exposes the
-Lit-Ledger Firestore database to Claude (Desktop / Code) and Google Antigravity.
+A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes the
+Lit-Ledger Firestore database to Claude (Desktop / Code / web / mobile) and Google Antigravity.
+
+Three entrypoints share the same nine tools (`src/tools.ts`):
+
+- **stdio** — `src/stdio.ts` (`npm run start`) for Claude Desktop, Claude Code and Antigravity.
+- **Streamable HTTP** — `src/http-server.ts` (`npm run start:http`) for a remote deployment that
+  claude.ai and the Claude mobile app use as a **Custom Connector**.
+- **Cloudflare Worker** — `worker/` (`npm run deploy:worker`) for a serverless
+  Custom Connector with OAuth 2.1 and no container to run.
 
 It reads and writes the same collections the app uses:
 
@@ -41,11 +49,12 @@ and name it under `unreadable` instead of failing.
 ## Install and run
 
 ```bash
-npm install
-npm run mcp        # tsx mcp/server.ts
+npm --prefix mcp install   # mcp/ is its own package; the root install is untouched
+npm run mcp                # tsx mcp/src/stdio.ts (stdio)
+npm run mcp:http           # tsx mcp/src/http-server.ts (Streamable HTTP on $PORT)
 ```
 
-The process speaks JSON-RPC on **stdout**; diagnostics are written to **stderr**. You do not
+The stdio process speaks JSON-RPC on **stdout**; diagnostics are written to **stderr**. You do not
 normally run it by hand — your MCP client spawns it.
 
 ## Credentials
@@ -83,6 +92,9 @@ inventory. This mode is a fallback for environments where you cannot create a se
 | `FIREBASE_AUTH_PASSWORD` | Mode 2 | Password for that user. |
 | `FIREBASE_AUTH_DOMAIN` | No | Defaults to `<projectId>.firebaseapp.com`. |
 | `FIREBASE_APP_ID` | No | Web app id; only needed if your project requires it. |
+| `PORT` | No | HTTP entrypoint only. Port to listen on (default `8080`). |
+| `MCP_AUTH_TOKEN` | HTTP | Bearer token required on `/mcp`. If unset, `/mcp` is open (a warning is logged) unless `NODE_ENV=production`, where the server refuses to start. |
+| `NODE_ENV` | No | Set to `production` on a public deployment to enforce `MCP_AUTH_TOKEN`. |
 
 > Inline JSON (`FIREBASE_SERVICE_ACCOUNT='{"type":"service_account",...}'`) is handy when a
 > client cannot pass a file path. Keep the `private_key` newlines escaped as `\n`, exactly as
@@ -98,8 +110,8 @@ real paths, then fully quit and reopen Claude.
 {
   "mcpServers": {
     "lit-ledger": {
-      "command": "/absolute/path/to/inventory/node_modules/.bin/tsx",
-      "args": ["/absolute/path/to/inventory/mcp/server.ts"],
+      "command": "/absolute/path/to/inventory/mcp/node_modules/.bin/tsx",
+      "args": ["/absolute/path/to/inventory/mcp/src/stdio.ts"],
       "env": {
         "GOOGLE_APPLICATION_CREDENTIALS": "/absolute/path/to/service-account.json",
         "FIREBASE_DATABASE_ID": "ai-studio-7dcfaee1-ad85-4940-b13d-8df8f061af40"
@@ -122,7 +134,7 @@ user scope):
 claude mcp add lit-ledger \
   --env GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/service-account.json \
   --env FIREBASE_DATABASE_ID=ai-studio-7dcfaee1-ad85-4940-b13d-8df8f061af40 \
-  -- /absolute/path/to/inventory/node_modules/.bin/tsx /absolute/path/to/inventory/mcp/server.ts
+  -- /absolute/path/to/inventory/mcp/node_modules/.bin/tsx /absolute/path/to/inventory/mcp/src/stdio.ts
 ```
 
 Verify with `claude mcp list` (or `/mcp` inside a session).
@@ -133,8 +145,8 @@ Or commit a project-scoped `.mcp.json` at the repository root:
 {
   "mcpServers": {
     "lit-ledger": {
-      "command": "/absolute/path/to/inventory/node_modules/.bin/tsx",
-      "args": ["/absolute/path/to/inventory/mcp/server.ts"],
+      "command": "/absolute/path/to/inventory/mcp/node_modules/.bin/tsx",
+      "args": ["/absolute/path/to/inventory/mcp/src/stdio.ts"],
       "env": {
         "GOOGLE_APPLICATION_CREDENTIALS": "/absolute/path/to/service-account.json",
         "FIREBASE_DATABASE_ID": "ai-studio-7dcfaee1-ad85-4940-b13d-8df8f061af40"
@@ -143,6 +155,182 @@ Or commit a project-scoped `.mcp.json` at the repository root:
   }
 }
 ```
+
+## Claude Custom Connector (Web & Mobile)
+
+`npm run mcp:http` starts the same nine tools over MCP **Streamable HTTP**:
+
+| Route | Purpose |
+| --- | --- |
+| `POST /mcp` | JSON-RPC (initialize + tool calls) |
+| `GET /mcp` | SSE stream for an existing session |
+| `DELETE /mcp` | End a session |
+| `GET /healthz` | Liveness probe (`200 ok`) |
+
+When `MCP_AUTH_TOKEN` is set every `/mcp` request must send
+`Authorization: Bearer <MCP_AUTH_TOKEN>` (the health check stays open). Without the variable the
+server logs a loud warning and serves `/mcp` unauthenticated — but it **refuses to start** when
+`NODE_ENV=production`.
+
+Claude connectors must reach the server over **HTTPS**, so `localhost` is not usable directly.
+Use a tunnel for testing, or deploy to any host that terminates TLS.
+
+### 1. Generate a token and run locally
+
+```bash
+export MCP_AUTH_TOKEN="$(openssl rand -hex 32)"
+PORT=8080 npm run mcp:http
+
+curl -sS http://localhost:8080/healthz        # -> ok
+```
+
+Expose it while testing with a tunnel, for example `cloudflared tunnel --url http://localhost:8080`
+or `ngrok http 8080`; the connector URL is then `https://<tunnel-host>/mcp`.
+
+### 2. Deploy to Cloud Run
+
+Docker (the `Dockerfile.mcp` in the repository root) expects `MCP_AUTH_TOKEN` and the Firebase
+credentials at runtime:
+
+```bash
+PROJECT_ID=your-project
+IMAGE="gcr.io/$PROJECT_ID/lit-ledger-mcp"
+
+gcloud auth configure-docker
+docker build -f Dockerfile.mcp -t "$IMAGE" .
+docker push "$IMAGE"
+```
+
+Store both secrets in Secret Manager (never bake them into the image):
+
+```bash
+openssl rand -hex 32 | tr -d '\n' | gcloud secrets create MCP_AUTH_TOKEN --data-file=-
+gcloud secrets create FIREBASE_SERVICE_ACCOUNT --data-file=service-account.json
+```
+
+Deploy:
+
+```bash
+gcloud run deploy lit-ledger-mcp \
+  --image "$IMAGE" \
+  --region us-central1 \
+  --port 8080 \
+  --allow-unauthenticated \
+  --session-affinity \
+  --max-instances 1 \
+  --set-env-vars NODE_ENV=production,FIREBASE_DATABASE_ID=ai-studio-7dcfaee1-ad85-4940-b13d-8df8f061af40 \
+  --set-secrets MCP_AUTH_TOKEN=MCP_AUTH_TOKEN:latest,FIREBASE_SERVICE_ACCOUNT=FIREBASE_SERVICE_ACCOUNT:latest
+```
+
+Notes:
+
+- `--allow-unauthenticated` is required because Claude cannot present a Google IAM identity. TLS
+  plus the Bearer token is the access boundary; keep the token secret.
+- Sessions are held in memory, so `--max-instances 1` (or session affinity) keeps a session's
+  requests on the same instance. Scale out only with sticky routing.
+- Cloud Run injects `PORT`; the server listens on `0.0.0.0:$PORT`.
+- `gcloud run deploy --source .` only picks up a file named `Dockerfile`. Either rename/copy
+  `Dockerfile.mcp` before using it, or build and push the image as shown above.
+
+Verify the deployment:
+
+```bash
+SERVICE_URL=$(gcloud run services describe lit-ledger-mcp --region us-central1 --format='value(status.url)')
+curl -sS "$SERVICE_URL/healthz"     # -> ok
+
+curl -sS "$SERVICE_URL/mcp" \
+  -H "Authorization: Bearer $MCP_AUTH_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}'
+```
+
+A request without the header must return `401`:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' "$SERVICE_URL/mcp"   # -> 401
+```
+
+### 3. Add the connector in Claude
+
+1. Open **claude.ai → Settings → Connectors → Add custom connector**.
+2. Name it `Lit-Ledger`, set the URL to `https://<your-host>/mcp`.
+3. Paste the `MCP_AUTH_TOKEN` value as the **Bearer token**.
+4. Save, then enable the connector from the tools/connectors menu in a chat.
+5. **Mobile:** sign in to the Claude mobile app with the same account — the custom connector
+   appears under **Settings → Connectors** and its nine tools work from the phone.
+6. Ask something like "List the ten lowest-stock Spanish items in Lit-Ledger" to confirm the
+   connection.
+
+If your Claude client offers OAuth only (no static header field), put a gateway in front that
+injects `Authorization: Bearer <MCP_AUTH_TOKEN>` and leave the connector header empty.
+
+Session state lives in the process, so a restart invalidates existing sessions; Claude creates a
+new one on the next request.
+
+## Cloudflare Worker (serverless Custom Connector)
+
+`mcp/worker` serves the same nine tools over MCP Streamable HTTP on Cloudflare Workers,
+fronted by OAuth 2.1 (dynamic client registration, PKCE S256, refresh tokens) from
+`@cloudflare/workers-oauth-provider`. The consent screen asks for a shared access password
+stored as the `MCP_ACCESS_PASSWORD` secret; the Worker compares SHA-256 digests, so the
+password never lands in KV, logs or code.
+
+The Worker cannot run `firebase-admin`, so it uses `mcp/rest-store.ts`: the Firestore REST
+API, authenticated with a service-account JWT signed through WebCrypto, pointed at the
+project's named database. Same tools, same validation, same audit trail. Stock updates use
+real Firestore transactions (`:beginTransaction` / `:commit`), so two people giving out stock
+at once cannot overwrite each other.
+
+### Configuration
+
+`mcp/wrangler.toml` holds the non-secret settings:
+
+| Setting | Value |
+| --- | --- |
+| `FIREBASE_PROJECT_ID` | `inventory-website-ca94e` |
+| `FIREBASE_DATABASE_ID` | `ai-studio-7dcfaee1-ad85-4940-b13d-8df8f061af40` |
+| `MCP_MEMBER_ID` | OAuth subject for the shared connector identity (`lit-ledger-team`) |
+
+Secrets are set with `wrangler secret put` and never appear in the file:
+
+| Secret | Purpose |
+| --- | --- |
+| `FIREBASE_SERVICE_ACCOUNT` | Service-account JSON on one line (`roles/datastore.user` is enough). |
+| `MCP_ACCESS_PASSWORD` | Password shown on the consent screen. |
+
+### Deploy
+
+```bash
+cd mcp
+npx wrangler login
+npx wrangler kv namespace create OAUTH_KV   # paste the id into wrangler.toml
+npx wrangler secret put FIREBASE_SERVICE_ACCOUNT   # service-account JSON, one line
+npx wrangler secret put MCP_ACCESS_PASSWORD
+# edit worker/config.ts → PUBLIC_URL to the deployed origin
+npx wrangler deploy
+```
+
+Or from the repository root: `npm run mcp:dev:worker` and `npm run mcp:deploy:worker`.
+
+`PUBLIC_URL` must match the deployed origin exactly: it is the RFC 9728 resource identifier,
+and the provider refuses to serve discovery metadata or a `resource_metadata` challenge when
+the request origin disagrees.
+
+For local development, create `mcp/.dev.vars` (git-ignored) with the same two secrets and run
+`npx wrangler dev` from `mcp/`.
+
+Then in Claude: **Settings → Connectors → Add custom connector**, URL
+`https://<origin>/mcp`. Claude registers itself, opens the consent page, and you enter the
+access password once. The mobile app picks the connector up from the same account.
+
+### What the flow looks like
+
+1. Client fetches `/.well-known/oauth-protected-resource/mcp` → issuer.
+2. Registers at `/register` (DCR), starts `/authorize` with PKCE.
+3. Consent page posts the access password; the Worker verifies its digest.
+4. `/token` exchanges the code for a 1-hour access token + 30-day refresh token.
+5. `/mcp` accepts the bearer token; `env.OAUTH_PROVIDER` validates it before the handler runs.
 
 ## Antigravity
 
@@ -157,8 +345,8 @@ Add the server (the `cwd` helps `tsx` resolve the project's `node_modules` and c
 {
   "mcpServers": {
     "lit-ledger": {
-      "command": "/absolute/path/to/inventory/node_modules/.bin/tsx",
-      "args": ["/absolute/path/to/inventory/mcp/server.ts"],
+      "command": "/absolute/path/to/inventory/mcp/node_modules/.bin/tsx",
+      "args": ["/absolute/path/to/inventory/mcp/src/stdio.ts"],
       "cwd": "/absolute/path/to/inventory",
       "env": {
         "GOOGLE_APPLICATION_CREDENTIALS": "/absolute/path/to/service-account.json",

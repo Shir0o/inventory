@@ -9,8 +9,13 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "mcp": "tsx mcp/server.ts",
-    "test": "tsx --test mcp/*.test.ts"
+    "test": "tsx --test mcp/test/*.test.ts",
+    "mcp": "npm --prefix mcp run start",
+    "mcp:http": "npm --prefix mcp run start:http",
+    "mcp:typecheck": "npm --prefix mcp run typecheck",
+    "mcp:test": "npm --prefix mcp test",
+    "mcp:dev:worker": "npm --prefix mcp run dev:worker",
+    "mcp:deploy:worker": "npm --prefix mcp run deploy:worker"
   },
   "dependencies": {
     "@google/genai": "^3.3.0",
