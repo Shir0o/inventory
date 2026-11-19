@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "mcp": "tsx mcp/server.ts"
+    "mcp": "tsx mcp/server.ts",
+    "test": "tsx --test mcp/*.test.ts"
   },
   "dependencies": {
     "@google/genai": "^3.3.0",
