@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "lit-ledger": {
+      "command": "./mcp/node_modules/.bin/tsx",
+      "args": ["mcp/src/stdio.ts"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "${GOOGLE_APPLICATION_CREDENTIALS}",
+        "FIREBASE_PROJECT_ID": "inventory-website-ca94e",
+        "FIREBASE_DATABASE_ID": "ai-studio-7dcfaee1-ad85-4940-b13d-8df8f061af40"
+      }
+    }
+  }
+}

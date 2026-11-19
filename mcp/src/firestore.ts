@@ -4,15 +4,16 @@ import { fileURLToPath } from 'node:url';
 import process, { env } from 'node:process';
 import type { DocumentSnapshot as AdminDocumentSnapshot, Query as AdminQuery } from 'firebase-admin/firestore';
 import type { DocumentSnapshot as ClientDocumentSnapshot, Query as ClientQuery } from 'firebase/firestore';
+import type {
+  CollectionQuery,
+  FirestoreBackend,
+  FirestoreData,
+  FirestoreDoc,
+  TransactionContext,
+} from './backend.ts';
+import { MemoryBackend } from './memory.ts';
 
-export type FirestoreData = Record<string, unknown>;
-
-export interface FirestoreDoc {
-  id: string;
-  data: FirestoreData;
-  /** Set when the SDK could not decode this document; `data` is then empty. */
-  readError?: string;
-}
+export type { CollectionQuery, FirestoreBackend, FirestoreData, FirestoreDoc, TransactionContext };
 
 /**
  * Decodes query results one document at a time, so a single document the SDK
@@ -35,30 +36,6 @@ export function decodeDocs<S extends { id: string }>(
   });
 }
 
-export interface CollectionQuery {
-  orderBy?: string;
-  direction?: 'asc' | 'desc';
-  limit?: number;
-}
-
-export interface TransactionContext {
-  get(path: string): Promise<FirestoreDoc | null>;
-  update(path: string, data: FirestoreData): void;
-  set(path: string, data: FirestoreData): void;
-}
-
-export interface FirestoreBackend {
-  readonly mode: 'service-account' | 'client';
-  readonly projectId: string;
-  readonly databaseId: string;
-  getDoc(path: string): Promise<FirestoreDoc | null>;
-  getDocsWhere(collectionPath: string, field: string, value: unknown, max?: number): Promise<FirestoreDoc[]>;
-  listCollection(collectionPath: string, options?: CollectionQuery): Promise<FirestoreDoc[]>;
-  addDoc(collectionPath: string, data: FirestoreData): Promise<string>;
-  runTransaction<T>(worker: (tx: TransactionContext) => Promise<T>): Promise<T>;
-  serverTimestamp(): unknown;
-}
-
 interface ServiceAccountJson {
   project_id?: string;
   client_email: string;
@@ -73,7 +50,7 @@ interface AppletConfig {
   appId?: string;
 }
 
-const APPLET_CONFIG_PATH = fileURLToPath(new URL('../firebase-applet-config.json', import.meta.url));
+const APPLET_CONFIG_PATH = fileURLToPath(new URL('../../firebase-applet-config.json', import.meta.url));
 const DEFAULT_DATABASE_ID = '(default)';
 
 function readAppletConfig(): AppletConfig {
@@ -339,6 +316,13 @@ async function createClientBackend(options: {
  * using the Firebase client SDK (security rules apply, as the signed-in user).
  */
 export async function createBackend(): Promise<FirestoreBackend> {
+  if (env.MCP_BACKEND?.trim() === 'memory') {
+    if (env.NODE_ENV === 'production') {
+      throw new Error('MCP_BACKEND=memory is not allowed with NODE_ENV=production.');
+    }
+    return new MemoryBackend();
+  }
+
   const applet = readAppletConfig();
   const projectId = env.FIREBASE_PROJECT_ID?.trim() || applet.projectId;
 

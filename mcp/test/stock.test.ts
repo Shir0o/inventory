@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decodeDocs } from './firestore.ts';
-import { DEFAULT_REORDER, planStockChange, reorderPointFor, serialize, statusForStock } from './stock.ts';
+import { decodeDocs } from '../src/firestore.ts';
+import { DEFAULT_REORDER, planStockChange, reorderPointFor, serialize, statusForStock } from '../src/stock.ts';
 
 // Shaped like the English Bible document the bug was found on.
 const englishBible = {
