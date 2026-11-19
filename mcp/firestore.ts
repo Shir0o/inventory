@@ -10,6 +10,29 @@ export type FirestoreData = Record<string, unknown>;
 export interface FirestoreDoc {
   id: string;
   data: FirestoreData;
+  /** Set when the SDK could not decode this document; `data` is then empty. */
+  readError?: string;
+}
+
+/**
+ * Decodes query results one document at a time, so a single document the SDK
+ * cannot read is reported instead of failing the whole list.
+ */
+export function decodeDocs<S extends { id: string }>(
+  snapshots: S[] | undefined,
+  toDoc: (snapshot: S) => FirestoreDoc
+): FirestoreDoc[] {
+  return (snapshots ?? []).map((snapshot) => {
+    try {
+      return toDoc(snapshot);
+    } catch (error) {
+      return {
+        id: snapshot.id,
+        data: {},
+        readError: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
 }
 
 export interface CollectionQuery {
@@ -154,7 +177,7 @@ async function createAdminBackend(
 
     async getDocsWhere(collectionPath, field, value, max = 10) {
       const snapshot = await db.collection(collectionPath).where(field, '==', value).limit(max).get();
-      return snapshot.docs.map(toDoc);
+      return decodeDocs(snapshot.docs, toDoc);
     },
 
     async listCollection(collectionPath, options = {}) {
@@ -166,7 +189,7 @@ async function createAdminBackend(
         query = query.limit(options.limit);
       }
       const snapshot = await query.get();
-      return snapshot.docs.map(toDoc);
+      return decodeDocs(snapshot.docs, toDoc);
     },
 
     async addDoc(collectionPath, data) {
@@ -260,7 +283,7 @@ async function createClientBackend(options: {
           clientFirestore.limit(max)
         )
       );
-      return snapshot.docs.map(toDoc);
+      return decodeDocs(snapshot.docs, toDoc);
     },
 
     async listCollection(collectionPath, queryOptions = {}) {
@@ -275,7 +298,7 @@ async function createClientBackend(options: {
         query = clientFirestore.query(query, clientFirestore.limit(queryOptions.limit));
       }
       const snapshot = await clientFirestore.getDocs(query);
-      return snapshot.docs.map(toDoc);
+      return decodeDocs(snapshot.docs, toDoc);
     },
 
     async addDoc(collectionPath, data) {

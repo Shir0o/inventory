@@ -9,18 +9,22 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { createBackend, logToStderr, type FirestoreBackend, type FirestoreDoc } from './firestore.ts';
+import {
+  asNumber,
+  categoryKey,
+  planStockChange,
+  reorderPointFor,
+  reorderTableFrom,
+  serialize,
+  statusForStock,
+  stockOf,
+  type ReorderTable,
+} from './stock.ts';
 
-const DEFAULT_WARNING_LIMIT = 250;
-const DEFAULT_CRITICAL_LIMIT = 75;
 const MAX_INVENTORY_SCAN = 2500;
 const MAX_EVENT_SCAN = 2500;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-interface Thresholds {
-  warning: number;
-  critical: number;
-}
 
 type TextContent = { type: 'text'; text: string };
 type ToolResponse = { content: TextContent[]; isError?: boolean };
@@ -57,48 +61,6 @@ async function runTool(work: () => Promise<unknown>): Promise<ToolResponse> {
   }
 }
 
-/** Converts Firestore Timestamps and nested values into JSON-safe values. */
-function serialize(value: unknown): unknown {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (Array.isArray(value)) {
-    return value.map(serialize);
-  }
-  if (typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    if (typeof record.toDate === 'function') {
-      const date = (record as { toDate: () => Date }).toDate();
-      if (date instanceof Date && !Number.isNaN(date.getTime())) {
-        return date.toISOString();
-      }
-    }
-    const result: Record<string, unknown> = {};
-    for (const [key, nested] of Object.entries(record)) {
-      result[key] = serialize(nested);
-    }
-    return result;
-  }
-  return value;
-}
-
-function asNumber(value: unknown, fallback = 0): number {
-  const number = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(number) ? number : fallback;
-}
-
-function categoryKey(raw: unknown): string {
-  const value = String(raw ?? '').trim().toLowerCase();
-  if (!value) return '';
-  if (value.includes('bib')) return 'bibles';
-  if (value.includes('book') || value.includes('element') || value.includes('folleto')) return 'booklets';
-  if (value.includes('tract') || value.includes('tratado')) return 'tracts';
-  return value;
-}
-
 function displayCategory(raw: unknown): string | null {
   if (raw === null || raw === undefined || String(raw).trim() === '') return null;
   const key = categoryKey(raw);
@@ -124,20 +86,10 @@ function displayLanguage(raw: unknown): string | null {
   return String(raw).trim();
 }
 
-function stockOf(data: Record<string, unknown>): number {
-  return asNumber(data.stockLevel ?? data.stock, 0);
-}
-
-function statusForStock(stock: number, thresholds: Thresholds): 'Healthy' | 'Low' | 'Out' {
-  if (stock <= thresholds.critical) return 'Out';
-  if (stock <= thresholds.warning) return 'Low';
-  return 'Healthy';
-}
-
-function normalizeItem(doc: FirestoreDoc, thresholds: Thresholds): Record<string, unknown> {
+function normalizeItem(doc: FirestoreDoc, reorder: ReorderTable): Record<string, unknown> {
   const data = serialize(doc.data) as Record<string, unknown>;
   const stockLevel = stockOf(data);
-  const rawStatus = typeof data.status === 'string' ? data.status.trim() : '';
+  const reorderPoint = reorderPointFor(data, reorder);
 
   return {
     ...data,
@@ -147,7 +99,9 @@ function normalizeItem(doc: FirestoreDoc, thresholds: Thresholds): Record<string
     category: displayCategory(data.category ?? data.cat),
     language: displayLanguage(data.language ?? data.lang),
     stockLevel,
-    status: rawStatus || statusForStock(stockLevel, thresholds),
+    reorderPoint,
+    // Effective status, computed the way the app's Inventory screen does, not the stored field.
+    status: statusForStock(stockLevel, reorderPoint),
   };
 }
 
@@ -192,16 +146,26 @@ function parseDay(value: string, endOfDay: boolean): number {
   ).getTime();
 }
 
-async function loadThresholds(backend: FirestoreBackend): Promise<Thresholds> {
+async function loadReorderTable(backend: FirestoreBackend): Promise<ReorderTable> {
   const settings = await backend.getDoc('settings/system');
-  return {
-    warning: Math.max(0, asNumber(settings?.data.warningThreshold, DEFAULT_WARNING_LIMIT)),
-    critical: Math.max(0, asNumber(settings?.data.criticalThreshold, DEFAULT_CRITICAL_LIMIT)),
-  };
+  return reorderTableFrom(settings?.data);
 }
 
-async function fetchInventory(backend: FirestoreBackend): Promise<FirestoreDoc[]> {
-  return backend.listCollection('inventory', { limit: MAX_INVENTORY_SCAN });
+interface InventoryScan {
+  docs: FirestoreDoc[];
+  /** Documents the SDK could not decode; reported so one bad document doesn't hide the rest. */
+  unreadable: { id: string; error: string }[];
+}
+
+async function fetchInventory(backend: FirestoreBackend): Promise<InventoryScan> {
+  const all = await backend.listCollection('inventory', { limit: MAX_INVENTORY_SCAN });
+  const unreadable = all
+    .filter((doc) => doc.readError !== undefined)
+    .map((doc) => ({ id: doc.id, error: String(doc.readError) }));
+  for (const entry of unreadable) {
+    logToStderr(`[lit-ledger-mcp] could not read inventory/${entry.id}: ${entry.error}`);
+  }
+  return { docs: all.filter((doc) => doc.readError === undefined), unreadable };
 }
 
 async function findItemsBySku(backend: FirestoreBackend, sku: string): Promise<FirestoreDoc[]> {
@@ -213,7 +177,7 @@ async function findItemsBySku(backend: FirestoreBackend, sku: string): Promise<F
   if (upper.length > 0) return upper;
 
   const wanted = trimmed.toLowerCase();
-  const all = await fetchInventory(backend);
+  const { docs: all } = await fetchInventory(backend);
   return all.filter(
     (doc) => String(doc.data.sku ?? doc.data.code ?? '').trim().toLowerCase() === wanted
   );
@@ -343,9 +307,9 @@ server.registerTool(
   async ({ category, language, status, lowStockOnly, maxStockLevel, sortBy, sortDirection, limit }) =>
     runTool(async () => {
       const backend = await getBackend();
-      const thresholds = await loadThresholds(backend);
-      const docs = await fetchInventory(backend);
-      let items = docs.map((doc) => normalizeItem(doc, thresholds));
+      const reorder = await loadReorderTable(backend);
+      const { docs, unreadable } = await fetchInventory(backend);
+      let items = docs.map((doc) => normalizeItem(doc, reorder));
 
       if (category) {
         const wanted = categoryKey(category);
@@ -371,6 +335,7 @@ server.registerTool(
         returned: Math.min(items.length, limit),
         limit,
         items: items.slice(0, limit),
+        ...(unreadable.length > 0 ? { unreadable } : {}),
       };
     })
 );
@@ -390,9 +355,9 @@ server.registerTool(
   async ({ itemId, sku }) =>
     runTool(async () => {
       const backend = await getBackend();
-      const thresholds = await loadThresholds(backend);
+      const reorder = await loadReorderTable(backend);
       const item = await resolveItem(backend, { itemId, sku });
-      return { item: normalizeItem(item, thresholds) };
+      return { item: normalizeItem(item, reorder) };
     })
 );
 
@@ -414,12 +379,12 @@ server.registerTool(
   async ({ query, category, language, limit }) =>
     runTool(async () => {
       const backend = await getBackend();
-      const thresholds = await loadThresholds(backend);
-      const docs = await fetchInventory(backend);
+      const reorder = await loadReorderTable(backend);
+      const { docs, unreadable } = await fetchInventory(backend);
       const normalizedQuery = query.toLowerCase();
       const terms = normalizedQuery.split(/\s+/).filter(Boolean);
 
-      let items = docs.map((doc) => normalizeItem(doc, thresholds));
+      let items = docs.map((doc) => normalizeItem(doc, reorder));
       if (category) {
         const wanted = categoryKey(category);
         items = items.filter((item) => categoryKey(item.category) === wanted);
@@ -442,6 +407,7 @@ server.registerTool(
         total: matches.length,
         returned: Math.min(matches.length, limit),
         items: matches.slice(0, limit).map((match) => ({ ...match.item, matchScore: match.score })),
+        ...(unreadable.length > 0 ? { unreadable } : {}),
       };
     })
 );
@@ -452,21 +418,18 @@ server.registerTool(
     title: 'List categories',
     description:
       'Summarize inventory by category: item count, total stock, low-stock and out-of-stock counts. ' +
-      'Also returns the configured warning/critical thresholds and any categories stored in settings.',
+      'Also returns the reorder points used for Low status and any categories stored in settings.',
     annotations: { readOnlyHint: true, openWorldHint: false },
   },
   async () =>
     runTool(async () => {
       const backend = await getBackend();
-      const [settings, docs] = await Promise.all([
+      const [settings, { docs, unreadable }] = await Promise.all([
         backend.getDoc('settings/system'),
         fetchInventory(backend),
       ]);
-      const thresholds = {
-        warning: Math.max(0, asNumber(settings?.data.warningThreshold, DEFAULT_WARNING_LIMIT)),
-        critical: Math.max(0, asNumber(settings?.data.criticalThreshold, DEFAULT_CRITICAL_LIMIT)),
-      };
-      const items = docs.map((doc) => normalizeItem(doc, thresholds));
+      const reorder = reorderTableFrom(settings?.data);
+      const items = docs.map((doc) => normalizeItem(doc, reorder));
 
       const categories = new Map<
         string,
@@ -495,9 +458,10 @@ server.registerTool(
       return {
         totalItems: items.length,
         totalStock: items.reduce((sum, item) => sum + asNumber(item.stockLevel), 0),
-        thresholds,
+        reorderPoints: reorder,
         configuredCategories: Array.isArray(configured) ? configured : null,
         categories: [...categories.values()].sort((left, right) => right.totalStock - left.totalStock),
+        ...(unreadable.length > 0 ? { unreadable } : {}),
       };
     })
 );
@@ -612,8 +576,8 @@ server.registerTool(
     title: 'Update item quantity',
     description:
       'Change an item\'s stock level in a transaction. mode="set" replaces it, "add" receives units, ' +
-      '"subtract" gives units out (never below zero). Recomputes Healthy/Low/Out status from settings ' +
-      'thresholds and writes an audit log entry.',
+      '"subtract" gives units out (never below zero). Keeps both count fields (stockLevel and stock) ' +
+      'equal, recomputes Healthy/Low/Out status from the reorder point and writes an audit log entry.',
     inputSchema: {
       itemId: z.string().trim().min(1).optional().describe('Firestore document id of the item.'),
       sku: z.string().trim().min(1).optional().describe('SKU of the item, if itemId is not provided.'),
@@ -631,7 +595,7 @@ server.registerTool(
   async ({ itemId, sku, mode, quantity, reason }) =>
     runTool(async () => {
       const backend = await getBackend();
-      const thresholds = await loadThresholds(backend);
+      const reorder = await loadReorderTable(backend);
       const target = await resolveItem(backend, { itemId, sku });
       const title = String(target.data.title ?? target.data.name ?? target.id);
 
@@ -641,24 +605,13 @@ server.registerTool(
           throw new Error(`Inventory item "${target.id}" no longer exists.`);
         }
 
-        const previousStock = stockOf(current.data);
-        const nextStock =
-          mode === 'set' ? quantity : mode === 'add' ? previousStock + quantity : previousStock - quantity;
-
-        if (nextStock < 0) {
-          throw new Error(
-            `Insufficient stock for "${title}": ${previousStock} available, ${quantity} requested.`
-          );
-        }
-
-        const status = statusForStock(nextStock, thresholds);
+        const change = planStockChange(current.data, mode, quantity, reorder, title);
         tx.update(`inventory/${target.id}`, {
-          stockLevel: nextStock,
-          status,
+          ...change.fields,
           updatedAt: backend.serverTimestamp(),
         });
 
-        return { previousStock, nextStock, status };
+        return change;
       });
 
       const action =
@@ -698,7 +651,7 @@ server.registerTool(
         newStock: result.nextStock,
         change: result.nextStock - result.previousStock,
         status: result.status,
-        item: updated ? normalizeItem(updated, thresholds) : null,
+        item: updated ? normalizeItem(updated, reorder) : null,
       };
     })
 );
@@ -724,7 +677,7 @@ server.registerTool(
   async ({ sku, title, category, language, subtitle, unitPrice, stockLevel }) =>
     runTool(async () => {
       const backend = await getBackend();
-      const thresholds = await loadThresholds(backend);
+      const reorder = await loadReorderTable(backend);
       const normalizedSku = sku.trim().toUpperCase();
 
       const existing = await findItemsBySku(backend, normalizedSku);
@@ -740,7 +693,8 @@ server.registerTool(
         category,
         language,
         stockLevel,
-        status: statusForStock(stockLevel, thresholds),
+        stock: stockLevel,
+        status: statusForStock(stockLevel, reorderPointFor({ category }, reorder)),
         ...(unitPrice === undefined ? {} : { unitPrice }),
         createdAt: backend.serverTimestamp(),
         updatedAt: backend.serverTimestamp(),
@@ -759,7 +713,7 @@ server.registerTool(
       });
 
       const created = await backend.getDoc(`inventory/${itemId}`);
-      return { item: created ? normalizeItem(created, thresholds) : { id: itemId } };
+      return { item: created ? normalizeItem(created, reorder) : { id: itemId } };
     })
 );
 

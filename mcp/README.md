@@ -10,7 +10,7 @@ It reads and writes the same collections the app uses:
 | `inventory/{itemId}` | Literature catalog items (`sku`, `title`, `category`, `language`, `stockLevel`, `status`, …) |
 | `events/{eventId}` | Distribution events (`name`, `date`, `location`, `materialsDistributed`, `status`, `categoryStats`, …) |
 | `events/{eventId}/materials/{materialId}` | Items assigned to an event |
-| `settings/system` | Global settings, including `warningThreshold` / `criticalThreshold` |
+| `settings/system` | Global settings, including the per-category `reorder` points |
 | `audit_logs/{logId}` | Stock and catalog audit trail |
 
 The project uses a **named Firestore database** (`ai-studio-7dcfaee1-ad85-4940-b13d-8df8f061af40`),
@@ -24,16 +24,19 @@ not `(default)`. The server reads that id from `firebase-applet-config.json`; ov
 | `list_items` | read | Filter by category, language, status, stock level; sort and page. |
 | `get_item` | read | Fetch one item by Firestore id or SKU (case-insensitive). |
 | `search_items` | read | Free-text search across SKU, title, subtitle, base code/name and aliases. |
-| `list_categories` | read | Category summary (items, total stock, low/out counts) plus thresholds. |
+| `list_categories` | read | Category summary (items, total stock, low/out counts) plus reorder points. |
 | `list_events` | read | Events newest-first, with status and inclusive date-range filters. |
 | `get_event` | read | One event plus its materials subcollection. |
-| `update_item_quantity` | write | `set` / `add` / `subtract` stock atomically, recompute status, write audit log. |
+| `update_item_quantity` | write | `set` / `add` / `subtract` stock atomically, keep `stockLevel` and `stock` equal, recompute status, write audit log. |
 | `create_item` | write | Create a catalog item; rejects duplicate SKUs and writes an audit log. |
 | `list_audit_logs` | read | Recent audit entries, optionally filtered by action or target id. |
 
-Status is derived exactly like the app (`src/lib/countPosting.ts`): `Out` at or below the
-critical threshold, `Low` at or below the warning threshold, otherwise `Healthy`. Thresholds
-come from `settings/system`, defaulting to `75` / `250`.
+Status is derived like the app's Inventory screen: `Out` at zero, `Low` below the item's
+reorder point, otherwise `Healthy`. The reorder point is the item's own `reorder`, then
+`settings/system.reorder` for its category, then the app defaults (Bible 20, Booklet 60,
+Tract 200; 100 for anything else). Read tools report this effective status rather than the
+stored `status` field. If the SDK cannot decode a document, list and search tools skip it
+and name it under `unreadable` instead of failing.
 
 ## Install and run
 

@@ -1,6 +1,6 @@
 name: CI
 
-# Inventory has no test suite: lint (tsc --noEmit) is the correctness gate and
+# Lint (tsc --noEmit) and the MCP unit tests (npm test) are the correctness gate, and
 # build (vite build) proves the app still bundles. Adapted from package-maker
 # without its coverage steps.
 on:
@@ -29,6 +29,9 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Test
+        run: npm test
 
       - name: Build
         run: npm run build
