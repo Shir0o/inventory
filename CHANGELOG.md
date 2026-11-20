@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/Shir0o/inventory/compare/v1.0.1...v1.1.0) (2026-11-19)
+
+
+### Features
+
+* add stdio MCP server for Claude and Antigravity ([#49](https://github.com/Shir0o/inventory/issues/49)) ([5308a85](https://github.com/Shir0o/inventory/commit/5308a85d413b54b2644930eea24f0f786191fe6e))
+* **mcp:** standardize package layout and add cloudflare worker ([#52](https://github.com/Shir0o/inventory/issues/52)) ([61878d8](https://github.com/Shir0o/inventory/commit/61878d8594cb464bfb99cafed9e2e287f5e9f1dc))
+
+
+### Bug Fixes
+
+* **mcp:** keep both stock fields in sync and stop list/search crashing ([#51](https://github.com/Shir0o/inventory/issues/51)) ([6439f2e](https://github.com/Shir0o/inventory/commit/6439f2ef40ba4ea0580280e3ee4069ca133ab40f))
+
 ## [1.0.1](https://github.com/Shir0o/inventory/compare/v1.0.0...v1.0.1) (2026-11-16)
 
 
