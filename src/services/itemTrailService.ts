@@ -6,6 +6,7 @@ export interface ItemTrailEntry {
   id: string;
   date: string;
   isoDate: string;
+  timestamp: number;
   type: 'delivery' | 'event' | 'adjustment' | 'starting' | 'correction' | 'outflow';
   typeLabel: string;
   badgeClass: string;
@@ -56,39 +57,91 @@ function textIncludes(haystack?: string, needle?: string): boolean {
 }
 
 /**
- * Extracts and formats date string from various representations.
+ * Extracts and formats date string from various representations,
+ * returning a human display date, an ISO date string (YYYY-MM-DD),
+ * and a numeric timestamp (ms) for accurate sorting.
  */
-function formatTrailDate(rawDate: any): { displayDate: string; isoDate: string } {
-  if (!rawDate) {
-    const now = new Date();
-    const iso = now.toISOString().slice(0, 10);
-    return { displayDate: formatDateString(iso), isoDate: iso };
-  }
+function formatTrailDate(rawDate: any, fallbackTimestamp?: any): { displayDate: string; isoDate: string; timestamp: number } {
+  let ms: number | null = null;
+  let isoDate = '';
 
-  if (typeof rawDate === 'string') {
-    const iso = rawDate.slice(0, 10);
-    return { displayDate: formatDateString(iso), isoDate: iso };
-  }
-
+  // 1. Check if rawDate is a Firestore Timestamp with .toDate() or .seconds
   if (rawDate && typeof rawDate.toDate === 'function') {
     const d = rawDate.toDate();
-    const iso = d.toISOString().slice(0, 10);
-    return { displayDate: formatDateString(iso), isoDate: iso };
+    ms = d.getTime();
+    isoDate = d.toISOString().slice(0, 10);
+  } else if (rawDate && typeof rawDate.seconds === 'number') {
+    ms = rawDate.seconds * 1000 + Math.floor((rawDate.nanoseconds || 0) / 1e6);
+    isoDate = new Date(ms).toISOString().slice(0, 10);
+  } else if (typeof rawDate === 'number') {
+    ms = rawDate;
+    isoDate = new Date(ms).toISOString().slice(0, 10);
+  } else if (typeof rawDate === 'string' && rawDate.trim()) {
+    const str = rawDate.trim();
+    // Check YYYY-MM-DD or ISO 8601
+    const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+      isoDate = `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+      const parsed = Date.parse(str);
+      ms = !isNaN(parsed) ? parsed : new Date(`${isoDate}T12:00:00Z`).getTime();
+    } else {
+      const parsed = Date.parse(str);
+      if (!isNaN(parsed)) {
+        const d = new Date(parsed);
+        ms = d.getTime();
+        isoDate = d.toISOString().slice(0, 10);
+      } else {
+        // Maybe "2 Aug" or "29 Jul"? Try appending current year (2026)
+        const withYear = `${str} 2026`;
+        const parsedWithYear = Date.parse(withYear);
+        if (!isNaN(parsedWithYear)) {
+          const d = new Date(parsedWithYear);
+          ms = d.getTime();
+          isoDate = d.toISOString().slice(0, 10);
+        }
+      }
+    }
   }
 
-  if (rawDate && rawDate.seconds) {
-    const d = new Date(rawDate.seconds * 1000);
-    const iso = d.toISOString().slice(0, 10);
-    return { displayDate: formatDateString(iso), isoDate: iso };
+  // 2. Incorporate fallback timestamp (e.g. log.timestamp with exact creation time on that day)
+  if (fallbackTimestamp) {
+    let fallbackMs: number | null = null;
+    if (typeof fallbackTimestamp.toDate === 'function') {
+      fallbackMs = fallbackTimestamp.toDate().getTime();
+    } else if (typeof fallbackTimestamp.seconds === 'number') {
+      fallbackMs = fallbackTimestamp.seconds * 1000 + Math.floor((fallbackTimestamp.nanoseconds || 0) / 1e6);
+    } else if (typeof fallbackTimestamp === 'number') {
+      fallbackMs = fallbackTimestamp;
+    } else if (typeof fallbackTimestamp === 'string') {
+      const p = Date.parse(fallbackTimestamp);
+      if (!isNaN(p)) fallbackMs = p;
+    }
+
+    if (fallbackMs !== null) {
+      if (ms === null) {
+        ms = fallbackMs;
+        if (!isoDate) isoDate = new Date(ms).toISOString().slice(0, 10);
+      } else {
+        const fallbackIso = new Date(fallbackMs).toISOString().slice(0, 10);
+        // If dates match, preserve the exact sub-day timestamp for sorting
+        if (fallbackIso === isoDate) {
+          ms = fallbackMs;
+        }
+      }
+    }
   }
 
-  try {
-    const d = new Date(rawDate);
-    const iso = d.toISOString().slice(0, 10);
-    return { displayDate: formatDateString(iso), isoDate: iso };
-  } catch {
-    return { displayDate: String(rawDate), isoDate: '' };
+  if (ms === null || isNaN(ms)) {
+    const now = new Date();
+    ms = now.getTime();
+    isoDate = now.toISOString().slice(0, 10);
   }
+
+  return {
+    displayDate: formatDateString(isoDate),
+    isoDate,
+    timestamp: ms
+  };
 }
 
 function formatDateString(iso: string): string {
@@ -178,13 +231,14 @@ export function buildItemTrail({
         const took = Number(line.took) || 0;
         const back = Number(line.back) || 0;
         const distributed = Math.max(0, took - back);
-        const { displayDate, isoDate } = formatTrailDate(ev.date);
+        const { displayDate, isoDate, timestamp } = formatTrailDate(ev.date, (ev as any).created || (ev as any).createdAt || (ev as any).timestamp);
 
         const entryId = `event-${ev.id}-${line.key || line.code}-${line.lang}`;
         entriesMap.set(entryId, {
           id: entryId,
           date: displayDate,
           isoDate,
+          timestamp,
           type: 'event',
           typeLabel: 'Event Distribution',
           badgeClass: 'bg-[#e9f1f7] text-[#1f5f8b] border-[#bed6e8]',
@@ -206,13 +260,14 @@ export function buildItemTrail({
         if (!corr.changes) return;
         corr.changes.forEach(chg => {
           if (matchesItem(chg.key, undefined, editionLang)) {
-            const { displayDate, isoDate } = formatTrailDate(corr.when || ev.date);
+            const { displayDate, isoDate, timestamp } = formatTrailDate(corr.when || ev.date, (ev as any).timestamp);
             const deltaCount = chg.to - chg.from;
             const entryId = `corr-${ev.id}-${corr.id}-${chg.key}`;
             entriesMap.set(entryId, {
               id: entryId,
               date: displayDate,
               isoDate,
+              timestamp,
               type: 'correction',
               typeLabel: 'Recount Correction',
               badgeClass: 'bg-[#f4edf7] text-[#7a4a8b] border-[#dfcde5]',
@@ -234,7 +289,7 @@ export function buildItemTrail({
   rawLogs.forEach(log => {
     const meta = log.metadata || {};
     const logDate = meta.occurredAt || meta.date || log.timestamp;
-    const { displayDate, isoDate } = formatTrailDate(logDate);
+    const { displayDate, isoDate, timestamp } = formatTrailDate(logDate, log.timestamp);
 
     // Delivery Received
     if (log.action === 'DELIVERY_RECEIVED' || (log.action === 'STOCK_UPDATE' && meta.orderTitle)) {
@@ -260,6 +315,7 @@ export function buildItemTrail({
           id: entryId,
           date: displayDate,
           isoDate,
+          timestamp,
           type: 'delivery',
           typeLabel: 'Delivery Receipt',
           badgeClass: 'bg-[#e6f4ea] text-[#137333] border-[#bce2c7]',
@@ -326,6 +382,7 @@ export function buildItemTrail({
           id: entryId,
           date: displayDate,
           isoDate,
+          timestamp,
           type,
           typeLabel,
           badgeClass,
@@ -353,6 +410,7 @@ export function buildItemTrail({
           id: entryId,
           date: displayDate,
           isoDate,
+          timestamp,
           type: 'starting',
           typeLabel: 'Initial Stock',
           badgeClass: 'bg-[#f1f3f4] text-[#191c20] border-[#dcdee3]',
@@ -376,12 +434,13 @@ export function buildItemTrail({
     if (isMatch) {
       const entryId = `initial-m-${idx}`;
       if (!entriesMap.has(entryId)) {
-        const { displayDate, isoDate } = formatTrailDate(m.iso || m.date);
+        const { displayDate, isoDate, timestamp } = formatTrailDate(m.iso || m.date);
         const isReceipt = m.kind === 'receipt';
         entriesMap.set(entryId, {
           id: entryId,
           date: displayDate,
           isoDate,
+          timestamp,
           type: isReceipt ? 'delivery' : 'adjustment',
           typeLabel: isReceipt ? 'Delivery Receipt' : 'Shelf Adjustment',
           badgeClass: isReceipt 
@@ -397,12 +456,15 @@ export function buildItemTrail({
     }
   });
 
-  // Convert map to array and sort chronologically (oldest to newest for running balance)
-  const sortedChronological = Array.from(entriesMap.values()).sort((a, b) => {
-    if (a.isoDate && b.isoDate && a.isoDate !== b.isoDate) {
-      return a.isoDate.localeCompare(b.isoDate);
+  // Sort newest first (latest on top) by numeric timestamp, then isoDate, then ID
+  const sortedNewestFirst = Array.from(entriesMap.values()).sort((a, b) => {
+    if (b.timestamp !== a.timestamp) {
+      return b.timestamp - a.timestamp;
     }
-    return 0;
+    if (b.isoDate && a.isoDate && b.isoDate !== a.isoDate) {
+      return b.isoDate.localeCompare(a.isoDate);
+    }
+    return b.id.localeCompare(a.id);
   });
 
   // Calculate metrics
@@ -411,7 +473,7 @@ export function buildItemTrail({
   let netAdjustments = 0;
   let eventCount = 0;
 
-  sortedChronological.forEach(entry => {
+  sortedNewestFirst.forEach(entry => {
     if (entry.type === 'delivery') {
       if (entry.delta && entry.delta > 0) totalDelivered += entry.delta;
     } else if (entry.type === 'event') {
@@ -423,9 +485,6 @@ export function buildItemTrail({
       if (entry.delta !== null) netAdjustments += entry.delta;
     }
   });
-
-  // Return newest first for standard display
-  const sortedNewestFirst = [...sortedChronological].reverse();
 
   return {
     code: editionCode,

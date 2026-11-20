@@ -196,115 +196,121 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
         {/* Low stock table */}
         <div className="mx-6 mt-3 border border-[#dcdee3] rounded-lg overflow-hidden bg-white shadow-xs">
-          <div className="grid grid-cols-[1fr_80px_90px_90px_80px_100px] items-center px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
-            <div>Edition</div>
-            <div>Code</div>
-            <div className="text-right">In store</div>
-            <div className="text-right">Reorder at</div>
-            <div className="text-right">Suggest</div>
-            <div className="text-right">Status</div>
-          </div>
+          <div className="overflow-x-auto">
+            <div className="min-w-[640px]">
+              <div className="grid grid-cols-[1fr_80px_90px_90px_80px_100px] items-center gap-x-2 px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
+                <div>Edition</div>
+                <div>Code</div>
+                <div className="text-right">In store</div>
+                <div className="text-right">Reorder at</div>
+                <div className="text-right">Suggest</div>
+                <div className="text-right">Status</div>
+              </div>
 
-          {flagged.length === 0 ? (
-            <div className="py-12 text-center text-[#6c6f77]">
-              <p className="font-semibold text-[14px] text-[#191c20]">Nothing is below its reorder point.</p>
-              <p className="text-[13px] mt-1">All literature editions are currently stocked above their reorder thresholds.</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-[#eef0f3]">
-              {flagged.map((item) => {
-                const code = `${item.title.code}-${item.edition.lang}`;
-                const onOrder = item.onOrder;
-                const isOut = item.out;
+              {flagged.length > 0 && (
+                <div className="divide-y divide-[#eef0f3]">
+                  {flagged.map((item) => {
+                    const code = `${item.title.code}-${item.edition.lang}`;
+                    const onOrder = item.onOrder;
+                    const isOut = item.out;
 
-                return (
-                  <div
-                    key={code}
-                    className={`
-                      grid grid-cols-[1fr_80px_90px_90px_80px_100px] items-center px-4 py-3 text-[13px] transition-colors
-                      ${onOrder ? 'bg-[#fbfbfc]' : isOut ? 'bg-[#fffcfc]' : 'bg-[#fffdf7]'}
-                    `}
-                  >
-                    {/* Title & Lang Badge */}
-                    <div className="min-w-0 flex items-baseline gap-2.5 pr-3">
-                      <span className={`
-                        text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-xs flex-none
-                        ${item.edition.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}
-                      `}>
-                        {item.edition.lang}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="flex items-baseline gap-2 flex-wrap">
-                          <span className="font-semibold text-[#191c20] text-[13.5px] leading-snug truncate">
-                            {item.edition.title}
+                    return (
+                      <div
+                        key={code}
+                        className={`
+                          grid grid-cols-[1fr_80px_90px_90px_80px_100px] items-center gap-x-2 px-4 py-3 text-[13px] transition-colors
+                          ${onOrder ? 'bg-[#fbfbfc]' : isOut ? 'bg-[#fffcfc]' : 'bg-[#fffdf7]'}
+                        `}
+                      >
+                        {/* Title & Lang Badge */}
+                        <div className="min-w-0 flex items-baseline gap-2.5 pr-3">
+                          <span className={`
+                            text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-xs flex-none
+                            ${item.edition.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}
+                          `}>
+                            {item.edition.lang}
                           </span>
-                          <span className="font-mono text-[9.5px] text-[#8b8e96] bg-[#f1f3f5] px-1.5 py-0.5 rounded tracking-tight border border-[#dcdee3]/60 flex-none">
+                          <div className="min-w-0">
+                            <div className="flex items-baseline gap-2 flex-wrap">
+                              <span className="font-semibold text-[#191c20] text-[13.5px] leading-snug truncate">
+                                {item.edition.title}
+                              </span>
+                              <span className="font-mono text-[9.5px] text-[#8b8e96] bg-[#f1f3f5] px-1.5 py-0.5 rounded tracking-tight border border-[#dcdee3]/60 flex-none">
+                                {code}
+                              </span>
+                            </div>
+                            <div className="text-[11.5px] text-[#8b8e96] mt-0.5 truncate">
+                              {onOrder 
+                                ? `${onOrder.qty.toLocaleString()} on order since ${onOrder.orderedDate}`
+                                : isOut
+                                  ? 'Nothing in store — cannot be taken out'
+                                  : `${item.at - item.edition.stock} below reorder point`
+                              }
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Code */}
+                        <div className="font-mono text-[11px] text-[#8b8e96] truncate">
+                          <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
                             {code}
                           </span>
                         </div>
-                        <div className="text-[11.5px] text-[#8b8e96] mt-0.5 truncate">
-                          {onOrder 
-                            ? `${onOrder.qty.toLocaleString()} on order since ${onOrder.orderedDate}`
-                            : isOut
-                              ? 'Nothing in store — cannot be taken out'
-                              : `${item.at - item.edition.stock} below reorder point`
-                          }
+
+                        {/* In Store */}
+                        <div className={`
+                          text-right font-mono text-[14px] font-bold tabular-nums
+                          ${isOut ? 'text-[#b3261e]' : 'text-[#8a5a00]'}
+                        `}>
+                          {item.edition.stock}
+                        </div>
+
+                        {/* Reorder At */}
+                        <div className="text-right font-mono text-[13px] text-[#6c6f77] tabular-nums">
+                          {item.at}
+                        </div>
+
+                        {/* Suggest */}
+                        <div className="text-right font-mono text-[13.5px] font-bold text-[#191c20] tabular-nums">
+                          {item.suggest}
+                        </div>
+
+                        {/* Status Pill & Trail Action */}
+                        <div className="flex items-center justify-end gap-1.5">
+                          {onOrder ? (
+                            <span className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-xs text-[#44474e] bg-[#eef0f3] border border-[#dcdee3]">
+                              On order
+                            </span>
+                          ) : isOut ? (
+                            <span className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-xs text-[#b3261e] bg-[#fdeceb] border border-[#f4cfcd]">
+                              Out
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-xs text-[#8a5a00] bg-[#fdf0d8] border border-[#f2d9a8]">
+                              Low
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setTrailModalTarget({ title: item.title, lang: item.edition.lang })}
+                            className="p-1 text-[#8b8e96] hover:text-[#1f5f8b] hover:bg-[#e9f1f7] rounded transition-colors cursor-pointer"
+                            title={`View item trail for ${item.edition.title}`}
+                          >
+                            <History className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
-                    </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
 
-                    {/* Code */}
-                    <div className="font-mono text-[11px] text-[#8b8e96] truncate">
-                      <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
-                        {code}
-                      </span>
-                    </div>
-
-                    {/* In Store */}
-                    <div className={`
-                      text-right font-mono text-[14px] font-bold tabular-nums
-                      ${isOut ? 'text-[#b3261e]' : 'text-[#8a5a00]'}
-                    `}>
-                      {item.edition.stock}
-                    </div>
-
-                    {/* Reorder At */}
-                    <div className="text-right font-mono text-[13px] text-[#6c6f77] tabular-nums">
-                      {item.at}
-                    </div>
-
-                    {/* Suggest */}
-                    <div className="text-right font-mono text-[13.5px] font-bold text-[#191c20] tabular-nums">
-                      {item.suggest}
-                    </div>
-
-                    {/* Status Pill & Trail Action */}
-                    <div className="flex items-center justify-end gap-1.5">
-                      {onOrder ? (
-                        <span className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-xs text-[#44474e] bg-[#eef0f3] border border-[#dcdee3]">
-                          On order
-                        </span>
-                      ) : isOut ? (
-                        <span className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-xs text-[#b3261e] bg-[#fdeceb] border border-[#f4cfcd]">
-                          Out
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-xs text-[#8a5a00] bg-[#fdf0d8] border border-[#f2d9a8]">
-                          Low
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setTrailModalTarget({ title: item.title, lang: item.edition.lang })}
-                        className="p-1 text-[#8b8e96] hover:text-[#1f5f8b] hover:bg-[#e9f1f7] rounded transition-colors cursor-pointer"
-                        title={`View item trail for ${item.edition.title}`}
-                      >
-                        <History className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+          {flagged.length === 0 && (
+            <div className="py-12 px-4 text-center text-[#6c6f77]">
+              <p className="font-semibold text-[14px] text-[#191c20]">Nothing is below its reorder point.</p>
+              <p className="text-[13px] mt-1">All literature editions are currently stocked above their reorder thresholds.</p>
             </div>
           )}
         </div>

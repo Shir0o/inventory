@@ -923,6 +923,20 @@ export function formatTimestamp(doc: any): string {
          d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
+export function formatEventDate(dateVal: any): string {
+  if (!dateVal) return 'Recent event';
+  if (typeof dateVal === 'string') return dateVal.slice(0, 10);
+  if (typeof dateVal.toDate === 'function') {
+    try {
+      return dateVal.toDate().toISOString().slice(0, 10);
+    } catch (_) {}
+  }
+  if (typeof dateVal.seconds === 'number') {
+    return new Date(dateVal.seconds * 1000).toISOString().slice(0, 10);
+  }
+  return String(dateVal);
+}
+
 /**
  * Analyzes raw inventory documents and generates a non-destructive Dry Run Cleanup Plan
  * with intelligent Count Reconciliation (update to latest most accurate count).
@@ -1119,7 +1133,7 @@ export function analyzeInventory(rawInventory: any[], options: AnalyzeOptions = 
           const matchLine = lines.find((l: any) => l.code === canonicalSku || l.code === primaryDoc.sku || (l.key && l.key.includes(canonicalSku)));
           if (matchLine && matchLine.back !== undefined) {
             recentEventCount = {
-              date: ev.date || 'Recent event',
+              date: formatEventDate(ev.date),
               count: Number(matchLine.before ?? 0) - Number(matchLine.took ?? 0) + Number(matchLine.back ?? 0),
               eventName: ev.name || ev.location || 'Count Event'
             };
@@ -1136,7 +1150,7 @@ export function analyzeInventory(rawInventory: any[], options: AnalyzeOptions = 
             typeof log.metadata?.newStock === 'number'
           ) {
             recentAuditAdjustment = {
-              date: log.metadata?.occurredAt || 'Recent log',
+              date: formatEventDate(log.metadata?.occurredAt || log.timestamp),
               newStock: log.metadata.newStock,
               reason: log.details || 'Stock adjusted'
             };

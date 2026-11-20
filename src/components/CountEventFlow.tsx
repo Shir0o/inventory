@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Title, EventLine, Category } from '../types';
 import { ArrowLeft, Check, ArrowRight, RotateCcw, AlertTriangle } from 'lucide-react';
 
@@ -50,7 +50,7 @@ interface SavedCountDraft {
   lastSavedAt: number;
 }
 
-const getStorageKey = (id?: string, name?: string, date?: string) => {
+export const getStorageKey = (id?: string, name?: string, date?: string) => {
   if (id) return `lit_ledger_count_draft_event_${id}`;
   const safeName = (name || 'outreach').trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
   const safeDate = (date || 'today').trim().replace(/[^a-z0-9]/g, '_');
@@ -298,12 +298,14 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const draftSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSyncedLinesRef = useRef<string>('');
 
   // Category and Language Touch Filter States
   const [selectedCat, setSelectedCat] = useState<'All' | 'Tract' | 'Bible' | 'Booklet'>('All');
   const [selectedLang, setSelectedLang] = useState<'All' | 'EN' | 'ES'>('All');
 
-  // Auto-save draft on every change so user never loses progress
+  // Auto-save draft locally on every change so user never loses progress
   useEffect(() => {
     if (step === 4) {
       return;
@@ -355,22 +357,6 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
       } catch (err) {
         console.warn('Failed to save count draft to localStorage:', err);
       }
-
-      // Also auto-sync draft lines to Firestore if callback provided
-      if (onSaveDraft && hasAnyData) {
-        const lines: EventLine[] = items
-          .filter(i => i.took > 0 || i.returned !== null)
-          .map(i => ({
-            key: i.code,
-            code: i.code,
-            lang: i.lang,
-            title: i.title,
-            before: i.inStore,
-            took: i.took,
-            back: i.returned !== null ? i.returned : 0
-          }));
-        onSaveDraft(lines, step);
-      }
     } else {
       try {
         localStorage.removeItem(storageKey);
@@ -380,6 +366,53 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
       } catch (err) {}
     }
   }, [items, step, currentIndex, searchQuery, storageKey, eventId, eventName, eventDate, titles.length]);
+
+  // Debounced remote draft sync to Firestore (only when count lines actually change)
+  useEffect(() => {
+    if (step === 4 || isSubmitting || !onSaveDraft) {
+      if (draftSyncTimerRef.current) {
+        clearTimeout(draftSyncTimerRef.current);
+        draftSyncTimerRef.current = null;
+      }
+      return;
+    }
+
+    const lines: EventLine[] = items
+      .filter(i => i.took > 0 || i.returned !== null)
+      .map(i => ({
+        key: i.code,
+        code: i.code,
+        lang: i.lang,
+        title: i.title,
+        before: i.inStore,
+        took: i.took,
+        back: i.returned !== null ? i.returned : 0
+      }));
+
+    if (lines.length === 0) return;
+
+    const serialized = JSON.stringify(lines);
+    if (serialized === lastSyncedLinesRef.current) {
+      return;
+    }
+
+    if (draftSyncTimerRef.current) {
+      clearTimeout(draftSyncTimerRef.current);
+    }
+
+    draftSyncTimerRef.current = setTimeout(() => {
+      if (isSubmitting) return;
+      lastSyncedLinesRef.current = serialized;
+      onSaveDraft(lines, step);
+    }, 1000);
+
+    return () => {
+      if (draftSyncTimerRef.current) {
+        clearTimeout(draftSyncTimerRef.current);
+        draftSyncTimerRef.current = null;
+      }
+    };
+  }, [items, step, isSubmitting, onSaveDraft]);
 
   // Keyboard navigation for step 2
   useEffect(() => {
@@ -493,6 +526,10 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
     if (!allCounted || isSubmitting) return;
     setIsSubmitting(true);
     setSubmitError(null);
+    if (draftSyncTimerRef.current) {
+      clearTimeout(draftSyncTimerRef.current);
+      draftSyncTimerRef.current = null;
+    }
     try {
       const lines: EventLine[] = takenItems.map(i => ({
         key: i.code,
@@ -528,6 +565,11 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
   };
 
   const handleDiscardDraft = async () => {
+    if (draftSyncTimerRef.current) {
+      clearTimeout(draftSyncTimerRef.current);
+      draftSyncTimerRef.current = null;
+    }
+    lastSyncedLinesRef.current = '';
     try {
       localStorage.removeItem(storageKey);
       if (eventId) {
@@ -571,6 +613,15 @@ export const CountEventFlow: React.FC<CountEventFlowProps> = ({
   };
 
   const handleRestart = () => {
+    try {
+      localStorage.removeItem(storageKey);
+      if (eventId) {
+        localStorage.removeItem(`lit_ledger_count_draft_event_${eventId}`);
+        localStorage.removeItem(getStorageKey(undefined, eventName, eventDate));
+      }
+      localStorage.removeItem('lit_ledger_is_counting');
+      localStorage.removeItem('lit_ledger_active_count_event');
+    } catch (err) {}
     handleDiscardDraft();
   };
 

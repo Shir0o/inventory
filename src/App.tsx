@@ -21,7 +21,8 @@ import {
   addOrderItem,
   updateOrderItem,
   deleteOrderItem,
-  createAuditLog
+  createAuditLog,
+  batchApplyCountStockUpdates
 } from './services/firestoreService';
 import { 
   extractBaseCode, 
@@ -46,6 +47,7 @@ import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
 import { CountEventFlow } from './components/CountEventFlow';
 import { humanizeAuditLog } from './lib/humanizeHistory';
+import { buildCountStockUpdates } from './lib/countPosting';
 import { isSept18DeliveryReconciled, reconcileSept18Delivery } from './services/historyReconciliationService';
 import { AlertTriangle, Database, RefreshCw, ShieldAlert, PlusCircle } from 'lucide-react';
 
@@ -91,25 +93,6 @@ export function App() {
     }
   });
   const [selectedEventIdForRecord, setSelectedEventIdForRecord] = useState<string | null>(null);
-
-  // Check whether an in-progress count draft exists in localStorage
-  const hasActiveCountDraft = useMemo(() => {
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('lit_ledger_count_draft_')) {
-          const raw = localStorage.getItem(key);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed && parsed.itemsData && Object.values(parsed.itemsData).some((v: any) => v.took > 0)) {
-              return true;
-            }
-          }
-        }
-      }
-    } catch {}
-    return false;
-  }, [isCounting]);
 
   // Map real Firestore settings
   const settings: SettingsData = useMemo(() => {
@@ -298,6 +281,65 @@ export function App() {
       };
     });
   }, [rawEvents, rawInventory, legacyDefaults]);
+
+  // Check whether a valid, uncompleted in-progress count draft exists in localStorage
+  const hasActiveCountDraft = useMemo(() => {
+    try {
+      const plannedEventIds = new Set(events.filter(e => e.planned).map(e => e.id));
+      const completedEventIds = new Set(events.filter(e => !e.planned).map(e => e.id));
+
+      let foundValid = false;
+      const keysToRemove: string[] = [];
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('lit_ledger_count_draft_')) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed && parsed.itemsData && Object.values(parsed.itemsData).some((v: any) => v.took > 0)) {
+                // If draft belongs to an event that is now completed, mark it for pruning
+                if (parsed.eventId && completedEventIds.has(parsed.eventId)) {
+                  keysToRemove.push(key);
+                } else if (parsed.eventId && !plannedEventIds.has(parsed.eventId)) {
+                  // Draft belongs to an event ID that no longer exists or isn't planned
+                  keysToRemove.push(key);
+                } else if (!parsed.eventId && events.length > 0 && !events.some(e => e.planned)) {
+                  // No planned events exist anywhere, so any unnamed drafts are stale
+                  keysToRemove.push(key);
+                } else {
+                  foundValid = true;
+                }
+              }
+            } catch {
+              keysToRemove.push(key);
+            }
+          }
+        }
+      }
+
+      // Automatically prune dead drafts
+      keysToRemove.forEach(k => {
+        try { localStorage.removeItem(k); } catch {}
+      });
+
+      // Also verify activeCountEvent
+      const savedActiveRaw = localStorage.getItem('lit_ledger_active_count_event');
+      if (savedActiveRaw) {
+        try {
+          const parsed = JSON.parse(savedActiveRaw);
+          if (parsed?.id && completedEventIds.has(parsed.id)) {
+            localStorage.removeItem('lit_ledger_active_count_event');
+            localStorage.setItem('lit_ledger_is_counting', 'false');
+          }
+        } catch {}
+      }
+
+      return foundValid;
+    } catch {}
+    return false;
+  }, [events, isCounting]);
 
   const activeEventItem = useMemo(() => {
     if (activeCountEvent?.id) {
@@ -726,20 +768,9 @@ export function App() {
 
   const handlePostCount = async (lines: EventLine[]) => {
     try {
-      let totalPassed = 0;
-
-      // 1. Update shelf stocks in Firestore
-      for (const line of lines) {
-        const passed = Math.max(0, line.took - line.back);
-        totalPassed += passed;
-
-        const item = findMatchingInventoryItem(rawInventory, line.code, line.lang, line.title);
-        if (item) {
-          const currentStock = Number(item.stockLevel || 0);
-          const newStock = Math.max(0, currentStock - passed);
-          await updateInventoryItem(item.id, { stockLevel: newStock });
-        }
-      }
+      // 1. Prepare shelf stocks in Firestore
+      const updates = buildCountStockUpdates(lines, rawInventory, findMatchingInventoryItem);
+      const totalPassed = lines.reduce((sum, l) => sum + Math.max(0, (l.took || 0) - (l.back || 0)), 0);
 
       const eventName = activeCountEvent?.name || 'Outreach event';
       const eventDate = activeCountEvent?.date || getTodayIso();
@@ -764,39 +795,38 @@ export function App() {
         categoryStats.total = totalPassed;
       }
 
-      // 2. Save / update event in Firestore
-      let savedEventId = eventId;
-      if (eventId) {
-        const eventRef = doc(db, 'events', eventId);
-        await updateDoc(eventRef, {
-          planned: false,
-          status: 'Completed',
-          materialsDistributed: totalPassed,
-          lines,
-          categoryStats,
-          updatedAt: serverTimestamp()
-        });
-      } else {
-        const docRef = await addEvent({
-          name: eventName,
-          location: eventName,
-          date: eventDateTimestamp,
-          planned: false,
-          status: 'Completed',
-          materialsDistributed: totalPassed,
-          lines,
-          categoryStats
-        });
-        if (docRef?.id) {
-          savedEventId = docRef.id;
-        }
+      // 2. Prepare event payload
+      const eventData: any = {
+        planned: false,
+        status: 'Completed',
+        materialsDistributed: totalPassed,
+        lines,
+        categoryStats,
+        updatedAt: serverTimestamp()
+      };
+
+      if (!eventId) {
+        eventData.name = eventName;
+        eventData.location = eventName;
+        eventData.date = eventDateTimestamp;
+        eventData.createdAt = serverTimestamp();
       }
 
-      // 3. Log movement in Firestore audit logs
-      await createAuditLog('COUNT_POSTED', savedEventId || 'event', 'event', `Count posted — ${eventName}. ${totalPassed} items passed out.`, {
-        delta: -totalPassed,
-        linesCount: lines.length,
-        materialsDistributed: totalPassed
+      // 3. Atomically update shelf stocks, notifications, audit log, and event in a single batch
+      const { savedEventId } = await batchApplyCountStockUpdates(updates, {
+        event: {
+          id: eventId,
+          data: eventData
+        },
+        auditLog: {
+          targetId: eventId || 'event',
+          details: `Count posted — ${eventName}. ${totalPassed} items passed out.`,
+          metadata: {
+            delta: -totalPassed,
+            linesCount: lines.length,
+            materialsDistributed: totalPassed
+          }
+        }
       });
 
       if (savedEventId) {

@@ -341,7 +341,7 @@ export function humanizeAuditLog(log: any, options?: HumanizeOptions): Humanized
         const readableAction = action
           .toLowerCase()
           .replace(/_/g, ' ')
-          .replace(/\b\w/g, c => c.toUpperCase());
+          .replace(/\b\w/g, (c: string) => c.toUpperCase());
         what = itemTitle && itemTitle !== 'Record' && itemTitle !== 'Literature Item'
           ? `${readableAction} — ${itemTitle}`
           : readableAction || 'Stock Activity';

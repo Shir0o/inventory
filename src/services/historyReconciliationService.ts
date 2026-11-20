@@ -25,27 +25,18 @@ export interface ReconciliationStatus {
 export function isSept18DeliveryReconciled(rawInventory: any[], rawLogs: any[]): boolean {
   if (!rawLogs || rawLogs.length === 0) return false;
 
-  // Check for the delivery audit log tagged with 2026-09-18
+  // Check for the canonical delivery audit log tagged with 2026-09-18
   const hasSept18Log = rawLogs.some(log => {
     const occurred = log.metadata?.occurredAt || log.metadata?.date;
     const isSept18 = typeof occurred === 'string' && occurred.startsWith('2026-09-18');
-    const isDelivery = log.action === 'DELIVERY_RECEIVED' || log.action === 'STOCK_UPDATE';
+    const isDelivery = log.action === 'DELIVERY_RECEIVED';
     const hasUnits = log.metadata?.delta === 124 || 
                      (log.details && log.details.includes('124')) ||
                      (log.metadata?.itemsSummary && log.metadata.itemsSummary.includes('Basic Elements'));
     return isSept18 && (isDelivery || hasUnits);
   });
 
-  // Also check if Spanish Basic Elements exists and has stock >= 30
-  const basicEsItem = findMatchingInventoryItem(
-    rawInventory,
-    'BKL-001-002-ES',
-    'Elementos básicos de la vida cristiana, tomo 1',
-    'ES'
-  );
-  const basicEsStock = Number(basicEsItem?.stockLevel ?? basicEsItem?.stock ?? 0);
-
-  return hasSept18Log && basicEsStock >= 30;
+  return hasSept18Log;
 }
 
 /**
