@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.1](https://github.com/Shir0o/inventory/compare/v1.1.0...v1.1.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **mcp:** refuse GET on the stateless worker to stop reconnect loop ([#55](https://github.com/Shir0o/inventory/issues/55)) ([8fb78ca](https://github.com/Shir0o/inventory/commit/8fb78caa4226ab5b63806c67670a993b2d2a5ac4))
+* **security:** bump @grpc/grpc-js to 1.14.7 (alerts [#71](https://github.com/Shir0o/inventory/issues/71), [#72](https://github.com/Shir0o/inventory/issues/72)) ([#53](https://github.com/Shir0o/inventory/issues/53)) ([b146956](https://github.com/Shir0o/inventory/commit/b1469561aab41ad3061be816d1dcbe9316f490aa))
+* **ui:** eliminate mobile table clipping and search truncation ([#56](https://github.com/Shir0o/inventory/issues/56)) ([32ed494](https://github.com/Shir0o/inventory/commit/32ed494b1c423b9b1bf0814ee011159eed45d8eb))
+
 ## [1.1.0](https://github.com/Shir0o/inventory/compare/v1.0.1...v1.1.0) (2026-11-19)
 
 
