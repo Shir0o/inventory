@@ -196,9 +196,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
         {/* Low stock table */}
         <div className="mx-6 mt-3 border border-[#dcdee3] rounded-lg overflow-hidden bg-white shadow-xs">
-          <div className="overflow-x-auto">
-            <div className="min-w-[640px]">
-              <div className="grid grid-cols-[1fr_80px_90px_90px_80px_100px] items-center gap-x-2 px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
+          <div className="md:overflow-x-auto">
+            <div className="md:min-w-[640px]">
+              <div className="hidden md:grid md:grid-cols-[1fr_80px_90px_90px_80px_100px] items-center gap-x-2 px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77] whitespace-nowrap">
                 <div>Edition</div>
                 <div>Code</div>
                 <div className="text-right">In store</div>
@@ -218,12 +218,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       <div
                         key={code}
                         className={`
-                          grid grid-cols-[1fr_80px_90px_90px_80px_100px] items-center gap-x-2 px-4 py-3 text-[13px] transition-colors
+                          grid grid-cols-3 items-center gap-x-3 gap-y-2 px-4 py-3 text-[13px] transition-colors
+                          md:grid-cols-[1fr_80px_90px_90px_80px_100px] md:gap-x-2 md:gap-y-0
                           ${onOrder ? 'bg-[#fbfbfc]' : isOut ? 'bg-[#fffcfc]' : 'bg-[#fffdf7]'}
                         `}
                       >
                         {/* Title & Lang Badge */}
-                        <div className="min-w-0 flex items-baseline gap-2.5 pr-3">
+                        <div className="col-span-3 md:col-span-1 min-w-0 flex items-baseline gap-2.5 pr-3">
                           <span className={`
                             text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-xs flex-none
                             ${item.edition.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}
@@ -251,7 +252,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                         </div>
 
                         {/* Code */}
-                        <div className="font-mono text-[11px] text-[#8b8e96] truncate">
+                        <div className="hidden md:block font-mono text-[11px] text-[#8b8e96] truncate">
                           <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
                             {code}
                           </span>
@@ -262,21 +263,24 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                           text-right font-mono text-[14px] font-bold tabular-nums
                           ${isOut ? 'text-[#b3261e]' : 'text-[#8a5a00]'}
                         `}>
+                          <span className="md:hidden block text-[9px] font-bold tracking-wider uppercase text-[#8b8e96] mb-0.5">In store</span>
                           {item.edition.stock}
                         </div>
 
                         {/* Reorder At */}
                         <div className="text-right font-mono text-[13px] text-[#6c6f77] tabular-nums">
+                          <span className="md:hidden block text-[9px] font-bold tracking-wider uppercase text-[#8b8e96] mb-0.5">Reorder at</span>
                           {item.at}
                         </div>
 
                         {/* Suggest */}
                         <div className="text-right font-mono text-[13.5px] font-bold text-[#191c20] tabular-nums">
+                          <span className="md:hidden block text-[9px] font-bold tracking-wider uppercase text-[#8b8e96] mb-0.5">Suggest</span>
                           {item.suggest}
                         </div>
 
                         {/* Status Pill & Trail Action */}
-                        <div className="flex items-center justify-end gap-1.5">
+                        <div className="col-span-3 md:col-span-1 flex items-center justify-start md:justify-end gap-1.5">
                           {onOrder ? (
                             <span className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-xs text-[#44474e] bg-[#eef0f3] border border-[#dcdee3]">
                               On order
