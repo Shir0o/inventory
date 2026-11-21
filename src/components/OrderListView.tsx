@@ -645,9 +645,9 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
 
           {/* Table of Items to order */}
           <div className="border border-[#dcdee3] rounded-lg overflow-hidden bg-white shadow-xs">
-            <div className="overflow-x-auto">
-              <div className="min-w-[680px]">
-                <div className="grid grid-cols-[36px_1fr_80px_68px_68px_165px_60px] items-center px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
+            <div className="md:overflow-x-auto">
+              <div className="md:min-w-[680px]">
+                <div className="hidden md:grid md:grid-cols-[36px_1fr_80px_68px_68px_165px_60px] items-center px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77] whitespace-nowrap">
                   <div>
                     <input
                       type="checkbox"
@@ -683,7 +683,8 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
                         <div
                           key={c.codeKey}
                           className={`
-                            grid grid-cols-[36px_1fr_80px_68px_68px_165px_60px] items-center px-4 py-3 text-[13px] transition-colors
+                            grid grid-cols-[20px_1fr_1fr_1fr] items-center gap-x-3 gap-y-2 px-4 py-3 text-[13px] transition-colors
+                            md:grid-cols-[36px_1fr_80px_68px_68px_165px_60px] md:gap-x-0 md:gap-y-0
                             ${isOnOrder ? 'bg-[#fbfbfc] opacity-75' : isChecked ? 'bg-[#f6f9fb]' : 'bg-white'}
                           `}
                         >
@@ -697,7 +698,7 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
                             />
                           </div>
 
-                          <div className="min-w-0 pr-3">
+                          <div className="col-span-3 md:col-span-1 min-w-0 pr-3">
                             <div className="flex items-baseline gap-2">
                               <span className={`
                                 text-[9px] font-bold px-1.5 py-0.5 rounded-xs flex-none
@@ -727,21 +728,24 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
                             )}
                           </div>
 
-                          <div className="font-mono text-[11px] text-[#8b8e96] truncate">
+                          <div className="hidden md:block font-mono text-[11px] text-[#8b8e96] truncate">
                             <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
                               {c.codeKey}
                             </span>
                           </div>
 
-                          <div className={`text-right font-mono text-[13.5px] tabular-nums ${c.isLow ? 'font-bold text-[#8a5a00]' : 'text-[#191c20]'}`}>
+                          <div className={`col-start-2 md:col-start-auto text-right font-mono text-[13.5px] tabular-nums ${c.isLow ? 'font-bold text-[#8a5a00]' : 'text-[#191c20]'}`}>
+                            <span className="md:hidden block text-[9px] font-bold tracking-wider uppercase text-[#8b8e96] mb-0.5">In store</span>
                             {c.edition.stock}
                           </div>
 
                           <div className="text-right font-mono text-[13px] text-[#6c6f77] tabular-nums">
+                            <span className="md:hidden block text-[9px] font-bold tracking-wider uppercase text-[#8b8e96] mb-0.5">Reorder</span>
                             {c.at}
                           </div>
 
-                          <div className="min-w-0 flex items-center justify-end gap-1.5 overflow-visible">
+                          <div className="col-span-3 md:col-span-1 min-w-0 flex items-center justify-end gap-1.5 overflow-visible">
+                            <span className="md:hidden mr-auto text-[9px] font-bold tracking-wider uppercase text-[#8b8e96]">Order qty</span>
                             {c.isLow && c.suggest > 0 && qtyVal !== c.suggest && !isOnOrder && (
                               <button
                                 type="button"
@@ -787,6 +791,7 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
                           </div>
 
                           <div className="text-right font-mono text-[12.5px] text-[#8b8e96] tabular-nums">
+                            <span className="md:hidden block text-[9px] font-bold tracking-wider uppercase text-[#8b8e96] mb-0.5">Pack</span>
                             {c.pack}
                           </div>
                         </div>
@@ -804,9 +809,9 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
           <h2 className="text-[18px] font-bold tracking-tight text-[#191c20]">Currently on order</h2>
 
           <div className="border border-[#dcdee3] rounded-lg overflow-hidden bg-white shadow-xs">
-            <div className="overflow-x-auto">
-              <div className="min-w-[560px]">
-                <div className="grid grid-cols-[1fr_100px_100px_90px_70px] items-center px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
+            <div className="md:overflow-x-auto">
+              <div className="md:min-w-[560px]">
+                <div className="hidden md:grid md:grid-cols-[1fr_100px_100px_90px_70px] items-center px-4 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77] whitespace-nowrap">
                   <div>Item</div>
                   <div>Code</div>
                   <div>Ordered date</div>
@@ -823,9 +828,9 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
                     {orders.map(o => (
                       <div
                         key={o.key}
-                        className="grid grid-cols-[1fr_100px_100px_90px_70px] items-center px-4 py-3 text-[13px]"
+                        className="grid grid-cols-3 items-center gap-x-3 gap-y-2 px-4 py-3 text-[13px] md:grid-cols-[1fr_100px_100px_90px_70px] md:gap-x-0 md:gap-y-0"
                       >
-                        <div className="min-w-0 pr-3">
+                        <div className="col-span-3 md:col-span-1 min-w-0 pr-3">
                           <div className="flex items-baseline gap-2">
                             <span className="font-semibold text-[#191c20] truncate">
                               {o.title}
@@ -841,17 +846,19 @@ export const OrderListView: React.FC<OrderListViewProps> = ({
                           )}
                         </div>
 
-                        <div className="font-mono text-[11px] text-[#8b8e96] truncate">
+                        <div className="hidden md:block font-mono text-[11px] text-[#8b8e96] truncate">
                           <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
                             {o.code}
                           </span>
                         </div>
 
                         <div className="text-[12.5px] text-[#6c6f77]">
+                          <span className="md:hidden block text-[9px] font-bold tracking-wider uppercase text-[#8b8e96] mb-0.5">Ordered date</span>
                           {o.orderedDate}
                         </div>
 
                         <div className="text-right font-mono text-[14px] font-bold text-[#191c20] tabular-nums">
+                          <span className="md:hidden block text-[9px] font-bold tracking-wider uppercase text-[#8b8e96] mb-0.5">Quantity</span>
                           {o.qty}
                         </div>
 

@@ -718,7 +718,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
       {/* Search & Filter Bar */}
       <div className="px-6 py-3.5 flex flex-wrap items-center gap-2.5 border-b border-[#dcdee3] bg-white">
-        <div className="relative w-72">
+        <div className="relative w-full sm:w-72">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8b8e96]" />
           <input
             type="text"
@@ -792,7 +792,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
       {/* Main Inventory Table */}
       <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-        <div className="sticky top-0 z-10 grid grid-cols-[1fr_90px_80px_80px_70px_130px] items-center px-6 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77]">
+        <div className="sticky top-0 z-10 hidden md:grid md:grid-cols-[1fr_90px_80px_80px_70px_130px] items-center px-6 py-2.5 bg-[#f6f7f9] border-b border-[#dcdee3] text-[10px] font-bold tracking-wider uppercase text-[#6c6f77] whitespace-nowrap">
           <div>Title and editions</div>
           <div>Code</div>
           <div className="text-right">In store</div>
@@ -824,8 +824,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               return (
                 <div key={t.code} className="border-b border-[#dcdee3]">
                   {/* Title Header Row */}
-                  <div className="grid grid-cols-[1fr_90px_80px_80px_70px_130px] items-baseline px-6 pt-3.5 pb-2 bg-[#fbfbfc]">
-                    <div className="min-w-0 pr-3">
+                  <div className="grid grid-cols-3 items-center gap-x-3 px-6 pt-3.5 pb-2 bg-[#fbfbfc] md:grid-cols-[1fr_90px_80px_80px_70px_130px] md:items-baseline md:gap-x-0">
+                    <div className="col-span-3 md:col-span-1 min-w-0 pr-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-[14.5px] text-[#191c20] tracking-tight">
                           {t.name}
@@ -840,17 +840,18 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                         </div>
                       )}
                     </div>
-                    <div className="font-mono text-[11px] text-[#8b8e96] truncate">
+                    <div className="hidden md:block font-mono text-[11px] text-[#8b8e96] truncate">
                       <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
                         {t.code}
                       </span>
                     </div>
                     <div className="text-right font-mono text-[13px] font-bold text-[#8b8e96] tabular-nums">
+                      <span className="md:hidden block text-[9px] font-bold tracking-wider uppercase text-[#8b8e96] mb-0.5">In store</span>
                       {titleTotal}
                     </div>
-                    <div />
-                    <div />
-                    <div className="text-right flex items-center justify-end gap-1.5">
+                    <div className="hidden md:block" />
+                    <div className="hidden md:block" />
+                    <div className="col-span-2 md:col-span-1 text-right flex items-center justify-end gap-1.5">
                       <button
                         onClick={() => setTrailModalTarget({ title: t })}
                         className="px-2 py-0.5 text-[12px] font-semibold text-[#1f5f8b] hover:bg-[#e9f1f7] rounded-sm transition-colors cursor-pointer flex items-center gap-1"
@@ -880,11 +881,12 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                       return (
                         <React.Fragment key={codeKey}>
                           <div className={`
-                            grid grid-cols-[1fr_90px_80px_80px_70px_130px] items-center px-6 py-2.5 text-[13px] transition-colors
+                            grid grid-cols-3 items-center gap-x-3 gap-y-2 px-6 py-2.5 text-[13px] transition-colors
+                            md:grid-cols-[1fr_90px_80px_80px_70px_130px] md:gap-x-0 md:gap-y-0
                             ${status === 'out' ? 'bg-[#fffcfc]' : status === 'low' ? 'bg-[#fffdf7]' : 'bg-white'}
                           `}>
                             {/* Edition title & lang badge */}
-                            <div className="min-w-0 flex items-baseline gap-2 pl-4 pr-3 flex-wrap">
+                            <div className="col-span-3 md:col-span-1 min-w-0 flex items-baseline gap-2 pl-4 pr-3 flex-wrap">
                               <span className={`
                                 text-[9px] font-bold px-1.5 py-0.5 rounded-xs flex-none
                                 ${ed.lang === 'EN' ? 'text-[#1f5f8b] bg-[#e9f1f7]' : 'text-[#7a4a8b] bg-[#f4edf7]'}
@@ -900,7 +902,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                             </div>
 
                             {/* Code */}
-                            <div className="font-mono text-[11px] text-[#8b8e96] truncate">
+                            <div className="hidden md:block font-mono text-[11px] text-[#8b8e96] truncate">
                               <span className="bg-[#f6f7f9] px-1.5 py-0.5 rounded text-[10.5px]">
                                 {codeKey}
                               </span>
@@ -911,16 +913,18 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                               text-right font-mono text-[14px] font-bold tabular-nums
                               ${status === 'out' ? 'text-[#b3261e]' : status === 'low' ? 'text-[#8a5a00]' : 'text-[#191c20]'}
                             `}>
+                              <span className="md:hidden block text-[9px] font-bold tracking-wider uppercase text-[#8b8e96] mb-0.5">In store</span>
                               {ed.stock}
                             </div>
 
                             {/* Reorder point */}
                             <div className="text-right font-mono text-[13px] text-[#6c6f77] tabular-nums">
+                              <span className="md:hidden block text-[9px] font-bold tracking-wider uppercase text-[#8b8e96] mb-0.5">Reorder</span>
                               {reorderAt(t)}
                             </div>
 
                             {/* Status */}
-                            <div className="flex justify-end">
+                            <div className="flex justify-start md:justify-end">
                               {status === 'out' && (
                                 <span className="text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-xs text-[#b3261e] bg-[#fdeceb] border border-[#f4cfcd]">
                                   Out
@@ -934,7 +938,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                             </div>
 
                             {/* Action buttons (Trail & Adjust) */}
-                            <div className="text-right flex items-center justify-end gap-1.5">
+                            <div className="col-span-3 md:col-span-1 text-right flex items-center justify-end gap-1.5">
                               <button
                                 onClick={() => setTrailModalTarget({ title: t, lang: ed.lang })}
                                 className="px-2 py-0.5 text-[12px] font-semibold text-[#1f5f8b] hover:bg-[#e9f1f7] rounded-sm transition-colors cursor-pointer flex items-center gap-1"
