@@ -8,3 +8,6 @@ coverage/
 !.env.example
 .dev.vars
 .wrangler/
+
+# Local agent settings (project-scope MCP config, machine-specific paths)
+.gemini/
