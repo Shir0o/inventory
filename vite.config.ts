@@ -1,3 +1,4 @@
+import { sentryVitePlugin } from '@sentry/bundler-plugins/vite';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
@@ -6,7 +7,11 @@ import {VitePWA} from 'vite-plugin-pwa';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
+  const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN || env.SENTRY_AUTH_TOKEN;
   return {
+    build: {
+      sourcemap: sentryAuthToken ? 'hidden' : false,
+    },
     plugins: [
       react(),
       tailwindcss(),
@@ -47,6 +52,19 @@ export default defineConfig(({mode}) => {
           navigateFallback: '/index.html',
         },
       }),
+      // Must come last so source maps cover all transforms; skipped when SENTRY_AUTH_TOKEN is unset.
+      ...(sentryAuthToken
+        ? [
+            sentryVitePlugin({
+              org: 'church-in-santa-ana',
+              project: 'lit-ledger-web',
+              authToken: sentryAuthToken,
+              sourcemaps: {
+                filesToDeleteAfterUpload: ['./dist/**/*.map'],
+              },
+            }),
+          ]
+        : []),
     ],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY),
