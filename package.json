@@ -20,6 +20,7 @@
   "dependencies": {
     "@google/genai": "^3.3.0",
     "@modelcontextprotocol/sdk": "^1.32.2",
+    "@sentry/react": "^11.17.0",
     "@tailwindcss/vite": "^4.3.5",
     "@vitejs/plugin-react": "^6.3.0",
     "clsx": "^2.1.1",
