@@ -16,6 +16,22 @@ export function isNoisyRequest(url: string): boolean {
   }
 }
 
+export const MAX_EVENTS_PER_SESSION = 20;
+
+export function createBeforeSend(maxEvents = MAX_EVENTS_PER_SESSION) {
+  let sentCount = 0;
+  return (event: Sentry.ErrorEvent): Sentry.ErrorEvent | null => {
+    if (sentCount >= maxEvents) return null;
+    sentCount += 1;
+    if (event.user) {
+      delete event.user.email;
+      delete event.user.username;
+      delete event.user.ip_address;
+    }
+    return event;
+  };
+}
+
 export function initSentry(): void {
   const dsn = import.meta.env.VITE_SENTRY_DSN;
   if (!import.meta.env.PROD || !dsn) return;
@@ -30,13 +46,6 @@ export function initSentry(): void {
     ],
     // 20% of page loads; a small team stays far below the 5M span free quota.
     tracesSampleRate: 0.2,
-    beforeSend(event) {
-      if (event.user) {
-        delete event.user.email;
-        delete event.user.username;
-        delete event.user.ip_address;
-      }
-      return event;
-    },
+    beforeSend: createBeforeSend(),
   });
 }
