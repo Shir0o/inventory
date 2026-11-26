@@ -1,7 +1,7 @@
 /**
  * Lit-Ledger MCP server over Streamable HTTP.
  *
- * Same nine tools as the stdio entrypoint, exposed so claude.ai and the Claude
+ * Same eleven tools as the stdio entrypoint, exposed so claude.ai and the Claude
  * mobile app can use the server as a remote Custom Connector. Run locally with
  * `npm run mcp:http`, or deploy with `Dockerfile.mcp` (Cloud Run or any
  * container host that terminates TLS).
