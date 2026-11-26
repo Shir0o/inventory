@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.0](https://github.com/Shir0o/inventory/compare/v1.1.1...v1.2.0) (2026-11-26)
+
+
+### Features
+
+* add production-only Sentry error tracking ([#59](https://github.com/Shir0o/inventory/issues/59)) ([d1a7233](https://github.com/Shir0o/inventory/commit/d1a7233911c2bc161bebe4bd75208562ef421f91))
+* **mcp:** add update_item and update_event tools ([#61](https://github.com/Shir0o/inventory/issues/61)) ([4b5c358](https://github.com/Shir0o/inventory/commit/4b5c35844e77c943a3a23a76c426afab9ec31877))
+* **sentry:** cap error events at 20 per browser session ([a9c701d](https://github.com/Shir0o/inventory/commit/a9c701d6673cf33497a8822c09e3c72cfff7c748))
+
 ## [1.1.1](https://github.com/Shir0o/inventory/compare/v1.1.0...v1.1.1) (2026-11-21)
 
 
