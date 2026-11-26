@@ -1,7 +1,7 @@
 /**
  * Lit-Ledger MCP tool definitions.
  *
- * Registers the nine inventory tools on a fresh {@link McpServer}. The stdio
+ * Registers the eleven inventory tools on a fresh {@link McpServer}. The stdio
  * entrypoint (`mcp/src/stdio.ts`), the remote Streamable HTTP entrypoint
  * (`mcp/src/http-server.ts`) and the Cloudflare Worker (`mcp/worker`) all call
  * `createMcpServer()` with their own Firestore backend, so the tool surface
@@ -10,6 +10,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { FirestoreBackend, FirestoreDoc } from './backend.ts';
+import { normalizeSku, planEventEdit, planItemEdit, STAT_KEYS, type StatKey } from './edits.ts';
 import {
   asNumber,
   categoryKey,
@@ -692,6 +693,163 @@ export function createMcpServer(backend: FirestoreBackend): McpServer {
 
         const created = await backend.getDoc(`inventory/${itemId}`);
         return { item: created ? normalizeItem(created, reorder) : { id: itemId } };
+      })
+  );
+
+  server.registerTool(
+    'update_item',
+    {
+      title: 'Edit inventory item',
+      description:
+        'Edit an item\'s SKU, title or subtitle. Refuses a SKU another item already uses (case-insensitive), ' +
+        'never changes stock or status, and writes an audit log entry with the old and new values.',
+      inputSchema: {
+        itemId: z.string().trim().min(1).optional().describe('Firestore document id of the item.'),
+        sku: z
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe('Current SKU, if itemId is not provided. Fails when more than one item has it.'),
+        newSku: z.string().trim().min(1).max(128).optional().describe('New SKU, stored in upper case.'),
+        newTitle: z.string().trim().min(1).max(512).optional().describe('New title.'),
+        newSubtitle: z
+          .string()
+          .trim()
+          .max(512)
+          .optional()
+          .describe('New subtitle; an empty string clears it.'),
+        reason: z.string().trim().max(500).optional().describe('Optional note stored in the audit log.'),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ itemId, sku, newSku, newTitle, newSubtitle, reason }) =>
+      runTool(async () => {
+        if (newSku === undefined && newTitle === undefined && newSubtitle === undefined) {
+          throw new Error('Give at least one of newSku, newTitle or newSubtitle.');
+        }
+        const reorder = await loadReorderTable(backend);
+        const target = await resolveItem(backend, { itemId, sku });
+
+        if (newSku !== undefined) {
+          const others = (await findItemsBySku(backend, normalizeSku(newSku))).filter(
+            (match) => match.id !== target.id
+          );
+          if (others.length > 0) {
+            const ids = others.map((match) => `${match.id} (${match.data.title ?? 'untitled'})`).join(', ');
+            throw new Error(`SKU "${normalizeSku(newSku)}" is already used by ${ids}.`);
+          }
+        }
+
+        const plan = await backend.runTransaction(async (tx) => {
+          const current = await tx.get(`inventory/${target.id}`);
+          if (!current) {
+            throw new Error(`Inventory item "${target.id}" no longer exists.`);
+          }
+          const planned = planItemEdit(current.data, { sku: newSku, title: newTitle, subtitle: newSubtitle });
+          tx.update(`inventory/${target.id}`, { ...planned.fields, updatedAt: backend.serverTimestamp() });
+          return planned;
+        });
+
+        const title = String(plan.fields.title ?? target.data.title ?? target.data.name ?? target.id);
+        const summary = plan.changes.map((change) => `${change.field}: ${change.from ?? '(none)'} → ${change.to}`).join('; ');
+        const note = reason?.trim();
+        await backend.addDoc('audit_logs', {
+          action: 'ITEM_UPDATED',
+          targetId: target.id,
+          targetType: 'inventory',
+          details: `Edited ${title} (${summary})${note ? ` • "${note}"` : ''}`,
+          userId: null,
+          userName: 'Lit-Ledger MCP',
+          userEmail: null,
+          timestamp: backend.serverTimestamp(),
+          metadata: {
+            source: 'mcp',
+            title,
+            sku: plan.fields.sku ?? target.data.sku ?? null,
+            changes: plan.changes,
+            ...(note ? { note } : {}),
+          },
+        });
+
+        const updated = await backend.getDoc(`inventory/${target.id}`);
+        return { changes: plan.changes, item: updated ? normalizeItem(updated, reorder) : null };
+      })
+  );
+
+  const statsShape = Object.fromEntries(
+    STAT_KEYS.map((key) => [key, z.number().int().min(0).optional()])
+  ) as Record<StatKey, z.ZodOptional<z.ZodNumber>>;
+
+  server.registerTool(
+    'update_event',
+    {
+      title: 'Edit distribution event',
+      description:
+        'Edit a distribution event\'s name, location, date, status, materialsDistributed total or categoryStats. ' +
+        'Changes the event record only: stock levels, count-sheet lines and materials are not touched. ' +
+        'categoryStats values are merged into the stored ones; unless total is given it is recomputed as ' +
+        'bibles + tracts + booklets, and each category must be at least its English + Spanish split. ' +
+        'Writes an audit log entry and returns any inconsistencies left as warnings.',
+      inputSchema: {
+        eventId: z.string().trim().min(1).describe('Firestore document id from the events collection.'),
+        name: z.string().trim().min(1).max(256).optional(),
+        location: z.string().trim().min(1).max(256).optional(),
+        date: z.string().regex(DATE_PATTERN).optional().describe('New date (YYYY-MM-DD).'),
+        status: z.string().trim().min(1).max(64).optional().describe('e.g. "Scheduled" or "Completed".'),
+        materialsDistributed: z.number().int().min(0).optional().describe('Total pieces passed out.'),
+        categoryStats: z
+          .object(statsShape)
+          .optional()
+          .describe('Per-category counts to set, e.g. {"tracts_en": 26}.'),
+        reason: z.string().trim().max(500).optional().describe('Optional note stored in the audit log.'),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ eventId, name, location, date, status, materialsDistributed, categoryStats, reason }) =>
+      runTool(async () => {
+        const plan = await backend.runTransaction(async (tx) => {
+          const current = await tx.get(`events/${eventId}`);
+          if (!current) {
+            throw new Error(`Event "${eventId}" was not found.`);
+          }
+          const planned = planEventEdit(current.data, {
+            name,
+            location,
+            date,
+            status,
+            materialsDistributed,
+            categoryStats,
+          });
+          tx.update(`events/${eventId}`, { ...planned.fields, updatedAt: backend.serverTimestamp() });
+          return { ...planned, eventName: String(planned.fields.name ?? current.data.name ?? current.data.location ?? eventId) };
+        });
+
+        const summary = plan.changes.map((change) => `${change.field}: ${change.from ?? '(none)'} → ${change.to}`).join('; ');
+        const note = reason?.trim();
+        await backend.addDoc('audit_logs', {
+          action: 'EVENT_UPDATED',
+          targetId: eventId,
+          targetType: 'event',
+          details: `Updated event: ${plan.eventName} (${summary})${note ? ` • "${note}"` : ''}`,
+          userId: null,
+          userName: 'Lit-Ledger MCP',
+          userEmail: null,
+          timestamp: backend.serverTimestamp(),
+          metadata: {
+            source: 'mcp',
+            eventName: plan.eventName,
+            changes: plan.changes,
+            ...(note ? { note } : {}),
+          },
+        });
+
+        const updated = await backend.getDoc(`events/${eventId}`);
+        return {
+          changes: plan.changes,
+          warnings: plan.warnings,
+          event: updated ? normalizeEvent(updated) : null,
+        };
       })
   );
 
