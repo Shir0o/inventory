@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/Shir0o/inventory/compare/v1.2.0...v1.3.0) (2026-11-28)
+
+
+### Features
+
+* add consumables and cleaning supplies tracking ([#35](https://github.com/Shir0o/inventory/issues/35)) ([024b8d5](https://github.com/Shir0o/inventory/commit/024b8d5836c1b4d39e3bdacbd9b4d208e18f3737))
+
 ## [1.2.0](https://github.com/Shir0o/inventory/compare/v1.1.1...v1.2.0) (2026-11-26)
 
 
