@@ -1,7 +1,7 @@
 /**
  * Lit-Ledger MCP tool definitions.
  *
- * Registers the eleven inventory tools on a fresh {@link McpServer}. The stdio
+ * Registers the fifteen inventory tools on a fresh {@link McpServer}. The stdio
  * entrypoint (`mcp/src/stdio.ts`), the remote Streamable HTTP entrypoint
  * (`mcp/src/http-server.ts`) and the Cloudflare Worker (`mcp/worker`) all call
  * `createMcpServer()` with their own Firestore backend, so the tool surface
@@ -11,6 +11,15 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { FirestoreBackend, FirestoreDoc } from './backend.ts';
 import { normalizeSku, planEventEdit, planItemEdit, STAT_KEYS, type StatKey } from './edits.ts';
+import {
+  buildSupplyDoc,
+  isSupply,
+  nextSupplySku,
+  planSupplyEdit,
+  SUPPLY_CATEGORIES,
+  SUPPLY_UNITS,
+  supplyView,
+} from './supplies.ts';
 import {
   asNumber,
   categoryKey,
@@ -27,6 +36,16 @@ const MAX_INVENTORY_SCAN = 2500;
 const MAX_EVENT_SCAN = 2500;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Today's date (YYYY-MM-DD) in Pacific time, where the counts are taken. */
+function pacificToday(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
 
 type TextContent = { type: 'text'; text: string };
 type ToolResponse = { content: TextContent[]; isError?: boolean };
@@ -850,6 +869,245 @@ export function createMcpServer(backend: FirestoreBackend): McpServer {
           warnings: plan.warnings,
           event: updated ? normalizeEvent(updated) : null,
         };
+      })
+  );
+
+  // ---------------------------------------------------------------------------
+  // Supplies (cleaning supplies and consumables)
+  // ---------------------------------------------------------------------------
+
+  const supplyRef = {
+    itemId: z.string().trim().min(1).optional().describe('Firestore document id of the supply.'),
+    sku: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe('SKU such as "CLN-001", if itemId is not provided.'),
+  };
+
+  async function resolveSupply(reference: { itemId?: string; sku?: string }): Promise<FirestoreDoc> {
+    const doc = await resolveItem(backend, reference);
+    if (!isSupply(doc.data)) {
+      throw new Error(`"${doc.data.title ?? doc.data.name ?? doc.id}" is not a cleaning supply or consumable.`);
+    }
+    return doc;
+  }
+
+  server.registerTool(
+    'list_supplies',
+    {
+      title: 'List supplies',
+      description:
+        'List cleaning supplies and consumables as the app\'s Supplies screen shows them: full containers, ' +
+        'what is left in an open one, total volume, reorder threshold and Low/Healthy status. ' +
+        'Optionally filter by category, by text in the name or SKU, or to Low items only.',
+      inputSchema: {
+        category: z.enum(SUPPLY_CATEGORIES).optional().describe('Only this category.'),
+        query: z.string().trim().min(1).optional().describe('Text that must appear in the name or SKU.'),
+        lowOnly: z.boolean().default(false).describe('Only items at or below their reorder threshold.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ category, query, lowOnly }) =>
+      runTool(async () => {
+        const { docs } = await fetchInventory(backend);
+        const terms = (query ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+        const supplies = docs
+          .filter((doc) => isSupply(doc.data))
+          .map((doc) => supplyView(doc.id, doc.data))
+          .filter((supply) => !category || supply.category === category)
+          .filter((supply) => !lowOnly || supply.status === 'Low')
+          .filter((supply) => {
+            const haystack = `${supply.name ?? ''} ${supply.sku ?? ''}`.toLowerCase();
+            return terms.every((term) => haystack.includes(term));
+          })
+          .sort((a, b) => String(a.sku ?? a.name).localeCompare(String(b.sku ?? b.name)));
+        return {
+          total: supplies.length,
+          low: supplies.filter((supply) => supply.status === 'Low').length,
+          supplies,
+        };
+      })
+  );
+
+  server.registerTool(
+    'get_supply',
+    {
+      title: 'Get supply',
+      description: 'Get one cleaning supply or consumable by item id or SKU, with its counts and status.',
+      inputSchema: supplyRef,
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ itemId, sku }) =>
+      runTool(async () => {
+        const doc = await resolveSupply({ itemId, sku });
+        return { supply: supplyView(doc.id, doc.data) };
+      })
+  );
+
+  server.registerTool(
+    'update_supply',
+    {
+      title: 'Update supply',
+      description:
+        'Record a count or change the settings of a cleaning supply or consumable: full containers, what is ' +
+        'left in an open container (in the item\'s unit, e.g. fl oz), container size, reorder threshold, ' +
+        'location, notes or name. Only values that differ are written. Keeps stockLevel/stock equal to the ' +
+        'full containers, recomputes total volume and Low/Healthy status, stamps lastAuditedDate when a count ' +
+        'changes, and writes an audit log entry.',
+      inputSchema: {
+        ...supplyRef,
+        fullUnitsCount: z.number().int().min(0).optional().describe('Unopened (full) containers on hand.'),
+        partialRemainingVolume: z
+          .number()
+          .min(0)
+          .optional()
+          .describe('Amount left in the open container, in the item\'s unit; 0 when none is open.'),
+        unitVolume: z.number().positive().optional().describe('Size of one full container, e.g. 121 for 121 fl oz.'),
+        reorderThreshold: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe('Low when full containers are at or below this.'),
+        location: z.string().trim().max(256).optional().describe('Where it is kept; an empty string clears it.'),
+        notes: z.string().trim().max(1000).optional().describe('Notes; an empty string clears them.'),
+        name: z.string().trim().min(1).max(512).optional().describe('New name.'),
+        countedOn: z
+          .string()
+          .regex(DATE_PATTERN)
+          .optional()
+          .describe('Day of the count (YYYY-MM-DD) for lastAuditedDate; defaults to today in Pacific time.'),
+        reason: z.string().trim().max(500).optional().describe('Optional note stored in the audit log.'),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ itemId, sku, countedOn, reason, ...edit }) =>
+      runTool(async () => {
+        const target = await resolveSupply({ itemId, sku });
+        const auditedOn = countedOn ?? pacificToday();
+
+        const plan = await backend.runTransaction(async (tx) => {
+          const current = await tx.get(`inventory/${target.id}`);
+          if (!current) {
+            throw new Error(`Supply "${target.id}" no longer exists.`);
+          }
+          const planned = planSupplyEdit(current.data, edit, auditedOn);
+          tx.update(`inventory/${target.id}`, { ...planned.fields, updatedAt: backend.serverTimestamp() });
+          return planned;
+        });
+
+        const name = String(plan.fields.name ?? target.data.name ?? target.data.title ?? target.id);
+        const summary = plan.changes
+          .map((change) => `${change.field}: ${change.from ?? '(none)'} → ${change.to ?? '(none)'}`)
+          .join('; ');
+        const note = reason?.trim();
+        await backend.addDoc('audit_logs', {
+          action: 'SUPPLY_UPDATED',
+          targetId: target.id,
+          targetType: 'inventory',
+          details: `Updated supply: ${name} (${summary})${note ? ` • "${note}"` : ''}`,
+          userId: null,
+          userName: 'Lit-Ledger MCP',
+          userEmail: null,
+          timestamp: backend.serverTimestamp(),
+          metadata: {
+            source: 'mcp',
+            name,
+            sku: target.data.sku ?? null,
+            changes: plan.changes,
+            status: plan.status,
+            ...(note ? { note } : {}),
+          },
+        });
+
+        const updated = await backend.getDoc(`inventory/${target.id}`);
+        return { changes: plan.changes, supply: updated ? supplyView(updated.id, updated.data) : null };
+      })
+  );
+
+  server.registerTool(
+    'create_supply',
+    {
+      title: 'Create supply',
+      description:
+        'Add a cleaning supply or consumable in the shape the app\'s Supplies screen uses. The SKU defaults to ' +
+        'the next free CLN-### (cleaning) or CON-### (consumable). Refuses a SKU or name that already exists ' +
+        'among supplies and writes an audit log entry.',
+      inputSchema: {
+        name: z.string().trim().min(1).max(512).describe('Name, e.g. "Clorox Bleach 121 oz".'),
+        category: z.enum(SUPPLY_CATEGORIES).default('Cleaning Supply'),
+        unit: z.enum(SUPPLY_UNITS).describe('How it is measured: count, fl_oz, oz, box or pack.'),
+        unitVolume: z.number().positive().optional().describe('Size of one full container, e.g. 121 for 121 fl oz.'),
+        fullUnitsCount: z.number().int().min(0).default(0).describe('Unopened (full) containers on hand.'),
+        partialRemainingVolume: z
+          .number()
+          .min(0)
+          .optional()
+          .describe('Amount left in an open container, in the item\'s unit.'),
+        reorderThreshold: z.number().int().min(0).default(1).describe('Low when full containers are at or below this.'),
+        sku: z.string().trim().min(1).max(128).optional().describe('SKU; defaults to the next CLN-### or CON-###.'),
+        location: z.string().trim().max(256).optional(),
+        notes: z.string().trim().max(1000).optional(),
+        countedOn: z
+          .string()
+          .regex(DATE_PATTERN)
+          .optional()
+          .describe('Day these counts were taken (YYYY-MM-DD); defaults to today in Pacific time.'),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async ({ name, category, unit, unitVolume, fullUnitsCount, partialRemainingVolume, reorderThreshold, sku, location, notes, countedOn }) =>
+      runTool(async () => {
+        const { docs } = await fetchInventory(backend);
+        const wantedName = name.trim().toLowerCase();
+        const sameName = docs.find(
+          (doc) => isSupply(doc.data) && String(doc.data.name ?? doc.data.title ?? '').trim().toLowerCase() === wantedName
+        );
+        if (sameName) {
+          throw new Error(`A supply named "${name.trim()}" already exists (id: ${sameName.id}).`);
+        }
+
+        const finalSku = sku ? normalizeSku(sku) : nextSupplySku(category, docs.map((doc) => doc.data.sku ?? doc.data.code));
+        const taken = await findItemsBySku(backend, finalSku);
+        if (taken.length > 0) {
+          throw new Error(`An item with SKU "${finalSku}" already exists (id: ${taken.map((doc) => doc.id).join(', ')}).`);
+        }
+
+        const fields = buildSupplyDoc({
+          name,
+          sku: finalSku,
+          category,
+          unit,
+          unitVolume,
+          fullUnitsCount,
+          partialRemainingVolume,
+          reorderThreshold,
+          location,
+          notes,
+          lastAuditedDate: countedOn ?? pacificToday(),
+        });
+        const itemId = await backend.addDoc('inventory', {
+          ...fields,
+          createdAt: backend.serverTimestamp(),
+          updatedAt: backend.serverTimestamp(),
+        });
+
+        await backend.addDoc('audit_logs', {
+          action: 'ITEM_CREATED',
+          targetId: itemId,
+          targetType: 'inventory',
+          details: `Created supply: ${fields.name} (${finalSku})`,
+          userId: null,
+          userName: 'Lit-Ledger MCP',
+          userEmail: null,
+          timestamp: backend.serverTimestamp(),
+          metadata: { source: 'mcp', sku: finalSku, category, unit, fullUnitsCount, partialRemainingVolume: fields.partialRemainingVolume },
+        });
+
+        const created = await backend.getDoc(`inventory/${itemId}`);
+        return { supply: created ? supplyView(created.id, created.data) : { id: itemId } };
       })
   );
 

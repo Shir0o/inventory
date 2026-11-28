@@ -3,7 +3,7 @@
 A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes the
 Lit-Ledger Firestore database to Claude (Desktop / Code / web / mobile) and Google Antigravity.
 
-Three entrypoints share the same eleven tools (`src/tools.ts`):
+Three entrypoints share the same fifteen tools (`src/tools.ts`):
 
 - **stdio** — `src/stdio.ts` (`npm run start`) for Claude Desktop, Claude Code and Antigravity.
 - **Streamable HTTP** — `src/http-server.ts` (`npm run start:http`) for a remote deployment that
@@ -39,6 +39,10 @@ not `(default)`. The server reads that id from `firebase-applet-config.json`; ov
 | `create_item` | write | Create a catalog item; rejects duplicate SKUs and writes an audit log. |
 | `update_item` | write | Edit an item's SKU, title or subtitle; rejects a SKU another item uses, leaves stock alone, writes an audit log. |
 | `update_event` | write | Edit an event's name, location, date, status, `materialsDistributed` or `categoryStats` (merged; `total` recomputed unless given); record only, no stock change; writes an audit log and returns warnings for totals that still disagree. |
+| `list_supplies` | read | Cleaning supplies and consumables as the Supplies screen shows them (full containers, open-container level, total volume, reorder threshold, Low/Healthy); filter by category, text or Low only. |
+| `get_supply` | read | One supply by item id or SKU. |
+| `update_supply` | write | Record a count or change a supply's container size, reorder threshold, location, notes or name; keeps `stockLevel`/`stock` equal to full containers, recomputes total and status, stamps `lastAuditedDate` on a count and writes an audit log. |
+| `create_supply` | write | Add a supply in the Supplies screen's shape; SKU defaults to the next `CLN-###` or `CON-###`; refuses a duplicate SKU or name; writes an audit log. |
 | `list_audit_logs` | read | Recent audit entries, optionally filtered by action or target id. |
 
 Status is derived like the app's Inventory screen: `Out` at zero, `Low` below the item's
@@ -160,7 +164,7 @@ Or commit a project-scoped `.mcp.json` at the repository root:
 
 ## Claude Custom Connector (Web & Mobile)
 
-`npm run mcp:http` starts the same eleven tools over MCP **Streamable HTTP**:
+`npm run mcp:http` starts the same fifteen tools over MCP **Streamable HTTP**:
 
 | Route | Purpose |
 | --- | --- |
@@ -260,7 +264,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' "$SERVICE_URL/mcp"   # -> 401
 3. Paste the `MCP_AUTH_TOKEN` value as the **Bearer token**.
 4. Save, then enable the connector from the tools/connectors menu in a chat.
 5. **Mobile:** sign in to the Claude mobile app with the same account — the custom connector
-   appears under **Settings → Connectors** and its eleven tools work from the phone.
+   appears under **Settings → Connectors** and its fifteen tools work from the phone.
 6. Ask something like "List the ten lowest-stock Spanish items in Lit-Ledger" to confirm the
    connection.
 
@@ -272,7 +276,7 @@ new one on the next request.
 
 ## Cloudflare Worker (serverless Custom Connector)
 
-`mcp/worker` serves the same eleven tools over MCP Streamable HTTP on Cloudflare Workers,
+`mcp/worker` serves the same fifteen tools over MCP Streamable HTTP on Cloudflare Workers,
 fronted by OAuth 2.1 (dynamic client registration, PKCE S256, refresh tokens) from
 `@cloudflare/workers-oauth-provider`. The consent screen asks for a shared access password
 stored as the `MCP_ACCESS_PASSWORD` secret; the Worker compares SHA-256 digests, so the
