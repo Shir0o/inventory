@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/Shir0o/inventory/compare/v1.3.0...v1.4.0) (2026-11-28)
+
+
+### Features
+
+* **mcp:** add supply tools for cleaning supplies and consumables ([#63](https://github.com/Shir0o/inventory/issues/63)) ([20664dd](https://github.com/Shir0o/inventory/commit/20664dd472e12f7ae90a3036017095373346fe35))
+
 ## [1.3.0](https://github.com/Shir0o/inventory/compare/v1.2.0...v1.3.0) (2026-11-28)
 
 
