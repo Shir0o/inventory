@@ -12,7 +12,8 @@ import {
   LogOut,
   UserCheck,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  SprayCan
 } from 'lucide-react';
 import { ActiveTab } from '../types';
 
@@ -21,6 +22,7 @@ interface SidebarProps {
   setActiveTab: (tab: ActiveTab) => void;
   hallName: string;
   flaggedOrderCount: number;
+  lowConsumablesCount?: number;
   onStartCount: () => void;
   isOpen: boolean;
   onClose: () => void;
@@ -40,6 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActiveTab,
   hallName,
   flaggedOrderCount,
+  lowConsumablesCount = 0,
   onStartCount,
   isOpen,
   onClose,
@@ -55,7 +58,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const mainNavItems = [
     { id: 'overview' as ActiveTab, label: 'Overview', icon: LayoutDashboard },
-    { id: 'inventory' as ActiveTab, label: 'Inventory', icon: Package },
+    { id: 'inventory' as ActiveTab, label: 'Literature', icon: Package },
+    { 
+      id: 'consumables' as ActiveTab, 
+      label: 'Consumables / Supplies', 
+      icon: SprayCan,
+      badge: lowConsumablesCount > 0 ? String(lowConsumablesCount) : undefined
+    },
     { id: 'events' as ActiveTab, label: 'Events', icon: Calendar },
     { 
       id: 'order' as ActiveTab, 
